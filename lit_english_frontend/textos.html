@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Read and Listen — LIT English</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="app-shell">
+
+    <aside class="sidebar">
+      <div class="logo">
+        <svg class="logo-mark" viewBox="0 0 100 70" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="6" width="88" height="50" rx="12" fill="none" stroke="#861E19" stroke-width="4"/>
+          <text x="50" y="42" text-anchor="middle" font-family="Poppins, sans-serif" font-weight="800" font-size="30" fill="#861E19">CC</text>
+          <line x1="14" y1="50" x2="86" y2="12" stroke="#861E19" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        <div class="logo-word">LIT ENGLISH</div>
+        <div class="logo-rule"></div>
+        <div class="logo-tagline">— Don't Get Lost In Translation —</div>
+      </div>
+
+      <div class="aluno-badge">
+        <span class="label" id="role-label">ALUNO</span>
+        <span class="name" id="student-name">—</span>
+      </div>
+
+      <nav class="nav">
+        <a href="home.html" class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9.5h12V10"/><path d="M10 19.5v-5h4v5"/></svg>
+          <span>Início</span>
+        </a>
+        <a href="revisar.html" class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16"/><path d="M9 4v16"/><path d="M14 4l5 16"/></svg>
+          <span>Revisar</span>
+        </a>
+        <a href="exercicios.html" class="nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+          <span>Exercícios</span>
+        </a>
+        <a href="textos.html" class="nav-item active">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7c-1.5-1.3-4-2-7-2v13c3 0 5.5.7 7 2 1.5-1.3 4-2 7-2V5c-3 0-5.5.7-7 2Z"/><path d="M12 7v13"/></svg>
+          <span>Read and Listen</span>
+        </a>
+
+        <div class="nav-spacer"></div>
+
+        <button class="nav-item" id="logout-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19.5H6a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2h3"/><path d="M16 16.5l4.5-4.5-4.5-4.5"/><path d="M20.5 12H10"/></svg>
+          <span>Sair</span>
+        </button>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="page-header">
+        <h1>Read and Listen</h1>
+        <p>Escolha um texto para ler e ouvir a pronúncia em inglês.</p>
+      </header>
+
+      <section id="texts-area">
+        <div class="skeleton">Carregando...</div>
+      </section>
+    </main>
+
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/textos.js"></script>
+</body>
+</html>

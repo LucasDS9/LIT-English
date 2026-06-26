@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel do Professor — LIT English</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="app-shell">
+
+    <aside class="sidebar">
+      <div class="logo">
+        <svg class="logo-mark" viewBox="0 0 100 70" xmlns="http://www.w3.org/2000/svg">
+          <rect x="6" y="6" width="88" height="50" rx="12" fill="none" stroke="#861E19" stroke-width="4"/>
+          <text x="50" y="42" text-anchor="middle" font-family="Poppins, sans-serif" font-weight="800" font-size="30" fill="#861E19">CC</text>
+          <line x1="14" y1="50" x2="86" y2="12" stroke="#861E19" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+        <div class="logo-word">LIT ENGLISH</div>
+        <div class="logo-rule"></div>
+        <div class="logo-tagline">— Don't Get Lost In Translation —</div>
+      </div>
+
+      <div class="aluno-badge">
+        <span class="label">PROFESSOR</span>
+        <span class="name" id="professor-name">—</span>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-section="flashcards">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16"/><path d="M9 4v16"/><path d="M14 4l5 16"/></svg>
+          <span>Flashcards</span>
+        </button>
+        <button class="nav-item" data-section="textos">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7c-1.5-1.3-4-2-7-2v13c3 0 5.5.7 7 2 1.5-1.3 4-2 7-2V5c-3 0-5.5.7-7 2Z"/><path d="M12 7v13"/></svg>
+          <span>Read and Listen</span>
+        </button>
+        <button class="nav-item" data-section="exercicios">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
+          <span>Exercícios</span>
+        </button>
+        <button class="nav-item" data-section="qa">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5h16v11H8l-4 3.5v-3.5h0Z"/></svg>
+          <span>QA</span>
+        </button>
+        <button class="nav-item" data-section="configuracoes">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a1.7 1.7 0 0 0 .35 1.9l.06.06a2 2 0 1 1-2.9 2.8l-.06-.07a1.7 1.7 0 0 0-1.9-.35 1.7 1.7 0 0 0-1 1.55V19.5a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.55 1.7 1.7 0 0 0-1.9.35l-.06.07a2 2 0 1 1-2.9-2.8l.06-.06a1.7 1.7 0 0 0 .35-1.9 1.7 1.7 0 0 0-1.55-1H4.5a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.55-1.1 1.7 1.7 0 0 0-.35-1.9l-.06-.06a2 2 0 1 1 2.9-2.8l.06.06a1.7 1.7 0 0 0 1.9.35h.1a1.7 1.7 0 0 0 1-1.55V4.5a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.55h.1a1.7 1.7 0 0 0 1.9-.35l.06-.06a2 2 0 1 1 2.9 2.8l-.06.06a1.7 1.7 0 0 0-.35 1.9v.1a1.7 1.7 0 0 0 1.55 1h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.55 1Z"/></svg>
+          <span>Configurações</span>
+        </button>
+
+        <div class="nav-spacer"></div>
+
+        <button class="nav-item" id="logout-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19.5H6a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2h3"/><path d="M16 16.5l4.5-4.5-4.5-4.5"/><path d="M20.5 12H10"/></svg>
+          <span>Sair</span>
+        </button>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <section id="content-area">
+        <div class="skeleton">Carregando...</div>
+      </section>
+    </main>
+
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/professor.js"></script>
+</body>
+</html>
