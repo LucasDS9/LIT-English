@@ -1,7 +1,8 @@
 """
 Rotas de Exercícios:
-- Professor: criar, listar, deletar, atribuir a alunos
+- Professor: criar, listar, deletar, atribuir a alunos (múltiplos)
 - Aluno: ver exercícios atribuídos, responder
+- Histórico de lotes: listar, renomear, reenviar
 """
 from collections import defaultdict
 from datetime import timedelta
@@ -11,12 +12,27 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
-from app.models import Exercise, ExerciseAssignment, ExerciseSubmission, ExerciseProgress, User, UserRole
+from app.models import (
+    Exercise,
+    ExerciseAssignment,
+    ExerciseBatch,
+    ExerciseBatchItem,
+    ExerciseBatchStudent,
+    ExerciseProgress,
+    ExerciseSubmission,
+    User,
+    UserRole,
+)
 from app.routers.pronunciation import transcribe
 from app.schemas import (
     ExerciseAnswerResult,
     ExerciseAnswerSubmit,
     ExerciseAssignPayload,
+    ExerciseBatchExerciseOut,
+    ExerciseBatchOut,
+    ExerciseBatchRenamePayload,
+    ExerciseBatchResendPayload,
+    ExerciseBatchStudentOut,
     ExerciseCreate,
     ExerciseOut,
     ExercisePracticeOut,
@@ -33,16 +49,16 @@ def _normalize(text: str) -> str:
     return text.strip().lower().rstrip(".,!?")
 
 
-def _schedule_after_submit(progress,is_correct):
+def _schedule_after_submit(progress, is_correct):
     progress.correct_streak = progress.correct_streak or 0
     if is_correct:
         progress.correct_streak += 1
-        days={1:1,2:4,3:10,4:20}.get(progress.correct_streak,45)
+        days = {1: 1, 2: 4, 3: 10, 4: 20}.get(progress.correct_streak, 45)
     else:
         progress.correct_streak = 0
-        days=1
-    progress.last_reviewed=utcnow()
-    progress.next_review=utcnow()+timedelta(days=days)
+        days = 1
+    progress.last_reviewed = utcnow()
+    progress.next_review = utcnow() + timedelta(days=days)
 
 
 def _get_assignment(db: Session, student_id: int, exercise_id: int) -> ExerciseAssignment | None:
@@ -113,7 +129,7 @@ def delete_exercise(
 
 
 # ============================================================
-# PROFESSOR: atribuir exercícios a aluno
+# PROFESSOR: atribuir exercícios a um ou mais alunos
 # ============================================================
 
 @router.post("/assign", status_code=status.HTTP_201_CREATED)
@@ -122,27 +138,171 @@ def assign_exercises(
     db: Session = Depends(get_db),
     _professor: User = Depends(get_current_professor),
 ):
-    student = db.query(User).filter(User.id == payload.student_id, User.role == "aluno").first()
-    if not student:
-        raise HTTPException(status_code=404, detail="Aluno não encontrado.")
+    # Suporte a single (student_id) e multi (student_ids)
+    if payload.student_ids:
+        target_ids = payload.student_ids
+    elif payload.student_id is not None:
+        target_ids = [payload.student_id]
+    else:
+        raise HTTPException(status_code=422, detail="Informe student_id ou student_ids.")
+
+    # Valida alunos
+    students = (
+        db.query(User)
+        .filter(User.id.in_(target_ids), User.role == "aluno")
+        .all()
+    )
+    found_ids = {s.id for s in students}
+    missing = set(target_ids) - found_ids
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Aluno(s) não encontrado(s): {list(missing)}")
+
+    # Determina o nome do lote (título do primeiro exercício da lista)
+    first_ex = db.query(Exercise).filter(Exercise.id == payload.exercise_ids[0]).first()
+    batch_name = first_ex.title if first_ex else f"Lote {utcnow().strftime('%d/%m/%Y %H:%M')}"
 
     now = utcnow()
-    created = 0
-    for ex_id in payload.exercise_ids:
-        exercise = db.query(Exercise).filter(Exercise.id == ex_id).first()
-        if not exercise:
-            continue
-        assignment = ExerciseAssignment(
-            exercise_id=ex_id,
-            student_id=payload.student_id,
-            assigned_at=now,
-            next_available=now,
-        )
-        db.add(assignment)
-        created += 1
+    total_assigned = 0
+
+    for student_id in target_ids:
+        # Cria um lote por aluno (assim cada aluno tem seu próprio histórico)
+        batch = ExerciseBatch(name=batch_name, sent_at=now)
+        db.add(batch)
+        db.flush()  # gera batch.id
+
+        batch_student = ExerciseBatchStudent(batch_id=batch.id, student_id=student_id)
+        db.add(batch_student)
+
+        for ex_id in payload.exercise_ids:
+            exercise = db.query(Exercise).filter(Exercise.id == ex_id).first()
+            if not exercise:
+                continue
+
+            # Item no lote
+            db.add(ExerciseBatchItem(batch_id=batch.id, exercise_id=ex_id))
+
+            # Assignment
+            assignment = ExerciseAssignment(
+                exercise_id=ex_id,
+                student_id=student_id,
+                assigned_at=now,
+                next_available=now,
+            )
+            db.add(assignment)
+            total_assigned += 1
 
     db.commit()
-    return {"assigned": created}
+    return {"assigned": total_assigned}
+
+
+# ============================================================
+# PROFESSOR: histórico de lotes
+# ============================================================
+
+@router.get("/batches", response_model=list[ExerciseBatchOut])
+def list_batches(
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    """Lista todos os lotes de exercícios enviados, do mais recente para o mais antigo."""
+    batches = (
+        db.query(ExerciseBatch)
+        .order_by(ExerciseBatch.sent_at.desc())
+        .all()
+    )
+
+    result = []
+    for batch in batches:
+        exercises = [item.exercise for item in batch.items if item.exercise]
+        students = [link.student for link in batch.student_links if link.student]
+        result.append(
+            ExerciseBatchOut(
+                batch_id=batch.id,
+                batch_name=batch.name,
+                sent_at=batch.sent_at,
+                students=[ExerciseBatchStudentOut(id=s.id, name=s.name) for s in students],
+                exercises=[
+                    ExerciseBatchExerciseOut(
+                        id=ex.id,
+                        title=ex.title,
+                        type=ex.type.value,
+                        prompt=ex.prompt,
+                        correct_answer=ex.correct_answer,
+                    )
+                    for ex in exercises
+                ],
+            )
+        )
+    return result
+
+
+@router.patch("/batches/{batch_id}/rename", status_code=200)
+def rename_batch(
+    batch_id: int,
+    payload: ExerciseBatchRenamePayload,
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    batch = db.query(ExerciseBatch).filter(ExerciseBatch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Lote não encontrado.")
+    batch.name = payload.name.strip()
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/batches/{batch_id}/resend", status_code=201)
+def resend_batch(
+    batch_id: int,
+    payload: ExerciseBatchResendPayload,
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    """
+    Reenvia todos os exercícios de um lote para os alunos informados.
+    Cria um novo lote com o mesmo nome do original.
+    """
+    original = db.query(ExerciseBatch).filter(ExerciseBatch.id == batch_id).first()
+    if not original:
+        raise HTTPException(status_code=404, detail="Lote não encontrado.")
+
+    exercise_ids = [item.exercise_id for item in original.items]
+    if not exercise_ids:
+        raise HTTPException(status_code=422, detail="Lote sem exercícios.")
+
+    students = (
+        db.query(User)
+        .filter(User.id.in_(payload.student_ids), User.role == "aluno")
+        .all()
+    )
+    if not students:
+        raise HTTPException(status_code=404, detail="Nenhum aluno válido informado.")
+
+    now = utcnow()
+    total = 0
+
+    for student in students:
+        new_batch = ExerciseBatch(name=original.name, sent_at=now)
+        db.add(new_batch)
+        db.flush()
+
+        db.add(ExerciseBatchStudent(batch_id=new_batch.id, student_id=student.id))
+
+        for ex_id in exercise_ids:
+            exercise = db.query(Exercise).filter(Exercise.id == ex_id).first()
+            if not exercise:
+                continue
+            db.add(ExerciseBatchItem(batch_id=new_batch.id, exercise_id=ex_id))
+            db.add(ExerciseAssignment(
+                exercise_id=ex_id,
+                student_id=student.id,
+                assigned_at=now,
+                next_available=now,
+            ))
+            total += 1
+
+    db.commit()
+    return {"assigned": total}
 
 
 # ============================================================
@@ -207,17 +367,12 @@ def get_student_exercise_progress(
     db: Session = Depends(get_db),
     _professor: User = Depends(get_current_professor),
 ):
-    """
-    Retorna o status de revisão espaçada de todos os exercícios atribuídos
-    a um aluno específico — visível apenas para o professor.
-    """
     student = db.query(User).filter(User.id == student_id, User.role == UserRole.aluno).first()
     if not student:
         raise HTTPException(status_code=404, detail="Aluno não encontrado.")
 
     now = utcnow()
 
-    # Exercícios atribuídos ao aluno
     assigned_ids = (
         db.query(ExerciseAssignment.exercise_id)
         .filter(ExerciseAssignment.student_id == student_id)
@@ -231,7 +386,6 @@ def get_student_exercise_progress(
         .all()
     )
 
-    # Índice de progresso por exercise_id
     progress_map = {
         p.exercise_id: p
         for p in db.query(ExerciseProgress).filter(
@@ -239,7 +393,6 @@ def get_student_exercise_progress(
         ).all()
     }
 
-    # Última resposta de cada exercício
     last_answer_map: dict[int, str] = {}
     for ex in exercises:
         last_sub = (
@@ -287,21 +440,13 @@ def my_assignments(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_approved_user),
 ):
-    """
-    Retorna exercícios disponíveis para revisão agora, seguindo a mesma
-    filosofia de repetição espaçada dos flashcards:
-    - Exercícios nunca respondidos (sem ExerciseProgress) aparecem imediatamente.
-    - Exercícios já respondidos só aparecem quando next_review <= agora.
-    """
     now = utcnow()
 
-    # Subquery: IDs de exercícios atribuídos ao aluno
     assigned_ids_subquery = (
         db.query(ExerciseAssignment.exercise_id)
         .filter(ExerciseAssignment.student_id == user.id)
     )
 
-    # Subquery: IDs de exercícios cujo next_review ainda está no futuro
     not_due_subquery = (
         db.query(ExerciseProgress.exercise_id)
         .filter(
@@ -310,7 +455,6 @@ def my_assignments(
         )
     )
 
-    # Retorna exercícios atribuídos que estão vencidos (ou nunca respondidos)
     due_exercises = (
         db.query(Exercise)
         .filter(Exercise.id.in_(assigned_ids_subquery))
@@ -342,9 +486,12 @@ def submit_answer(
         is_correct=is_correct,
     ))
 
-    progress = db.query(ExerciseProgress).filter(ExerciseProgress.student_id==user.id, ExerciseProgress.exercise_id==exercise_id).first()
+    progress = db.query(ExerciseProgress).filter(
+        ExerciseProgress.student_id == user.id,
+        ExerciseProgress.exercise_id == exercise_id
+    ).first()
     if not progress:
-        progress=ExerciseProgress(student_id=user.id, exercise_id=exercise_id)
+        progress = ExerciseProgress(student_id=user.id, exercise_id=exercise_id)
         db.add(progress)
     _schedule_after_submit(progress, is_correct)
 
@@ -360,11 +507,6 @@ async def submit_audio_answer(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_approved_user),
 ):
-    """
-    Exercício do tipo 'speaking': o aluno grava um áudio falando a frase em
-    inglês (exercise.correct_answer). O Faster-Whisper transcreve o áudio e
-    comparamos a transcrição com a resposta esperada para decidir se está certo.
-    """
     exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
     if not exercise:
         raise HTTPException(status_code=404, detail="Exercício não encontrado.")
@@ -392,9 +534,12 @@ async def submit_audio_answer(
         is_correct=is_correct,
     ))
 
-    progress = db.query(ExerciseProgress).filter(ExerciseProgress.student_id==user.id, ExerciseProgress.exercise_id==exercise_id).first()
+    progress = db.query(ExerciseProgress).filter(
+        ExerciseProgress.student_id == user.id,
+        ExerciseProgress.exercise_id == exercise_id
+    ).first()
     if not progress:
-        progress=ExerciseProgress(student_id=user.id, exercise_id=exercise_id)
+        progress = ExerciseProgress(student_id=user.id, exercise_id=exercise_id)
         db.add(progress)
     _schedule_after_submit(progress, is_correct)
 

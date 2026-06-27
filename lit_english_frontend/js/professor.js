@@ -992,6 +992,7 @@ async function init() {
 init();
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // EXERCÍCIOS
 // ---------------------------------------------------------------------------
 
@@ -1001,7 +1002,7 @@ let pendingExercises = [];
 async function renderExercicios() {
   contentArea.innerHTML = "";
 
-  // Header with tabs
+  // Header
   const header = renderSectionHeader({
     title: "Exercises",
     subtitle: "Crie exercícios de preencher a lacuna e escolha de palavras.",
@@ -1011,57 +1012,49 @@ async function renderExercicios() {
   const tabBar = document.createElement("div");
   tabBar.className = "tab-bar";
   tabBar.style.cssText = "display:flex;gap:8px;margin-bottom:20px;";
-  const tabEx = document.createElement("button");
-  tabEx.className = "btn btn-primary btn-sm";
+  const tabEx     = document.createElement("button");
+  tabEx.className  = "btn btn-primary btn-sm";
   tabEx.textContent = "Exercícios";
-  const tabSub = document.createElement("button");
+  const tabSub    = document.createElement("button");
   tabSub.className = "btn btn-outline btn-sm";
   tabSub.textContent = "Submissões";
   const tabAlunos = document.createElement("button");
   tabAlunos.className = "btn btn-outline btn-sm";
   tabAlunos.textContent = "Exercícios dos Alunos";
+  const tabHistorico = document.createElement("button");
+  tabHistorico.className = "btn btn-outline btn-sm";
+  tabHistorico.textContent = "Histórico";
   tabBar.appendChild(tabEx);
   tabBar.appendChild(tabSub);
   tabBar.appendChild(tabAlunos);
+  tabBar.appendChild(tabHistorico);
 
-  const exView = document.createElement("div");
-  const subView = document.createElement("div");
-  subView.hidden = true;
-  const alunosView = document.createElement("div");
-  alunosView.hidden = true;
+  const exView        = document.createElement("div");
+  const subView       = document.createElement("div");
+  subView.hidden      = true;
+  const alunosView    = document.createElement("div");
+  alunosView.hidden   = true;
+  const historicoView = document.createElement("div");
+  historicoView.hidden = true;
 
-  tabEx.addEventListener("click", () => {
-    tabEx.className = "btn btn-primary btn-sm";
-    tabSub.className = "btn btn-outline btn-sm";
-    tabAlunos.className = "btn btn-outline btn-sm";
-    exView.hidden = false;
-    subView.hidden = true;
-    alunosView.hidden = true;
-  });
-  tabSub.addEventListener("click", () => {
-    tabSub.className = "btn btn-primary btn-sm";
-    tabEx.className = "btn btn-outline btn-sm";
-    tabAlunos.className = "btn btn-outline btn-sm";
-    exView.hidden = true;
-    subView.hidden = false;
-    alunosView.hidden = true;
-    loadSubmissoes(subView);
-  });
-  tabAlunos.addEventListener("click", () => {
-    tabAlunos.className = "btn btn-primary btn-sm";
-    tabEx.className = "btn btn-outline btn-sm";
-    tabSub.className = "btn btn-outline btn-sm";
-    exView.hidden = true;
-    subView.hidden = true;
-    alunosView.hidden = false;
-    loadStudentExerciseProgress(alunosView);
-  });
+  function activateTab(activeBtn, activeView) {
+    [tabEx, tabSub, tabAlunos, tabHistorico].forEach(b => b.className = "btn btn-outline btn-sm");
+    activeBtn.className = "btn btn-primary btn-sm";
+    [exView, subView, alunosView, historicoView].forEach(v => v.hidden = true);
+    activeView.hidden = false;
+  }
+
+  tabEx.addEventListener("click",        () => activateTab(tabEx, exView));
+  tabSub.addEventListener("click",       () => { activateTab(tabSub, subView);     loadSubmissoes(subView); });
+  tabAlunos.addEventListener("click",    () => { activateTab(tabAlunos, alunosView); loadStudentExerciseProgress(alunosView); });
+  tabHistorico.addEventListener("click", () => { activateTab(tabHistorico, historicoView); loadHistorico(historicoView); });
 
   contentArea.appendChild(header);
   contentArea.appendChild(tabBar);
   contentArea.appendChild(exView);
   contentArea.appendChild(subView);
   contentArea.appendChild(alunosView);
+  contentArea.appendChild(historicoView);
 
   buildExerciciosView(exView);
 }
@@ -1080,11 +1073,11 @@ function buildExerciciosView(container) {
   // Type selector
   const typeRow = document.createElement("div");
   typeRow.style.cssText = "display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;";
-  const typeFill = document.createElement("button");
-  typeFill.className = "btn btn-primary btn-sm";
+  const typeFill  = document.createElement("button");
+  typeFill.className  = "btn btn-primary btn-sm";
   typeFill.textContent = "Preencher lacuna";
-  const typeWord = document.createElement("button");
-  typeWord.className = "btn btn-outline btn-sm";
+  const typeWord  = document.createElement("button");
+  typeWord.className  = "btn btn-outline btn-sm";
   typeWord.textContent = "Listening (TTS)";
   const typeSpeak = document.createElement("button");
   typeSpeak.className = "btn btn-outline btn-sm";
@@ -1096,31 +1089,13 @@ function buildExerciciosView(container) {
 
   let currentType = "fill_blank";
   function setActiveTypeButton(btn) {
-    [typeFill, typeWord, typeSpeak].forEach((b) => {
+    [typeFill, typeWord, typeSpeak].forEach(b => {
       b.className = b === btn ? "btn btn-primary btn-sm" : "btn btn-outline btn-sm";
     });
   }
-  typeFill.addEventListener("click", () => {
-    currentType = "fill_blank";
-    setActiveTypeButton(typeFill);
-    fillFields.hidden = false;
-    wordFields.hidden = true;
-    speakFields.hidden = true;
-  });
-  typeWord.addEventListener("click", () => {
-    currentType = "word_choice";
-    setActiveTypeButton(typeWord);
-    fillFields.hidden = true;
-    wordFields.hidden = false;
-    speakFields.hidden = true;
-  });
-  typeSpeak.addEventListener("click", () => {
-    currentType = "speaking";
-    setActiveTypeButton(typeSpeak);
-    fillFields.hidden = true;
-    wordFields.hidden = true;
-    speakFields.hidden = false;
-  });
+  typeFill.addEventListener("click",  () => { currentType = "fill_blank"; setActiveTypeButton(typeFill);  fillFields.hidden = false; wordFields.hidden = true;  speakFields.hidden = true; });
+  typeWord.addEventListener("click",  () => { currentType = "word_choice"; setActiveTypeButton(typeWord); fillFields.hidden = true;  wordFields.hidden = false; speakFields.hidden = true; });
+  typeSpeak.addEventListener("click", () => { currentType = "speaking";    setActiveTypeButton(typeSpeak); fillFields.hidden = true; wordFields.hidden = true;  speakFields.hidden = false; });
 
   // Title field
   const titleField = document.createElement("div");
@@ -1136,113 +1111,53 @@ function buildExerciciosView(container) {
 
   // ---- Fill blank fields ----
   const fillFields = document.createElement("div");
-
   const sentenceRow = document.createElement("div");
   sentenceRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:6px;";
-  const part1Input = document.createElement("input");
-  part1Input.type = "text";
-  part1Input.placeholder = "Frase (parte 1)";
-  part1Input.style.flex = "1";
-  const blankInput = document.createElement("input");
-  blankInput.type = "text";
-  blankInput.placeholder = "resposta";
-  blankInput.autocomplete = "off";
+  const part1Input  = document.createElement("input"); part1Input.type = "text"; part1Input.placeholder = "Frase (parte 1)"; part1Input.style.flex = "1";
+  const blankInput  = document.createElement("input"); blankInput.type = "text"; blankInput.placeholder = "resposta"; blankInput.autocomplete = "off";
   blankInput.title = "Esta é a lacuna: digite aqui a resposta correta.";
-  blankInput.style.cssText =
-    "width:110px;flex:0 0 110px;text-align:center;border:2px solid #861E19;border-radius:8px;color:#861E19;font-weight:700;background:#fff5f5;";
-  const part2Input = document.createElement("input");
-  part2Input.type = "text";
-  part2Input.placeholder = "Resto da frase";
-  part2Input.style.flex = "1";
-  sentenceRow.appendChild(part1Input);
-  sentenceRow.appendChild(blankInput);
-  sentenceRow.appendChild(part2Input);
+  blankInput.style.cssText = "width:110px;flex:0 0 110px;text-align:center;border:2px solid #861E19;border-radius:8px;color:#861E19;font-weight:700;background:#fff5f5;";
+  const part2Input  = document.createElement("input"); part2Input.type = "text"; part2Input.placeholder = "Resto da frase"; part2Input.style.flex = "1";
+  sentenceRow.appendChild(part1Input); sentenceRow.appendChild(blankInput); sentenceRow.appendChild(part2Input);
   fillFields.appendChild(sentenceRow);
-
   const blankHint = document.createElement("p");
   blankHint.style.cssText = "font-size:12px;color:#888;margin:0 0 12px;";
   blankHint.textContent = "O campo em vermelho é a lacuna: o que você digitar nele é a resposta correta do exercício.";
   fillFields.appendChild(blankHint);
-
-  const fillTrans = document.createElement("div");
-  fillTrans.style.marginBottom = "12px";
+  const fillTrans = document.createElement("div"); fillTrans.style.marginBottom = "12px";
   fillTrans.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Tradução (dica para o aluno — opcional)</label>';
-  const fillTransInput = document.createElement("input");
-  fillTransInput.type = "text";
-  fillTransInput.placeholder = "Ex: ontem eu ___ na academia";
-  fillTransInput.style.cssText = "width:100%;margin-top:4px;";
-  fillTrans.appendChild(fillTransInput);
-  fillFields.appendChild(fillTrans);
-
+  const fillTransInput = document.createElement("input"); fillTransInput.type = "text"; fillTransInput.placeholder = "Ex: ontem eu ___ na academia"; fillTransInput.style.cssText = "width:100%;margin-top:4px;";
+  fillTrans.appendChild(fillTransInput); fillFields.appendChild(fillTrans);
   formCard.appendChild(fillFields);
 
   // ---- Listening (TTS) fields ----
-  const wordFields = document.createElement("div");
-  wordFields.hidden = true;
-
-  const wordSentence = document.createElement("div");
-  wordSentence.style.marginBottom = "12px";
+  const wordFields = document.createElement("div"); wordFields.hidden = true;
+  const wordSentence = document.createElement("div"); wordSentence.style.marginBottom = "12px";
   wordSentence.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Frase em inglês (o aluno vai escutar)</label>';
-  const wordSentenceInput = document.createElement("input");
-  wordSentenceInput.type = "text";
-  wordSentenceInput.placeholder = "Ex: She goes to work every day.";
-  wordSentenceInput.style.cssText = "width:100%;margin-top:4px;";
+  const wordSentenceInput = document.createElement("input"); wordSentenceInput.type = "text"; wordSentenceInput.placeholder = "Ex: She goes to work every day."; wordSentenceInput.style.cssText = "width:100%;margin-top:4px;";
   wordSentence.appendChild(wordSentenceInput);
-  const playTestBtn = document.createElement("button");
-  playTestBtn.type = "button";
-  playTestBtn.className = "icon-btn";
-  playTestBtn.title = "Ouvir";
-  playTestBtn.style.cssText = "margin-top:6px;";
-  playTestBtn.innerHTML = Icons.volume || "🔊";
+  const playTestBtn = document.createElement("button"); playTestBtn.type = "button"; playTestBtn.className = "icon-btn"; playTestBtn.title = "Ouvir"; playTestBtn.style.cssText = "margin-top:6px;"; playTestBtn.innerHTML = Icons.volume || "🔊";
   playTestBtn.addEventListener("click", async () => {
-    const text = wordSentenceInput.value.trim();
-    if (!text) return;
-    try {
-      const blob = await apiFetchBlob(`/tts/speak?text=${encodeURIComponent(text)}`);
-      const url = URL.createObjectURL(blob);
-      new Audio(url).play();
-    } catch {
-      showToast("Erro ao gerar áudio.");
-    }
+    const text = wordSentenceInput.value.trim(); if (!text) return;
+    try { const blob = await apiFetchBlob(`/tts/speak?text=${encodeURIComponent(text)}`); new Audio(URL.createObjectURL(blob)).play(); } catch { showToast("Erro ao gerar áudio."); }
   });
-  wordSentence.appendChild(playTestBtn);
-  wordFields.appendChild(wordSentence);
-
-  const wordAns = document.createElement("div");
-  wordAns.style.marginBottom = "12px";
-  
-
+  wordSentence.appendChild(playTestBtn); wordFields.appendChild(wordSentence);
+  const wordAns = document.createElement("div"); wordAns.style.marginBottom = "12px";
   formCard.appendChild(wordFields);
 
   // ---- Speaking (Whisper) fields ----
-  const speakFields = document.createElement("div");
-  speakFields.hidden = true;
-
-  const speakPt = document.createElement("div");
-  speakPt.style.marginBottom = "12px";
+  const speakFields = document.createElement("div"); speakFields.hidden = true;
+  const speakPt = document.createElement("div"); speakPt.style.marginBottom = "12px";
   speakPt.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Frase em português (o aluno vai ler)</label>';
-  const speakPtInput = document.createElement("input");
-  speakPtInput.type = "text";
-  speakPtInput.placeholder = "Ex: Eu gostaria de viajar para o exterior um dia.";
-  speakPtInput.style.cssText = "width:100%;margin-top:4px;";
-  speakPt.appendChild(speakPtInput);
-  speakFields.appendChild(speakPt);
-
-  const speakEn = document.createElement("div");
-  speakEn.style.marginBottom = "12px";
+  const speakPtInput = document.createElement("input"); speakPtInput.type = "text"; speakPtInput.placeholder = "Ex: Eu gostaria de viajar para o exterior um dia."; speakPtInput.style.cssText = "width:100%;margin-top:4px;";
+  speakPt.appendChild(speakPtInput); speakFields.appendChild(speakPt);
+  const speakEn = document.createElement("div"); speakEn.style.marginBottom = "12px";
   speakEn.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Tradução em inglês (o aluno vai falar isso)</label>';
-  const speakEnInput = document.createElement("input");
-  speakEnInput.type = "text";
-  speakEnInput.placeholder = "Ex: I would like to travel abroad someday.";
-  speakEnInput.style.cssText = "width:100%;margin-top:4px;";
-  speakEn.appendChild(speakEnInput);
-  speakFields.appendChild(speakEn);
-
-  const speakHint = document.createElement("p");
-  speakHint.style.cssText = "font-size:12px;color:#888;margin:0 0 4px;";
+  const speakEnInput = document.createElement("input"); speakEnInput.type = "text"; speakEnInput.placeholder = "Ex: I would like to travel abroad someday."; speakEnInput.style.cssText = "width:100%;margin-top:4px;";
+  speakEn.appendChild(speakEnInput); speakFields.appendChild(speakEn);
+  const speakHint = document.createElement("p"); speakHint.style.cssText = "font-size:12px;color:#888;margin:0 0 4px;";
   speakHint.textContent = "O aluno vai ler a frase em português e falar a frase em inglês no microfone. O Whisper transcreve a fala e compara com a tradução em inglês.";
   speakFields.appendChild(speakHint);
-
   formCard.appendChild(speakFields);
 
   const errorBox = document.createElement("p");
@@ -1260,72 +1175,31 @@ function buildExerciciosView(container) {
 
     let payload;
     if (currentType === "fill_blank") {
-      const p1 = part1Input.value.trim();
-      const p2 = part2Input.value.trim();
-      const ans = blankInput.value.trim();
+      const p1 = part1Input.value.trim(), p2 = part2Input.value.trim(), ans = blankInput.value.trim();
       if (!ans) { errorBox.textContent = "Preencha a lacuna em vermelho com a resposta correta."; errorBox.hidden = false; blankInput.focus(); return; }
-      payload = {
-        title,
-        type: "fill_blank",
-        part1: p1,
-        part2: p2,
-        prompt: `${p1} ___ ${p2}`.trim(),
-        correct_answer: ans,
-        translation: fillTransInput.value.trim() || null,
-        word_choices: null,
-      };
+      payload = { title, type: "fill_blank", part1: p1, part2: p2, prompt: `${p1} ___ ${p2}`.trim(), correct_answer: ans, translation: fillTransInput.value.trim() || null, word_choices: null };
     } else if (currentType === "word_choice") {
       const sentence = wordSentenceInput.value.trim();
       if (!sentence) { errorBox.textContent = "Informe a frase em inglês."; errorBox.hidden = false; return; }
-      payload = {
-        title,
-        type: "word_choice",
-        part1: null,
-        part2: null,
-        prompt: sentence,
-        correct_answer: sentence,
-        translation: null,
-        word_choices: null,
-      };
+      payload = { title, type: "word_choice", part1: null, part2: null, prompt: sentence, correct_answer: sentence, translation: null, word_choices: null };
     } else {
-      const pt = speakPtInput.value.trim();
-      const en = speakEnInput.value.trim();
+      const pt = speakPtInput.value.trim(), en = speakEnInput.value.trim();
       if (!pt) { errorBox.textContent = "Informe a frase em português."; errorBox.hidden = false; return; }
       if (!en) { errorBox.textContent = "Informe a tradução em inglês."; errorBox.hidden = false; return; }
-      payload = {
-        title,
-        type: "speaking",
-        part1: null,
-        part2: null,
-        prompt: pt,
-        correct_answer: en,
-        translation: null,
-        word_choices: null,
-      };
+      payload = { title, type: "speaking", part1: null, part2: null, prompt: pt, correct_answer: en, translation: null, word_choices: null };
     }
 
-    addBtn.disabled = true;
-    addBtn.textContent = "Adicionando...";
+    addBtn.disabled = true; addBtn.textContent = "Adicionando...";
     try {
-      const ex = await apiFetch("/exercises", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const ex = await apiFetch("/exercises", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       pendingExercises.push(ex);
-      // reset
-      titleInput.value = "";
-      part1Input.value = ""; part2Input.value = ""; blankInput.value = ""; fillTransInput.value = "";
-      wordSentenceInput.value = ""; 
-      speakPtInput.value = ""; speakEnInput.value = "";
+      titleInput.value = ""; part1Input.value = ""; part2Input.value = ""; blankInput.value = ""; fillTransInput.value = ""; wordSentenceInput.value = ""; speakPtInput.value = ""; speakEnInput.value = "";
       showToast("Exercício adicionado à lista.");
       renderPendingList();
     } catch (err) {
-      errorBox.textContent = err.message || "Erro ao criar exercício.";
-      errorBox.hidden = false;
+      errorBox.textContent = err.message || "Erro ao criar exercício."; errorBox.hidden = false;
     } finally {
-      addBtn.disabled = false;
-      addBtn.innerHTML = `${Icons.plus}<span>Adicionar exercício</span>`;
+      addBtn.disabled = false; addBtn.innerHTML = `${Icons.plus}<span>Adicionar exercício</span>`;
     }
   });
   formCard.appendChild(addBtn);
@@ -1337,7 +1211,6 @@ function buildExerciciosView(container) {
 
   function renderPendingList() {
     pendingSection.innerHTML = "";
-
     if (pendingExercises.length === 0) return;
 
     const pendingTitle = document.createElement("h3");
@@ -1353,199 +1226,388 @@ function buildExerciciosView(container) {
       row.className = "card";
       row.style.cssText = "padding:12px 16px;display:flex;justify-content:space-between;align-items:center;";
       const info = document.createElement("div");
-      const label = document.createElement("strong");
-      label.textContent = ex.title;
-      const sub = document.createElement("span");
-      sub.style.cssText = "font-size:13px;color:#666;margin-left:8px;";
-      if (ex.type === "fill_blank") {
-        sub.textContent = `${ex.part1 || ""} ___ ${ex.part2 || ""} → ${ex.correct_answer}`;
-      } else if (ex.type === "speaking") {
-        sub.textContent = `🎤 "${ex.prompt}" → ${ex.correct_answer}`;
-      } else {
-        sub.textContent = `🔊 "${ex.prompt}" → ${ex.correct_answer}`;
-      }
-      info.appendChild(label);
-      info.appendChild(sub);
-      const removeBtn = document.createElement("button");
-      removeBtn.className = "icon-btn";
-      removeBtn.innerHTML = Icons.trash;
-      removeBtn.title = "Remover da lista";
-      removeBtn.addEventListener("click", () => {
-        pendingExercises.splice(idx, 1);
-        renderPendingList();
-      });
-      row.appendChild(info);
-      row.appendChild(removeBtn);
+      const label = document.createElement("strong"); label.textContent = ex.title;
+      const sub = document.createElement("span"); sub.style.cssText = "font-size:13px;color:#666;margin-left:8px;";
+      if (ex.type === "fill_blank")      sub.textContent = `${ex.part1 || ""} ___ ${ex.part2 || ""} → ${ex.correct_answer}`;
+      else if (ex.type === "speaking")   sub.textContent = `🎤 "${ex.prompt}" → ${ex.correct_answer}`;
+      else                               sub.textContent = `🔊 "${ex.prompt}" → ${ex.correct_answer}`;
+      info.appendChild(label); info.appendChild(sub);
+      const removeBtn = document.createElement("button"); removeBtn.className = "icon-btn"; removeBtn.innerHTML = Icons.trash; removeBtn.title = "Remover da lista";
+      removeBtn.addEventListener("click", () => { pendingExercises.splice(idx, 1); renderPendingList(); });
+      row.appendChild(info); row.appendChild(removeBtn);
       list.appendChild(row);
     });
     pendingSection.appendChild(list);
 
     const sendBtn = document.createElement("button");
     sendBtn.className = "btn btn-primary";
-    sendBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9l20-7z"/></svg><span>Enviar para aluno</span>`;
+    sendBtn.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9l20-7z"/></svg><span>Enviar para aluno(s)</span>`;
     sendBtn.style.marginTop = "4px";
     sendBtn.addEventListener("click", () => openSendModal());
     pendingSection.appendChild(sendBtn);
   }
 
   renderPendingList();
-
-  // ---- Saved exercises list ----
-  loadSavedExercises(container);
 }
 
-async function loadSavedExercises(container) {
-  try {
-    const exercises = await apiFetch("/exercises");
+// ── Modal de envio (multi-aluno) ──────────────────────────────────────────────
 
-    if (!exercises || exercises.length === 0) return;
-
-    const title = document.createElement("h3");
-    title.textContent = "Todos os exercícios";
-    title.style.cssText = "margin-top:28px;margin-bottom:12px;";
-    container.appendChild(title);
-
-    const list = document.createElement("div");
-    list.style.cssText = "display:flex;flex-direction:column;gap:8px;";
-
-    exercises.forEach((ex) => {
-      const row = document.createElement("div");
-      row.className = "card";
-      row.style.cssText = "padding:12px 16px;display:flex;justify-content:space-between;align-items:center;";
-      const info = document.createElement("div");
-      const label = document.createElement("strong");
-      label.textContent = ex.title;
-      const sub = document.createElement("div");
-      sub.style.cssText = "font-size:13px;color:#666;margin-top:2px;";
-      if (ex.type === "fill_blank") {
-        sub.textContent = `${ex.part1 || ""} ___ ${ex.part2 || ""} → ${ex.correct_answer}`;
-      } else if (ex.type === "speaking") {
-        sub.textContent = `🎤 "${ex.prompt}" → ${ex.correct_answer}`;
-      } else {
-        sub.textContent = `🔊 "${ex.prompt}" → ${ex.correct_answer}`;
-      }
-      info.appendChild(label);
-      info.appendChild(sub);
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "icon-btn";
-      deleteBtn.innerHTML = Icons.trash;
-      deleteBtn.title = "Excluir";
-      deleteBtn.addEventListener("click", async () => {
-        if (!confirm("Excluir este exercício?")) return;
-        try {
-          await apiFetch(`/exercises/${ex.id}`, { method: "DELETE" });
-          showToast("Exercício excluído.");
-          renderExercicios();
-        } catch (err) {
-          showToast(err.message || "Erro ao excluir.");
-        }
-      });
-
-      row.appendChild(info);
-      row.appendChild(deleteBtn);
-      list.appendChild(row);
-    });
-    container.appendChild(list);
-  } catch (err) {
-    // silently ignore
-  }
-}
-
-async function openSendModal() {
+async function openSendModal(overrideExerciseIds = null) {
   let students = [];
   try {
     students = await apiFetch("/admin/students");
-    students = students.filter((s) => s.is_approved);
-  } catch (err) {
-    showToast("Erro ao carregar alunos.");
-    return;
-  }
-  if (students.length === 0) {
-    showToast("Nenhum aluno aprovado encontrado.");
-    return;
-  }
+    students = students.filter(s => s.is_approved);
+  } catch (err) { showToast("Erro ao carregar alunos."); return; }
+  if (students.length === 0) { showToast("Nenhum aluno aprovado encontrado."); return; }
 
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
 
   const modal = document.createElement("div");
   modal.className = "modal";
 
-  const mHeader = document.createElement("div");
-  mHeader.className = "modal-header";
-  const mTitle = document.createElement("h2");
-  mTitle.textContent = "Escolher aluno";
+  const mHeader = document.createElement("div"); mHeader.className = "modal-header";
+  const mTitle  = document.createElement("h2");
+  const exCount = overrideExerciseIds ? overrideExerciseIds.length : pendingExercises.length;
+  mTitle.textContent = "Enviar exercícios";
   mHeader.appendChild(mTitle);
-  const closeBtn = document.createElement("button");
-  closeBtn.className = "icon-btn";
-  closeBtn.innerHTML = Icons.x;
-  closeBtn.addEventListener("click", () => overlay.remove());
-  mHeader.appendChild(closeBtn);
+  const closeBtn = document.createElement("button"); closeBtn.className = "icon-btn"; closeBtn.innerHTML = Icons.x;
+  closeBtn.addEventListener("click", () => overlay.remove()); mHeader.appendChild(closeBtn);
   modal.appendChild(mHeader);
 
   const p = document.createElement("p");
-  p.style.cssText = "margin-bottom:16px;font-size:14px;color:#555;";
-  p.textContent = `Enviar ${pendingExercises.length} exercício(s) para:`;
+  p.style.cssText = "margin-bottom:14px;font-size:14px;color:#555;";
+  p.textContent = `Enviar ${exCount} exercício(s) para:`;
   modal.appendChild(p);
 
-  const select = document.createElement("select");
-  select.style.cssText = "width:100%;margin-bottom:16px;";
-  students.forEach((s) => {
-    const opt = document.createElement("option");
-    opt.value = s.id;
-    opt.textContent = s.name;
-    select.appendChild(opt);
+  // Checkboxes de alunos
+  const studentsBox = document.createElement("div");
+  studentsBox.style.cssText = "display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:16px;";
+  const checkboxes = [];
+  students.forEach(s => {
+    const lbl = document.createElement("label");
+    lbl.style.cssText = "display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.value = s.id;
+    lbl.appendChild(cb);
+    const sp = document.createElement("span"); sp.textContent = s.name; lbl.appendChild(sp);
+    studentsBox.appendChild(lbl);
+    checkboxes.push(cb);
   });
-  modal.appendChild(select);
+  modal.appendChild(studentsBox);
 
-  const errBox = document.createElement("p");
-  errBox.style.cssText = "color:#861E19;font-size:13px;";
-  errBox.hidden = true;
+  // Selecionar todos
+  const selectAllRow = document.createElement("div");
+  selectAllRow.style.cssText = "margin-bottom:16px;";
+  const selectAllBtn = document.createElement("button");
+  selectAllBtn.className = "btn btn-outline btn-sm";
+  selectAllBtn.textContent = "Selecionar todos";
+  selectAllBtn.addEventListener("click", () => {
+    const allChecked = checkboxes.every(c => c.checked);
+    checkboxes.forEach(c => c.checked = !allChecked);
+    selectAllBtn.textContent = allChecked ? "Selecionar todos" : "Desmarcar todos";
+  });
+  selectAllRow.appendChild(selectAllBtn);
+  modal.appendChild(selectAllRow);
+
+  const errBox = document.createElement("p"); errBox.style.cssText = "color:#861E19;font-size:13px;"; errBox.hidden = true;
   modal.appendChild(errBox);
 
-  const actions = document.createElement("div");
-  actions.className = "modal-actions";
-  const cancelBtn = document.createElement("button");
-  cancelBtn.className = "btn btn-outline";
-  cancelBtn.textContent = "Cancelar";
-  cancelBtn.addEventListener("click", () => overlay.remove());
-  const confirmBtn = document.createElement("button");
-  confirmBtn.className = "btn btn-primary";
-  confirmBtn.textContent = "Enviar";
+  const actions = document.createElement("div"); actions.className = "modal-actions";
+  const cancelBtn = document.createElement("button"); cancelBtn.className = "btn btn-outline"; cancelBtn.textContent = "Cancelar"; cancelBtn.addEventListener("click", () => overlay.remove());
+  const confirmBtn = document.createElement("button"); confirmBtn.className = "btn btn-primary"; confirmBtn.textContent = "Enviar";
+
   confirmBtn.addEventListener("click", async () => {
-    confirmBtn.disabled = true;
-    confirmBtn.textContent = "Enviando...";
+    errBox.hidden = true;
+    const selectedIds = checkboxes.filter(c => c.checked).map(c => parseInt(c.value));
+    if (selectedIds.length === 0) { errBox.textContent = "Selecione ao menos um aluno."; errBox.hidden = false; return; }
+
+    confirmBtn.disabled = true; confirmBtn.textContent = "Enviando...";
     try {
+      const exerciseIds = overrideExerciseIds || pendingExercises.map(e => e.id);
       await apiFetch("/exercises/assign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          exercise_ids: pendingExercises.map((e) => e.id),
-          student_id: parseInt(select.value),
-        }),
+        body: JSON.stringify({ exercise_ids: exerciseIds, student_ids: selectedIds }),
       });
-      pendingExercises = [];
+      if (!overrideExerciseIds) pendingExercises = [];
       overlay.remove();
-      showToast("Exercícios enviados!");
+      const names = students.filter(s => selectedIds.includes(s.id)).map(s => s.name).join(", ");
+      showToast(`Exercícios enviados para: ${names}`);
       renderExercicios();
     } catch (err) {
-      errBox.textContent = err.message || "Erro ao enviar.";
-      errBox.hidden = false;
-      confirmBtn.disabled = false;
-      confirmBtn.textContent = "Enviar";
+      errBox.textContent = err.message || "Erro ao enviar."; errBox.hidden = false;
+      confirmBtn.disabled = false; confirmBtn.textContent = "Enviar";
     }
   });
-  actions.appendChild(cancelBtn);
-  actions.appendChild(confirmBtn);
-  modal.appendChild(actions);
 
+  actions.appendChild(cancelBtn); actions.appendChild(confirmBtn);
+  modal.appendChild(actions);
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 }
 
-// ---------------------------------------------------------------------------
+// ── Histórico de lotes ─────────────────────────────────────────────────────────
+
+async function loadHistorico(container) {
+  container.innerHTML = '<div class="skeleton">Carregando histórico...</div>';
+
+  let batches = [];
+  try { batches = await apiFetch("/exercises/batches"); }
+  catch (err) { container.innerHTML = `<p style="color:#861E19;">Erro: ${err.message}</p>`; return; }
+
+  container.innerHTML = "";
+
+  if (batches.length === 0) {
+    container.innerHTML = '<p style="color:#666;font-size:14px;padding:20px 0;">Nenhum lote enviado ainda.</p>';
+    return;
+  }
+
+  const subtitle = document.createElement("p");
+  subtitle.style.cssText = "font-size:13px;color:#666;margin-bottom:16px;";
+  subtitle.textContent = "Cada bloco representa um grupo de exercícios enviados de uma vez. Você pode renomear o bloco ou reenviá-lo para outros alunos.";
+  container.appendChild(subtitle);
+
+  const list = document.createElement("div");
+  list.style.cssText = "display:flex;flex-direction:column;gap:14px;";
+
+  batches.forEach(batch => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.cssText = "padding:18px 20px;";
+
+    // ── Cabeçalho do bloco ────────────────────────────────────────────────
+    const topRow = document.createElement("div");
+    topRow.style.cssText = "display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;";
+
+    const leftCol = document.createElement("div");
+    leftCol.style.cssText = "display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;";
+
+    // Nome editável inline
+    const nameRow = document.createElement("div");
+    nameRow.style.cssText = "display:flex;align-items:center;gap:8px;";
+
+    const nameSpan = document.createElement("strong");
+    nameSpan.style.cssText = "font-size:15px;color:#1a1a1a;";
+    nameSpan.textContent = batch.batch_name;
+
+    const editNameBtn = document.createElement("button");
+    editNameBtn.className = "icon-btn";
+    editNameBtn.title = "Renomear bloco";
+    editNameBtn.innerHTML = Icons.edit;
+    editNameBtn.addEventListener("click", () => openRenameModal(batch, nameSpan));
+
+    nameRow.appendChild(nameSpan);
+    nameRow.appendChild(editNameBtn);
+    leftCol.appendChild(nameRow);
+
+    // Data de envio
+    const dateEl = document.createElement("span");
+    dateEl.style.cssText = "font-size:12px;color:#888;";
+    const d = new Date(batch.sent_at);
+    dateEl.textContent = `Enviado em ${d.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit", timeZone:"America/Sao_Paulo" })}`;
+    leftCol.appendChild(dateEl);
+
+    // Alunos
+    const studentsEl = document.createElement("span");
+    studentsEl.style.cssText = "font-size:12px;color:#555;";
+    studentsEl.textContent = "Para: " + (batch.students.length > 0 ? batch.students.map(s => s.name).join(", ") : "—");
+    leftCol.appendChild(studentsEl);
+
+    topRow.appendChild(leftCol);
+
+    // Botão reenviar
+    const resendBtn = document.createElement("button");
+    resendBtn.className = "btn btn-outline btn-sm";
+    resendBtn.style.cssText = "white-space:nowrap;flex-shrink:0;";
+    resendBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9l20-7z"/></svg>Reenviar`;
+    resendBtn.addEventListener("click", () => openResendModal(batch));
+    topRow.appendChild(resendBtn);
+
+    card.appendChild(topRow);
+
+    // Divisor
+    const divider = document.createElement("div");
+    divider.style.cssText = "height:1px;background:#f0f0f0;margin-bottom:10px;";
+    card.appendChild(divider);
+
+    // ── Lista de exercícios do lote ───────────────────────────────────────
+    const exList = document.createElement("div");
+    exList.style.cssText = "display:flex;flex-direction:column;gap:6px;";
+
+    batch.exercises.forEach(ex => {
+      const exRow = document.createElement("div");
+      exRow.style.cssText = "display:flex;align-items:center;gap:10px;padding:8px 12px;background:#fafafa;border-radius:8px;border:1px solid #f0f0f0;";
+
+      const typeIcon = document.createElement("span");
+      typeIcon.style.cssText = "display:flex;align-items:center;flex-shrink:0;";
+      const style = 'width:14px;height:14px;flex-shrink:0;stroke:#861E19;';
+      if (ex.type === "word_choice")    typeIcon.innerHTML = Icons.headphones.replace('<svg ', `<svg style="${style}" `);
+      else if (ex.type === "speaking")  typeIcon.innerHTML = Icons.mic.replace('<svg ', `<svg style="${style}" `);
+      else                              typeIcon.innerHTML = Icons.edit.replace('<svg ', `<svg style="${style}" `);
+      exRow.appendChild(typeIcon);
+
+      const textWrap = document.createElement("div");
+      textWrap.style.cssText = "display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;";
+
+      const exTitle = document.createElement("span");
+      exTitle.style.cssText = "font-size:12px;font-weight:700;color:#861E19;text-transform:uppercase;letter-spacing:.4px;";
+      exTitle.textContent = ex.title;
+
+      const exPrompt = document.createElement("span");
+      exPrompt.style.cssText = "font-size:13px;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+      exPrompt.textContent = ex.prompt;
+      exPrompt.title = ex.prompt;
+
+      textWrap.appendChild(exTitle);
+      textWrap.appendChild(exPrompt);
+      exRow.appendChild(textWrap);
+      exList.appendChild(exRow);
+    });
+
+    card.appendChild(exList);
+    list.appendChild(card);
+  });
+
+  container.appendChild(list);
+}
+
+// ── Modal renomear lote ───────────────────────────────────────────────────────
+
+function openRenameModal(batch, nameSpan) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+  const modal = document.createElement("div"); modal.className = "modal";
+
+  const mHeader = document.createElement("div"); mHeader.className = "modal-header";
+  const mTitle  = document.createElement("h2"); mTitle.textContent = "Renomear bloco"; mHeader.appendChild(mTitle);
+  const closeBtn = document.createElement("button"); closeBtn.className = "icon-btn"; closeBtn.innerHTML = Icons.x; closeBtn.addEventListener("click", () => overlay.remove()); mHeader.appendChild(closeBtn);
+  modal.appendChild(mHeader);
+
+  const field = document.createElement("div"); field.className = "field";
+  field.innerHTML = '<label>Novo nome</label>';
+  const nameInput = document.createElement("input"); nameInput.type = "text"; nameInput.value = batch.batch_name; nameInput.style.cssText = "width:100%;margin-top:6px;";
+  field.appendChild(nameInput); modal.appendChild(field);
+
+  const errBox = document.createElement("p"); errBox.style.cssText = "color:#861E19;font-size:13px;margin-top:8px;"; errBox.hidden = true; modal.appendChild(errBox);
+
+  const actions = document.createElement("div"); actions.className = "modal-actions";
+  const cancelBtn = document.createElement("button"); cancelBtn.className = "btn btn-outline"; cancelBtn.textContent = "Cancelar"; cancelBtn.addEventListener("click", () => overlay.remove());
+  const saveBtn   = document.createElement("button"); saveBtn.className = "btn btn-primary"; saveBtn.textContent = "Salvar";
+
+  saveBtn.addEventListener("click", async () => {
+    const newName = nameInput.value.trim();
+    if (!newName) { errBox.textContent = "Informe um nome."; errBox.hidden = false; return; }
+    saveBtn.disabled = true; saveBtn.textContent = "Salvando...";
+    try {
+      await apiFetch(`/exercises/batches/${batch.batch_id}/rename`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newName }) });
+      batch.batch_name = newName;
+      nameSpan.textContent = newName;
+      overlay.remove();
+      showToast("Bloco renomeado.");
+    } catch (err) {
+      errBox.textContent = err.message || "Erro ao renomear."; errBox.hidden = false;
+      saveBtn.disabled = false; saveBtn.textContent = "Salvar";
+    }
+  });
+
+  actions.appendChild(cancelBtn); actions.appendChild(saveBtn);
+  modal.appendChild(actions);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  nameInput.focus(); nameInput.select();
+}
+
+// ── Modal reenviar lote ───────────────────────────────────────────────────────
+
+async function openResendModal(batch) {
+  let students = [];
+  try {
+    students = await apiFetch("/admin/students");
+    students = students.filter(s => s.is_approved);
+  } catch (err) { showToast("Erro ao carregar alunos."); return; }
+  if (students.length === 0) { showToast("Nenhum aluno aprovado encontrado."); return; }
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+  const modal = document.createElement("div"); modal.className = "modal";
+
+  const mHeader = document.createElement("div"); mHeader.className = "modal-header";
+  const mTitle  = document.createElement("h2"); mTitle.textContent = "Reenviar exercícios"; mHeader.appendChild(mTitle);
+  const closeBtn = document.createElement("button"); closeBtn.className = "icon-btn"; closeBtn.innerHTML = Icons.x; closeBtn.addEventListener("click", () => overlay.remove()); mHeader.appendChild(closeBtn);
+  modal.appendChild(mHeader);
+
+  const p = document.createElement("p"); p.style.cssText = "margin-bottom:12px;font-size:14px;color:#555;";
+  p.innerHTML = `Reenviar <strong>${batch.exercises.length} exercício(s)</strong> do bloco <em>"${batch.batch_name}"</em> para:`;
+  modal.appendChild(p);
+
+  const studentsBox = document.createElement("div");
+  studentsBox.style.cssText = "display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:12px;";
+  const checkboxes = [];
+  const prevStudentIds = new Set(batch.students.map(s => s.id));
+  students.forEach(s => {
+    const lbl = document.createElement("label");
+    lbl.style.cssText = "display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.value = s.id;
+    lbl.appendChild(cb);
+    const sp = document.createElement("span"); sp.textContent = s.name; lbl.appendChild(sp);
+    if (prevStudentIds.has(s.id)) {
+      const prevTag = document.createElement("span");
+      prevTag.style.cssText = "font-size:11px;color:#888;";
+      prevTag.textContent = "(já recebeu)";
+      lbl.appendChild(prevTag);
+    }
+    studentsBox.appendChild(lbl);
+    checkboxes.push(cb);
+  });
+  modal.appendChild(studentsBox);
+
+  // Selecionar todos
+  const selAllBtn = document.createElement("button");
+  selAllBtn.className = "btn btn-outline btn-sm"; selAllBtn.style.marginBottom = "16px"; selAllBtn.textContent = "Selecionar todos";
+  selAllBtn.addEventListener("click", () => {
+    const allChecked = checkboxes.every(c => c.checked);
+    checkboxes.forEach(c => c.checked = !allChecked);
+    selAllBtn.textContent = allChecked ? "Selecionar todos" : "Desmarcar todos";
+  });
+  modal.appendChild(selAllBtn);
+
+  const errBox = document.createElement("p"); errBox.style.cssText = "color:#861E19;font-size:13px;"; errBox.hidden = true; modal.appendChild(errBox);
+
+  const actions = document.createElement("div"); actions.className = "modal-actions";
+  const cancelBtn = document.createElement("button"); cancelBtn.className = "btn btn-outline"; cancelBtn.textContent = "Cancelar"; cancelBtn.addEventListener("click", () => overlay.remove());
+  const confirmBtn = document.createElement("button"); confirmBtn.className = "btn btn-primary"; confirmBtn.textContent = "Reenviar";
+
+  confirmBtn.addEventListener("click", async () => {
+    errBox.hidden = true;
+    const selectedIds = checkboxes.filter(c => c.checked).map(c => parseInt(c.value));
+    if (selectedIds.length === 0) { errBox.textContent = "Selecione ao menos um aluno."; errBox.hidden = false; return; }
+    confirmBtn.disabled = true; confirmBtn.textContent = "Reenviando...";
+    try {
+      await apiFetch(`/exercises/batches/${batch.batch_id}/resend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ student_ids: selectedIds }),
+      });
+      overlay.remove();
+      const names = students.filter(s => selectedIds.includes(s.id)).map(s => s.name).join(", ");
+      showToast(`Exercícios reenviados para: ${names}`);
+    } catch (err) {
+      errBox.textContent = err.message || "Erro ao reenviar."; errBox.hidden = false;
+      confirmBtn.disabled = false; confirmBtn.textContent = "Reenviar";
+    }
+  });
+
+  actions.appendChild(cancelBtn); actions.appendChild(confirmBtn);
+  modal.appendChild(actions);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+}
+
 // Exercícios dos Alunos — status de revisão espaçada (professor)
 // ---------------------------------------------------------------------------
 

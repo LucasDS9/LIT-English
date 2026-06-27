@@ -146,14 +146,51 @@ class Exercise(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False, default="")
     type = Column(Enum(ExerciseType), nullable=False)
-    # fill_blank: part1 + ___ + part2; word_choice: full sentence with ___
-    part1 = Column(Text, nullable=True)   # before the blank (fill_blank)
-    part2 = Column(Text, nullable=True)   # after the blank (fill_blank)
-    prompt = Column(Text, nullable=False)  # full sentence (word_choice) or built from part1+part2
+    part1 = Column(Text, nullable=True)
+    part2 = Column(Text, nullable=True)
+    prompt = Column(Text, nullable=False)
     correct_answer = Column(Text, nullable=False)
-    translation = Column(Text, nullable=True)   # Portuguese hint shown to student
-    word_choices = Column(Text, nullable=True)  # comma-separated options for word_choice
+    translation = Column(Text, nullable=True)
+    word_choices = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ── Lote de envio ─────────────────────────────────────────────────────────────
+# Um lote agrupa N exercícios enviados numa mesma ação "Enviar" pelo professor.
+# O nome padrão é o título do primeiro exercício do lote.
+
+class ExerciseBatch(Base):
+    """Lote de exercícios enviados de uma vez."""
+    __tablename__ = "exercise_batches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)          # editável pelo professor
+    sent_at = Column(DateTime, default=datetime.utcnow)
+
+    items = relationship("ExerciseBatchItem", cascade="all, delete-orphan", backref="batch")
+    student_links = relationship("ExerciseBatchStudent", cascade="all, delete-orphan", backref="batch")
+
+
+class ExerciseBatchItem(Base):
+    """Exercício pertencente a um lote."""
+    __tablename__ = "exercise_batch_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    batch_id = Column(Integer, ForeignKey("exercise_batches.id"), nullable=False)
+    exercise_id = Column(Integer, ForeignKey("exercises.id"), nullable=False)
+
+    exercise = relationship("Exercise")
+
+
+class ExerciseBatchStudent(Base):
+    """Aluno que recebeu um lote."""
+    __tablename__ = "exercise_batch_students"
+
+    id = Column(Integer, primary_key=True, index=True)
+    batch_id = Column(Integer, ForeignKey("exercise_batches.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+
+    student = relationship("User")
 
 
 class ExerciseAssignment(Base):

@@ -263,7 +263,8 @@ class ExerciseSubmissionDayOut(BaseModel):
 
 class ExerciseAssignPayload(BaseModel):
     exercise_ids: List[int]
-    student_id: int
+    student_id: Optional[int] = None       # mantido por compatibilidade (single)
+    student_ids: Optional[List[int]] = None  # novo: múltiplos alunos
 
 
 class ExerciseAssignmentOut(BaseModel):
@@ -275,6 +276,46 @@ class ExerciseAssignmentOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ---------- Histórico de lotes de exercícios ----------
+
+class ExerciseBatchStudentOut(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class ExerciseBatchExerciseOut(BaseModel):
+    id: int
+    title: str
+    type: str
+    prompt: str
+    correct_answer: str
+
+    class Config:
+        from_attributes = True
+
+
+class ExerciseBatchOut(BaseModel):
+    batch_id: int
+    batch_name: str
+    sent_at: datetime
+    students: List[ExerciseBatchStudentOut]
+    exercises: List[ExerciseBatchExerciseOut]
+
+    class Config:
+        from_attributes = True
+
+
+class ExerciseBatchRenamePayload(BaseModel):
+    name: str
+
+
+class ExerciseBatchResendPayload(BaseModel):
+    student_ids: List[int]
 
 
 # ---------- QA ----------

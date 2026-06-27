@@ -1,30 +1,29 @@
 """
-Ponto de entrada da aplicação FastAPI.
-Etapa 6: autenticação + admin + flashcards + read and listen + exercícios + QA.
+Ponto de entrada da aplicação FastAPI — v19.
+Startup: cria tabelas + roda migrações automáticas (Railway / Railway-like).
 """
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine, run_migrations
 from app.routers import admin, auth, exercises, flashcards, qa, texts, tts
 
-# Cria as tabelas no banco (se ainda não existirem)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# 1. Cria tabelas que ainda não existem (seguro: não apaga dados)
+logger.info("Inicializando banco de dados...")
 Base.metadata.create_all(bind=engine)
+
+# 2. Migrações incrementais (adiciona colunas / tabelas novas com segurança)
+logger.info("Rodando migrações...")
 run_migrations()
+logger.info("Banco de dados pronto.")
 
-app = FastAPI(title="LIT English API", version="0.1.0")
+app = FastAPI(title="LIT English API", version="0.19.0")
 
-from fastapi.middleware.cors import CORSMiddleware
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Libera o frontend (em dev, qualquer origem; depois restrinja para o domínio real)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -44,4 +43,4 @@ app.include_router(tts.router)
 
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "LIT English API está no ar 🚀"}
+    return {"status": "ok", "message": "LIT English API v19 está no ar 🚀"}
