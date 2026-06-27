@@ -53,7 +53,8 @@ class Flashcard(Base):
 
     @property
     def students(self):
-        return [a.student for a in self.assignments]
+        # Defensivo: ignora assignments cujo aluno foi excluído (student None)
+        return [a.student for a in self.assignments if a.student is not None]
 
 
 class FlashcardAssignment(Base):
@@ -63,7 +64,7 @@ class FlashcardAssignment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     flashcard_id = Column(Integer, ForeignKey("flashcards.id"), nullable=False)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     assigned_at = Column(DateTime, default=datetime.utcnow)
 
     student = relationship("User")
@@ -118,7 +119,8 @@ class ReadingText(Base):
 
     @property
     def students(self):
-        return [a.student for a in self.assignments]
+        # Defensivo: ignora assignments cujo aluno foi excluído (student None)
+        return [a.student for a in self.assignments if a.student is not None]
 
 
 class TextAssignment(Base):
@@ -128,7 +130,7 @@ class TextAssignment(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     text_id = Column(Integer, ForeignKey("reading_texts.id"), nullable=False)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     assigned_at = Column(DateTime, default=datetime.utcnow)
 
     student = relationship("User")
