@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
-from app.models import CardProgress, Flashcard, FlashcardAssignment, ReviewLog, User, UserRole
+from app.models import CardProgress, Flashcard, FlashcardAssignment, QAAnswerLog, ReviewLog, User, UserRole
 from app.schemas import (
     CardProgressOut,
     FlashcardCreate,
@@ -112,6 +112,18 @@ def delete_flashcard(
     card = db.query(Flashcard).filter(Flashcard.id == flashcard_id).first()
     if not card:
         raise HTTPException(status_code=404, detail="Flashcard não encontrado.")
+
+    # Remove o progresso de revisão (SM-2) e o histórico de revisões deste
+    # card. As atribuições (FlashcardAssignment) já são removidas pelo
+    # cascade da relationship "assignments" do model Flashcard.
+    db.query(CardProgress).filter(CardProgress.flashcard_id == flashcard_id).delete()
+    db.query(ReviewLog).filter(ReviewLog.flashcard_id == flashcard_id).delete()
+    # QAAnswerLog mantém o histórico de respostas do QA mesmo se o flashcard
+    # gerado a partir dela for excluído — só desvincula.
+    db.query(QAAnswerLog).filter(QAAnswerLog.flashcard_id == flashcard_id).update(
+        {QAAnswerLog.flashcard_id: None}
+    )
+
     db.delete(card)
     db.commit()
     return None

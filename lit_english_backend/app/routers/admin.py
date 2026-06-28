@@ -13,10 +13,13 @@ from app.database import get_db
 from app.models import (
     CardProgress,
     ExerciseAssignment,
+    ExerciseBatchStudent,
+    ExerciseProgress,
     ExerciseSubmission,
     FlashcardAssignment,
     QAAnswerLog,
     ReviewLog,
+    TextAssignment,
     User,
     UserRole,
 )
@@ -84,9 +87,12 @@ def delete_student(
 
     db.query(ExerciseSubmission).filter(ExerciseSubmission.student_id == student_id).delete()
     db.query(ExerciseAssignment).filter(ExerciseAssignment.student_id == student_id).delete()
+    db.query(ExerciseProgress).filter(ExerciseProgress.student_id == student_id).delete()
+    db.query(ExerciseBatchStudent).filter(ExerciseBatchStudent.student_id == student_id).delete()
     db.query(ReviewLog).filter(ReviewLog.student_id == student_id).delete()
     db.query(CardProgress).filter(CardProgress.student_id == student_id).delete()
     db.query(FlashcardAssignment).filter(FlashcardAssignment.student_id == student_id).delete()
+    db.query(TextAssignment).filter(TextAssignment.student_id == student_id).delete()
     db.query(QAAnswerLog).filter(QAAnswerLog.student_id == student_id).delete()
 
     db.delete(student)

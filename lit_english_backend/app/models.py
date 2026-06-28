@@ -48,7 +48,7 @@ class Flashcard(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     assignments = relationship(
-        "FlashcardAssignment", cascade="all, delete-orphan", backref="flashcard"
+        "FlashcardAssignment", cascade="all, delete-orphan", passive_deletes=True, backref="flashcard"
     )
 
     @property
@@ -62,8 +62,8 @@ class FlashcardAssignment(Base):
     __table_args__ = (UniqueConstraint("flashcard_id", "student_id", name="uq_flashcard_student"),)
 
     id = Column(Integer, primary_key=True, index=True)
-    flashcard_id = Column(Integer, ForeignKey("flashcards.id"), nullable=False)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    flashcard_id = Column(Integer, ForeignKey("flashcards.id", ondelete="CASCADE"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     assigned_at = Column(DateTime, default=datetime.utcnow)
 
     student = relationship("User")
@@ -74,8 +74,8 @@ class CardProgress(Base):
     __table_args__ = (UniqueConstraint("student_id", "flashcard_id", name="uq_student_card"),)
 
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    flashcard_id = Column(Integer, ForeignKey("flashcards.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    flashcard_id = Column(Integer, ForeignKey("flashcards.id", ondelete="CASCADE"), nullable=False)
     repetitions = Column(Integer, default=0, nullable=False)
     interval_days = Column(Integer, default=0, nullable=False)
     ease_factor = Column(Float, default=2.5, nullable=False)
@@ -88,8 +88,8 @@ class ReviewLog(Base):
     __tablename__ = "review_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    flashcard_id = Column(Integer, ForeignKey("flashcards.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    flashcard_id = Column(Integer, ForeignKey("flashcards.id", ondelete="CASCADE"), nullable=False)
     reviewed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -113,7 +113,7 @@ class ReadingText(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     assignments = relationship(
-        "TextAssignment", cascade="all, delete-orphan", backref="text"
+        "TextAssignment", cascade="all, delete-orphan", passive_deletes=True, backref="text"
     )
 
     @property
@@ -127,8 +127,8 @@ class TextAssignment(Base):
     __table_args__ = (UniqueConstraint("text_id", "student_id", name="uq_text_student"),)
 
     id = Column(Integer, primary_key=True, index=True)
-    text_id = Column(Integer, ForeignKey("reading_texts.id"), nullable=False)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    text_id = Column(Integer, ForeignKey("reading_texts.id", ondelete="CASCADE"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     assigned_at = Column(DateTime, default=datetime.utcnow)
 
     student = relationship("User")
@@ -167,8 +167,8 @@ class ExerciseBatch(Base):
     name = Column(String, nullable=False)          # editável pelo professor
     sent_at = Column(DateTime, default=datetime.utcnow)
 
-    items = relationship("ExerciseBatchItem", cascade="all, delete-orphan", backref="batch")
-    student_links = relationship("ExerciseBatchStudent", cascade="all, delete-orphan", backref="batch")
+    items = relationship("ExerciseBatchItem", cascade="all, delete-orphan", passive_deletes=True, backref="batch")
+    student_links = relationship("ExerciseBatchStudent", cascade="all, delete-orphan", passive_deletes=True, backref="batch")
 
 
 class ExerciseBatchItem(Base):
@@ -176,8 +176,8 @@ class ExerciseBatchItem(Base):
     __tablename__ = "exercise_batch_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    batch_id = Column(Integer, ForeignKey("exercise_batches.id"), nullable=False)
-    exercise_id = Column(Integer, ForeignKey("exercises.id"), nullable=False)
+    batch_id = Column(Integer, ForeignKey("exercise_batches.id", ondelete="CASCADE"), nullable=False)
+    exercise_id = Column(Integer, ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False)
 
     exercise = relationship("Exercise")
 
@@ -187,8 +187,8 @@ class ExerciseBatchStudent(Base):
     __tablename__ = "exercise_batch_students"
 
     id = Column(Integer, primary_key=True, index=True)
-    batch_id = Column(Integer, ForeignKey("exercise_batches.id"), nullable=False)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    batch_id = Column(Integer, ForeignKey("exercise_batches.id", ondelete="CASCADE"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     student = relationship("User")
 
@@ -198,8 +198,8 @@ class ExerciseAssignment(Base):
     __tablename__ = "exercise_assignments"
 
     id = Column(Integer, primary_key=True, index=True)
-    exercise_id = Column(Integer, ForeignKey("exercises.id"), nullable=False)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    exercise_id = Column(Integer, ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     assigned_at = Column(DateTime, default=datetime.utcnow)
     next_available = Column(DateTime, nullable=True)
 
@@ -211,8 +211,8 @@ class ExerciseSubmission(Base):
     __tablename__ = "exercise_submissions"
 
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    exercise_id = Column(Integer, ForeignKey("exercises.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    exercise_id = Column(Integer, ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False)
     answer = Column(Text, nullable=False)
     is_correct = Column(Boolean, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -237,12 +237,12 @@ class QAAnswerLog(Base):
     __tablename__ = "qa_answer_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    question_id = Column(Integer, ForeignKey("qa_questions.id"), nullable=True)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    question_id = Column(Integer, ForeignKey("qa_questions.id", ondelete="SET NULL"), nullable=True)
     question_text = Column(Text, nullable=False)
     student_answer = Column(Text, nullable=False)
     translation = Column(Text, nullable=True)
-    flashcard_id = Column(Integer, ForeignKey("flashcards.id"), nullable=True)
+    flashcard_id = Column(Integer, ForeignKey("flashcards.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     student = relationship("User")
@@ -254,8 +254,8 @@ class ExerciseProgress(Base):
     __tablename__ = "exercise_progress"
 
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    exercise_id = Column(Integer, ForeignKey("exercises.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    exercise_id = Column(Integer, ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False)
     correct_streak = Column(Integer, default=0)
     next_review = Column(DateTime, default=datetime.utcnow)
     last_reviewed = Column(DateTime, nullable=True)

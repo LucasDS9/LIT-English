@@ -347,57 +347,15 @@ async function renderFlashcards() {
       onAction: () => openFlashcardModal(null, approvedStudents),
     });
   } else {
-    const list = document.createElement("div");
-    list.className = "list";
-
-    cards.forEach((card) => {
-      const row = document.createElement("div");
-      row.className = "list-row";
-
-      const info = document.createElement("div");
-      info.className = "info";
-      const primary = document.createElement("p");
-      primary.className = "primary";
-      primary.textContent = card.front;
-      info.appendChild(primary);
-      const secondary = document.createElement("p");
-      secondary.className = "secondary";
-      const names = (card.students || []).map((s) => s.name).join(", ") || "—";
-      secondary.textContent = `${card.back} · Para: ${names}`;
-      info.appendChild(secondary);
-      row.appendChild(info);
-
-      const meta = document.createElement("div");
-      meta.className = "meta";
-
-      const date = document.createElement("span");
-      date.className = "date";
-      date.textContent = formatDate(card.created_at);
-      meta.appendChild(date);
-
-      const actions = document.createElement("div");
-      actions.className = "row-actions";
-
-      const editBtn = document.createElement("button");
-      editBtn.className = "icon-btn";
-      editBtn.title = "Editar";
-      editBtn.innerHTML = Icons.edit;
-      editBtn.addEventListener("click", () => openFlashcardModal(card, approvedStudents));
-      actions.appendChild(editBtn);
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "icon-btn danger";
-      deleteBtn.title = "Excluir";
-      deleteBtn.innerHTML = Icons.trash;
-      deleteBtn.addEventListener("click", () => deleteFlashcard(card.id));
-      actions.appendChild(deleteBtn);
-
-      meta.appendChild(actions);
-      row.appendChild(meta);
-      list.appendChild(row);
+    // A lista de todos os flashcards fica só no Vocabulário do aluno
+    // (abaixo): editar e excluir cards é feito por lá, escolhendo o aluno.
+    renderStateBox(contentArea, {
+      icon: Icons.library,
+      title: "Flashcards em uso",
+      text: "Para ver, editar ou excluir os flashcards já enviados, escolha o aluno em \"Vocabulário do aluno\" abaixo.",
+      actionLabel: "Novo Flashcard",
+      onAction: () => openFlashcardModal(null, approvedStudents),
     });
-
-    contentArea.appendChild(list);
   }
 
   renderStudentVocabularySection(contentArea, approvedStudents);
@@ -455,11 +413,11 @@ function renderStudentVocabularySection(container, approvedStudents) {
     return;
   }
 
-  select.addEventListener("change", () => loadStudentVocabulary(vocabBox, select.value));
-  loadStudentVocabulary(vocabBox, select.value);
+  select.addEventListener("change", () => loadStudentVocabulary(vocabBox, select.value, approvedStudents));
+  loadStudentVocabulary(vocabBox, select.value, approvedStudents);
 }
 
-async function loadStudentVocabulary(container, studentId) {
+async function loadStudentVocabulary(container, studentId, approvedStudents) {
   container.innerHTML = '<div class="skeleton">Carregando vocabulário...</div>';
   try {
     const items = await apiFetch(`/flashcards/vocabulary/${studentId}`);
@@ -495,6 +453,47 @@ async function loadStudentVocabulary(container, studentId) {
       status.className = `badge ${item.is_due ? "badge-warning" : "badge-success"}`;
       status.textContent = formatReviewStatus(item);
       meta.appendChild(status);
+
+      const actions = document.createElement("div");
+      actions.className = "row-actions";
+
+      const editBtn = document.createElement("button");
+      editBtn.className = "icon-btn";
+      editBtn.title = "Editar";
+      editBtn.innerHTML = Icons.edit;
+      editBtn.addEventListener("click", async () => {
+        // Pega o flashcard completo (com a lista de alunos atribuídos)
+        // pra pré-preencher o modal de edição.
+        let fullCard;
+        try {
+          const allCards = await apiFetch("/flashcards");
+          fullCard = allCards.find((c) => c.id === item.flashcard_id);
+        } catch (err) {
+          showToast(err.message || "Não foi possível carregar o flashcard.");
+          return;
+        }
+        if (!fullCard) {
+          showToast("Flashcard não encontrado.");
+          return;
+        }
+        openFlashcardModal(fullCard, approvedStudents, () =>
+          loadStudentVocabulary(container, studentId, approvedStudents)
+        );
+      });
+      actions.appendChild(editBtn);
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "icon-btn danger";
+      deleteBtn.title = "Excluir";
+      deleteBtn.innerHTML = Icons.trash;
+      deleteBtn.addEventListener("click", () =>
+        deleteFlashcard(item.flashcard_id, () =>
+          loadStudentVocabulary(container, studentId, approvedStudents)
+        )
+      );
+      actions.appendChild(deleteBtn);
+
+      meta.appendChild(actions);
       row.appendChild(meta);
 
       list.appendChild(row);
@@ -506,8 +505,9 @@ async function loadStudentVocabulary(container, studentId) {
   }
 }
 
-function openFlashcardModal(existingCard, approvedStudents) {
+function openFlashcardModal(existingCard, approvedStudents, onSaved) {
   const isEdit = !!existingCard;
+  const handleSaved = onSaved || renderFlashcards;
 
   if (!approvedStudents || approvedStudents.length === 0) {
     showToast("Nenhum aluno aprovado para enviar flashcards.");
@@ -649,7 +649,7 @@ function openFlashcardModal(existingCard, approvedStudents) {
         showToast("Flashcard criado.");
       }
       overlay.remove();
-      renderFlashcards();
+      handleSaved();
     } catch (err) {
       errorBox.textContent = err.message || "Não foi possível salvar o flashcard.";
       errorBox.hidden = false;
@@ -659,14 +659,14 @@ function openFlashcardModal(existingCard, approvedStudents) {
   });
 }
 
-async function deleteFlashcard(id) {
+async function deleteFlashcard(id, onDeleted) {
   const ok = window.confirm("Excluir este flashcard? Essa ação não pode ser desfeita.");
   if (!ok) return;
 
   try {
     await apiFetch(`/flashcards/${id}`, { method: "DELETE" });
     showToast("Flashcard excluído.");
-    renderFlashcards();
+    (onDeleted || renderFlashcards)();
   } catch (err) {
     showToast(err.message || "Não foi possível excluir o flashcard.");
   }

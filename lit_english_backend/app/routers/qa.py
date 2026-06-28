@@ -76,6 +76,13 @@ def delete_question(
     question = db.query(QAQuestion).filter(QAQuestion.id == question_id).first()
     if not question:
         raise HTTPException(status_code=404, detail="Pergunta não encontrada.")
+
+    # Mantém o histórico de respostas já dadas a esta pergunta, só
+    # desvincula (question_text já guarda o texto da pergunta).
+    db.query(QAAnswerLog).filter(QAAnswerLog.question_id == question_id).update(
+        {QAAnswerLog.question_id: None}
+    )
+
     db.delete(question)
     db.commit()
     return None
