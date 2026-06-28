@@ -1365,7 +1365,7 @@ async function loadHistorico(container) {
 
   const subtitle = document.createElement("p");
   subtitle.style.cssText = "font-size:13px;color:#666;margin-bottom:16px;";
-  subtitle.textContent = "Cada bloco representa um grupo de exercícios enviados de uma vez. Você pode renomear o bloco ou reenviá-lo para outros alunos.";
+  subtitle.textContent = "Cada bloco representa um grupo de exercícios enviados de uma vez, com os alunos que o receberam. Você pode renomear, reenviar ou excluir o bloco, além de editar ou excluir cada exercício.";
   container.appendChild(subtitle);
 
   const list = document.createElement("div");
@@ -1408,7 +1408,7 @@ async function loadHistorico(container) {
     dateEl.textContent = `Enviado em ${d.toLocaleString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit", timeZone:"America/Sao_Paulo" })}`;
     leftCol.appendChild(dateEl);
 
-    // Alunos
+    // Alunos — todos os alunos que receberam este bloco, em um único lugar
     const studentsEl = document.createElement("span");
     studentsEl.style.cssText = "font-size:12px;color:#555;";
     studentsEl.textContent = "Para: " + (batch.students.length > 0 ? batch.students.map(s => s.name).join(", ") : "—");
@@ -1416,14 +1416,41 @@ async function loadHistorico(container) {
 
     topRow.appendChild(leftCol);
 
-    // Botão reenviar
+    // Botões: reenviar + excluir bloco
+    const btnGroup = document.createElement("div");
+    btnGroup.style.cssText = "display:flex;gap:8px;flex-shrink:0;";
+
     const resendBtn = document.createElement("button");
     resendBtn.className = "btn btn-outline btn-sm";
     resendBtn.style.cssText = "white-space:nowrap;flex-shrink:0;";
     resendBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9l20-7z"/></svg>Reenviar`;
     resendBtn.addEventListener("click", () => openResendModal(batch));
-    topRow.appendChild(resendBtn);
+    btnGroup.appendChild(resendBtn);
 
+    const deleteBatchBtn = document.createElement("button");
+    deleteBatchBtn.className = "icon-btn danger";
+    deleteBatchBtn.title = "Excluir bloco do histórico";
+    deleteBatchBtn.innerHTML = Icons.trash;
+    deleteBatchBtn.addEventListener("click", async () => {
+      if (!window.confirm(`Excluir o bloco "${batch.batch_name}" do histórico?\n\nOs exercícios já enviados continuam disponíveis para os alunos — apenas o registro do histórico é removido.`)) return;
+      try {
+        await apiFetch(`/exercises/batches/${batch.batch_id}`, { method: "DELETE" });
+        showToast("Bloco excluído do histórico.");
+        card.style.transition = "opacity 0.2s";
+        card.style.opacity = "0";
+        setTimeout(() => {
+          card.remove();
+          if (list.children.length === 0) {
+            container.innerHTML = '<p style="color:#666;font-size:14px;padding:20px 0;">Nenhum lote enviado ainda.</p>';
+          }
+        }, 200);
+      } catch (err) {
+        showToast(err.message || "Erro ao excluir bloco.");
+      }
+    });
+    btnGroup.appendChild(deleteBatchBtn);
+
+    topRow.appendChild(btnGroup);
     card.appendChild(topRow);
 
     // Divisor
@@ -1462,6 +1489,37 @@ async function loadHistorico(container) {
       textWrap.appendChild(exTitle);
       textWrap.appendChild(exPrompt);
       exRow.appendChild(textWrap);
+
+      // Ações por exercício: editar e excluir
+      const exActions = document.createElement("div");
+      exActions.style.cssText = "display:flex;gap:4px;flex-shrink:0;";
+
+      const editExBtn = document.createElement("button");
+      editExBtn.className = "icon-btn";
+      editExBtn.title = "Editar exercício";
+      editExBtn.innerHTML = Icons.edit;
+      editExBtn.addEventListener("click", () => openEditExerciseModal(ex, { exTitle, exPrompt }));
+      exActions.appendChild(editExBtn);
+
+      const deleteExBtn = document.createElement("button");
+      deleteExBtn.className = "icon-btn danger";
+      deleteExBtn.title = "Excluir exercício";
+      deleteExBtn.innerHTML = Icons.trash;
+      deleteExBtn.addEventListener("click", async () => {
+        if (!window.confirm(`Excluir o exercício "${ex.title}" definitivamente?\n\nIsso remove o exercício e todo o histórico de submissões relacionado a ele.`)) return;
+        try {
+          await apiFetch(`/exercises/${ex.id}`, { method: "DELETE" });
+          showToast("Exercício excluído.");
+          exRow.style.transition = "opacity 0.2s";
+          exRow.style.opacity = "0";
+          setTimeout(() => exRow.remove(), 200);
+        } catch (err) {
+          showToast(err.message || "Erro ao excluir exercício.");
+        }
+      });
+      exActions.appendChild(deleteExBtn);
+
+      exRow.appendChild(exActions);
       exList.appendChild(exRow);
     });
 
@@ -1470,6 +1528,128 @@ async function loadHistorico(container) {
   });
 
   container.appendChild(list);
+}
+
+// ── Modal editar exercício (a partir do Histórico) ───────────────────────────
+
+function openEditExerciseModal(ex, refsToUpdate) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.addEventListener("click", e => { if (e.target === overlay) overlay.remove(); });
+
+  const modal = document.createElement("div"); modal.className = "modal";
+
+  const mHeader = document.createElement("div"); mHeader.className = "modal-header";
+  const mTitle  = document.createElement("h2"); mTitle.textContent = "Editar exercício"; mHeader.appendChild(mTitle);
+  const closeBtn = document.createElement("button"); closeBtn.className = "icon-btn"; closeBtn.innerHTML = Icons.x; closeBtn.addEventListener("click", () => overlay.remove()); mHeader.appendChild(closeBtn);
+  modal.appendChild(mHeader);
+
+  const titleField = document.createElement("div"); titleField.className = "field"; titleField.style.marginBottom = "12px";
+  titleField.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Título</label>';
+  const titleInput = document.createElement("input"); titleInput.type = "text"; titleInput.value = ex.title; titleInput.style.cssText = "width:100%;margin-top:4px;";
+  titleField.appendChild(titleInput); modal.appendChild(titleField);
+
+  let fieldsWrap;
+
+  if (ex.type === "fill_blank") {
+    fieldsWrap = document.createElement("div");
+    const sentenceRow = document.createElement("div");
+    sentenceRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:6px;";
+    const part1Input  = document.createElement("input"); part1Input.type = "text"; part1Input.value = ex.part1 || ""; part1Input.placeholder = "Frase (parte 1)"; part1Input.style.flex = "1";
+    const blankInput  = document.createElement("input"); blankInput.type = "text"; blankInput.value = ex.correct_answer || ""; blankInput.placeholder = "resposta"; blankInput.autocomplete = "off";
+    blankInput.style.cssText = "width:110px;flex:0 0 110px;text-align:center;border:2px solid #861E19;border-radius:8px;color:#861E19;font-weight:700;background:#fff5f5;";
+    const part2Input  = document.createElement("input"); part2Input.type = "text"; part2Input.value = ex.part2 || ""; part2Input.placeholder = "Resto da frase"; part2Input.style.flex = "1";
+    sentenceRow.appendChild(part1Input); sentenceRow.appendChild(blankInput); sentenceRow.appendChild(part2Input);
+    fieldsWrap.appendChild(sentenceRow);
+    const blankHint = document.createElement("p");
+    blankHint.style.cssText = "font-size:12px;color:#888;margin:0 0 12px;";
+    blankHint.textContent = "O campo em vermelho é a lacuna: o que você digitar nele é a resposta correta do exercício.";
+    fieldsWrap.appendChild(blankHint);
+    const transField = document.createElement("div"); transField.style.marginBottom = "12px";
+    transField.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Tradução (dica — opcional)</label>';
+    const transInput = document.createElement("input"); transInput.type = "text"; transInput.value = ex.translation || ""; transInput.style.cssText = "width:100%;margin-top:4px;";
+    transField.appendChild(transInput); fieldsWrap.appendChild(transField);
+    modal.appendChild(fieldsWrap);
+
+    fieldsWrap._collect = () => ({
+      title: titleInput.value.trim(),
+      part1: part1Input.value.trim(),
+      part2: part2Input.value.trim(),
+      prompt: `${part1Input.value.trim()} ___ ${part2Input.value.trim()}`.trim(),
+      correct_answer: blankInput.value.trim(),
+      translation: transInput.value.trim() || null,
+    });
+  } else if (ex.type === "word_choice") {
+    fieldsWrap = document.createElement("div");
+    const sField = document.createElement("div"); sField.style.marginBottom = "12px";
+    sField.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Frase em inglês (o aluno escuta)</label>';
+    const sInput = document.createElement("input"); sInput.type = "text"; sInput.value = ex.prompt || ""; sInput.style.cssText = "width:100%;margin-top:4px;";
+    sField.appendChild(sInput); fieldsWrap.appendChild(sField);
+    modal.appendChild(fieldsWrap);
+
+    fieldsWrap._collect = () => ({
+      title: titleInput.value.trim(),
+      prompt: sInput.value.trim(),
+      correct_answer: sInput.value.trim(),
+    });
+  } else {
+    fieldsWrap = document.createElement("div");
+    const ptField = document.createElement("div"); ptField.style.marginBottom = "12px";
+    ptField.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Frase em português (o aluno lê)</label>';
+    const ptInput = document.createElement("input"); ptInput.type = "text"; ptInput.value = ex.prompt || ""; ptInput.style.cssText = "width:100%;margin-top:4px;";
+    ptField.appendChild(ptInput); fieldsWrap.appendChild(ptField);
+    const enField = document.createElement("div"); enField.style.marginBottom = "12px";
+    enField.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Tradução em inglês (o aluno fala)</label>';
+    const enInput = document.createElement("input"); enInput.type = "text"; enInput.value = ex.correct_answer || ""; enInput.style.cssText = "width:100%;margin-top:4px;";
+    enField.appendChild(enInput); fieldsWrap.appendChild(enField);
+    modal.appendChild(fieldsWrap);
+
+    fieldsWrap._collect = () => ({
+      title: titleInput.value.trim(),
+      prompt: ptInput.value.trim(),
+      correct_answer: enInput.value.trim(),
+    });
+  }
+
+  const errBox = document.createElement("p"); errBox.style.cssText = "color:#861E19;font-size:13px;margin-top:4px;"; errBox.hidden = true; modal.appendChild(errBox);
+
+  const actions = document.createElement("div"); actions.className = "modal-actions";
+  const cancelBtn = document.createElement("button"); cancelBtn.className = "btn btn-outline"; cancelBtn.textContent = "Cancelar"; cancelBtn.addEventListener("click", () => overlay.remove());
+  const saveBtn   = document.createElement("button"); saveBtn.className = "btn btn-primary"; saveBtn.textContent = "Salvar";
+
+  saveBtn.addEventListener("click", async () => {
+    errBox.hidden = true;
+    const payload = fieldsWrap._collect();
+    if (!payload.title) { errBox.textContent = "Informe o título."; errBox.hidden = false; return; }
+    if (ex.type === "fill_blank" && !payload.correct_answer) { errBox.textContent = "Preencha a lacuna (resposta correta)."; errBox.hidden = false; return; }
+    if (ex.type !== "fill_blank" && !payload.prompt) { errBox.textContent = "Preencha a frase."; errBox.hidden = false; return; }
+
+    saveBtn.disabled = true; saveBtn.textContent = "Salvando...";
+    try {
+      const updated = await apiFetch(`/exercises/${ex.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      // Atualiza o objeto local do batch e a UI sem precisar recarregar tudo
+      Object.assign(ex, updated);
+      if (refsToUpdate) {
+        if (refsToUpdate.exTitle) refsToUpdate.exTitle.textContent = updated.title;
+        if (refsToUpdate.exPrompt) { refsToUpdate.exPrompt.textContent = updated.prompt; refsToUpdate.exPrompt.title = updated.prompt; }
+      }
+      overlay.remove();
+      showToast("Exercício atualizado.");
+    } catch (err) {
+      errBox.textContent = err.message || "Erro ao salvar."; errBox.hidden = false;
+      saveBtn.disabled = false; saveBtn.textContent = "Salvar";
+    }
+  });
+
+  actions.appendChild(cancelBtn); actions.appendChild(saveBtn);
+  modal.appendChild(actions);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  titleInput.focus();
 }
 
 // ── Modal renomear lote ───────────────────────────────────────────────────────
@@ -1917,10 +2097,23 @@ async function loadSubmissoes(container) {
       okBtn.style.cssText = "font-size:12px;padding:5px 18px;color:#1a7c3e;border-color:#1a7c3e;";
       okBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span style="margin-left:5px;">OK — Visualizado</span>`;
       okBtn.title = "Marcar como visualizado e remover da lista";
-      okBtn.addEventListener("click", () => {
-        card.style.transition = "opacity 0.25s";
-        card.style.opacity = "0";
-        setTimeout(() => card.remove(), 260);
+      okBtn.addEventListener("click", async () => {
+        okBtn.disabled = true;
+        okBtn.innerHTML = `<span>Salvando...</span>`;
+        try {
+          await apiFetch("/exercises/submissions/dismiss", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ student_id: day.student_id, date: day.date }),
+          });
+          card.style.transition = "opacity 0.25s";
+          card.style.opacity = "0";
+          setTimeout(() => card.remove(), 260);
+        } catch (err) {
+          showToast(err.message || "Erro ao marcar como visualizado.");
+          okBtn.disabled = false;
+          okBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span style="margin-left:5px;">OK — Visualizado</span>`;
+        }
       });
       okRow.appendChild(okBtn);
       card.appendChild(okRow);

@@ -259,6 +259,11 @@ class ExerciseSubmissionDayOut(BaseModel):
     correct_count: int
 
 
+class ExerciseSubmissionDismissPayload(BaseModel):
+    student_id: int
+    date: str  # chave no formato YYYY-MM-DD (fuso Brasil), igual ao campo "date" retornado em ExerciseSubmissionDayOut
+
+
 # ---------- Assignments ----------
 
 class ExerciseAssignPayload(BaseModel):
@@ -292,8 +297,12 @@ class ExerciseBatchExerciseOut(BaseModel):
     id: int
     title: str
     type: str
+    part1: Optional[str] = None
+    part2: Optional[str] = None
     prompt: str
     correct_answer: str
+    translation: Optional[str] = None
+    word_choices: Optional[str] = None
 
     class Config:
         from_attributes = True

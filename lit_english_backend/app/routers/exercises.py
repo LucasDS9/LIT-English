@@ -38,7 +38,9 @@ from app.schemas import (
     ExercisePracticeOut,
     ExerciseProgressItemOut,
     ExerciseSubmissionDayOut,
+    ExerciseSubmissionDismissPayload,
     ExerciseSubmissionItemOut,
+    ExerciseUpdate,
 )
 from app.timezone import brazil_date_key, start_of_next_day_brazil_utc, utcnow
 
@@ -114,6 +116,31 @@ def list_exercises_admin(
     )
 
 
+@router.patch("/{exercise_id}", response_model=ExerciseOut)
+def update_exercise(
+    exercise_id: int,
+    payload: ExerciseUpdate,
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    """
+    Edita um exercício existente. Como o mesmo exercício pode estar em mais
+    de um lote do histórico, a edição aqui reflete em todos os lotes e em
+    todas as atribuições já existentes (o aluno passa a ver a versão nova).
+    """
+    exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
+    if not exercise:
+        raise HTTPException(status_code=404, detail="Exercício não encontrado.")
+
+    data = payload.model_dump(exclude_unset=True)
+    for field, value in data.items():
+        setattr(exercise, field, value)
+
+    db.commit()
+    db.refresh(exercise)
+    return exercise
+
+
 @router.delete("/{exercise_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_exercise(
     exercise_id: int,
@@ -164,24 +191,27 @@ def assign_exercises(
     now = utcnow()
     total_assigned = 0
 
-    for student_id in target_ids:
-        # Cria um lote por aluno (assim cada aluno tem seu próprio histórico)
-        batch = ExerciseBatch(name=batch_name, sent_at=now)
-        db.add(batch)
-        db.flush()  # gera batch.id
+    # Um único lote para esta ação de envio, vinculado a todos os alunos
+    # selecionados — assim, no histórico, aparece um bloco só dizendo
+    # para quais alunos foi enviado, em vez de um bloco repetido por aluno.
+    batch = ExerciseBatch(name=batch_name, sent_at=now)
+    db.add(batch)
+    db.flush()  # gera batch.id
 
-        batch_student = ExerciseBatchStudent(batch_id=batch.id, student_id=student_id)
-        db.add(batch_student)
+    for ex_id in payload.exercise_ids:
+        exercise = db.query(Exercise).filter(Exercise.id == ex_id).first()
+        if not exercise:
+            continue
+        db.add(ExerciseBatchItem(batch_id=batch.id, exercise_id=ex_id))
+
+    for student_id in target_ids:
+        db.add(ExerciseBatchStudent(batch_id=batch.id, student_id=student_id))
 
         for ex_id in payload.exercise_ids:
             exercise = db.query(Exercise).filter(Exercise.id == ex_id).first()
             if not exercise:
                 continue
 
-            # Item no lote
-            db.add(ExerciseBatchItem(batch_id=batch.id, exercise_id=ex_id))
-
-            # Assignment
             assignment = ExerciseAssignment(
                 exercise_id=ex_id,
                 student_id=student_id,
@@ -226,8 +256,12 @@ def list_batches(
                         id=ex.id,
                         title=ex.title,
                         type=ex.type.value,
+                        part1=ex.part1,
+                        part2=ex.part2,
                         prompt=ex.prompt,
                         correct_answer=ex.correct_answer,
+                        translation=ex.translation,
+                        word_choices=ex.word_choices,
                     )
                     for ex in exercises
                 ],
@@ -249,6 +283,25 @@ def rename_batch(
     batch.name = payload.name.strip()
     db.commit()
     return {"ok": True}
+
+
+@router.delete("/batches/{batch_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_batch(
+    batch_id: int,
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    """
+    Remove um lote do histórico. Isso NÃO revoga os exercícios já atribuídos
+    aos alunos (eles continuam podendo responder); apenas o registro do
+    histórico (e seus itens/vínculos de aluno) é excluído.
+    """
+    batch = db.query(ExerciseBatch).filter(ExerciseBatch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Lote não encontrado.")
+    db.delete(batch)
+    db.commit()
+    return None
 
 
 @router.post("/batches/{batch_id}/resend", status_code=201)
@@ -281,18 +334,25 @@ def resend_batch(
     now = utcnow()
     total = 0
 
-    for student in students:
-        new_batch = ExerciseBatch(name=original.name, sent_at=now)
-        db.add(new_batch)
-        db.flush()
+    # Um único novo lote para esta ação de reenvio, vinculado a todos os
+    # alunos selecionados — mesmo padrão usado em assign_exercises.
+    new_batch = ExerciseBatch(name=original.name, sent_at=now)
+    db.add(new_batch)
+    db.flush()
 
+    for ex_id in exercise_ids:
+        exercise = db.query(Exercise).filter(Exercise.id == ex_id).first()
+        if not exercise:
+            continue
+        db.add(ExerciseBatchItem(batch_id=new_batch.id, exercise_id=ex_id))
+
+    for student in students:
         db.add(ExerciseBatchStudent(batch_id=new_batch.id, student_id=student.id))
 
         for ex_id in exercise_ids:
             exercise = db.query(Exercise).filter(Exercise.id == ex_id).first()
             if not exercise:
                 continue
-            db.add(ExerciseBatchItem(batch_id=new_batch.id, exercise_id=ex_id))
             db.add(ExerciseAssignment(
                 exercise_id=ex_id,
                 student_id=student.id,
@@ -319,6 +379,7 @@ def list_submissions(
         db.query(ExerciseSubmission)
         .join(User, ExerciseSubmission.student_id == User.id)
         .join(Exercise, ExerciseSubmission.exercise_id == Exercise.id)
+        .filter(ExerciseSubmission.dismissed_by_professor.is_(False))
     )
     if student_id is not None:
         query = query.filter(ExerciseSubmission.student_id == student_id)
@@ -359,6 +420,31 @@ def list_submissions(
 
     result.sort(key=lambda g: (g.date, max(s.created_at for s in g.submissions)), reverse=True)
     return result
+
+
+@router.post("/submissions/dismiss", status_code=200)
+def dismiss_submissions(
+    payload: ExerciseSubmissionDismissPayload,
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    """
+    Marca como visualizado (e remove definitivamente da lista de Submissões)
+    todo o grupo aluno+dia indicado. Usado pelo botão "OK — Visualizado".
+    """
+    submissions = (
+        db.query(ExerciseSubmission)
+        .filter(ExerciseSubmission.student_id == payload.student_id)
+        .all()
+    )
+    affected = 0
+    for s in submissions:
+        if brazil_date_key(s.created_at) == payload.date:
+            s.dismissed_by_professor = True
+            affected += 1
+
+    db.commit()
+    return {"dismissed": affected}
 
 
 @router.get("/student-progress/{student_id}", response_model=list[ExerciseProgressItemOut])

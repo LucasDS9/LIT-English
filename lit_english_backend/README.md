@@ -76,6 +76,13 @@ O QA não é acessado pelos alunos — é uma ferramenta do professor para usar 
 
 Um arquivo `lit_english.db` (SQLite) será criado automaticamente na primeira vez que você rodar o servidor. Pode deletar esse arquivo a qualquer momento para resetar tudo.
 
+## Novidades da v18
+
+- **Histórico de exercícios em um bloco só por envio**: ao enviar (ou reenviar) os mesmos exercícios para vários alunos de uma vez, agora é criado **um único lote** no histórico, vinculado a todos os alunos selecionados — em vez de um lote repetido por aluno.
+- **Excluir lote do histórico**: `DELETE /exercises/batches/{batch_id}` remove o registro do histórico (não revoga os exercícios já atribuídos aos alunos).
+- **Editar exercício**: `PATCH /exercises/{exercise_id}` permite editar título, frase, resposta correta, tradução etc. A edição reflete em todos os lotes do histórico que contêm esse exercício.
+- **Submissões "OK — Visualizado" agora é permanente**: `POST /exercises/submissions/dismiss` marca o grupo aluno+dia como visualizado no banco, então ele não reaparece mesmo depois de atualizar a página.
+
 ## Próximas etapas
 
 1. ✅ Autenticação (professor / aluno, aprovação manual)

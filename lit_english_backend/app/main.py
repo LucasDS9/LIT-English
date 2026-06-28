@@ -1,5 +1,5 @@
 """
-Ponto de entrada da aplicação FastAPI — v19.
+Ponto de entrada da aplicação FastAPI — v18.
 Startup: cria tabelas + roda migrações automáticas (Railway / Railway-like).
 """
 import logging
@@ -22,7 +22,7 @@ logger.info("Rodando migrações...")
 run_migrations()
 logger.info("Banco de dados pronto.")
 
-app = FastAPI(title="LIT English API", version="0.19.0")
+app = FastAPI(title="LIT English API", version="0.18.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -43,4 +43,4 @@ app.include_router(tts.router)
 
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "LIT English API v19 está no ar 🚀"}
+    return {"status": "ok", "message": "LIT English API v18 está no ar 🚀"}

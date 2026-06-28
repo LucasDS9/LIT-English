@@ -157,7 +157,7 @@ def run_migrations():
             )
             conn.commit()
 
-        # ── 6. Tabelas de lotes de exercícios (novas no V18/V19) ──────────
+        # ── 6. Tabelas de lotes de exercícios (novas na V18) ──────────────
         # O create_all() já cria estas tabelas se não existirem, mas garantimos
         # aqui de forma explícita para máxima segurança no Railway.
 
@@ -205,5 +205,16 @@ def run_migrations():
                 )
             )
             conn.commit()
+
+        # ── 7. exercise_submissions.dismissed_by_professor (novo na V18) ──
+        if _table_exists(conn, "exercise_submissions"):
+            if not _col_exists(conn, "exercise_submissions", "dismissed_by_professor"):
+                logger.info("Migração: adicionando exercise_submissions.dismissed_by_professor")
+                conn.execute(
+                    text(
+                        "ALTER TABLE exercise_submissions ADD COLUMN dismissed_by_professor BOOLEAN NOT NULL DEFAULT 0"
+                    )
+                )
+                conn.commit()
 
         logger.info("run_migrations() concluído com sucesso.")
