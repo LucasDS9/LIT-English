@@ -9,6 +9,7 @@ from datetime import timedelta
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
@@ -629,14 +630,14 @@ async def submit_audio_answer(
         raise HTTPException(status_code=400, detail="Áudio muito curto ou inválido.")
 
     try:
-        transcribed_text = transcribe(audio_bytes, "english")
+        transcribed_text = await run_in_threadpool(transcribe, audio_bytes, "english")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro na transcrição: {e}")
 
     if not transcribed_text:
         transcribed_text = ""
 
-    judgment = judge_answer(exercise.correct_answer, transcribed_text)
+    judgment = await run_in_threadpool(judge_answer, exercise.correct_answer, transcribed_text)
     is_correct = judgment["correct"]
 
     db.add(ExerciseSubmission(
