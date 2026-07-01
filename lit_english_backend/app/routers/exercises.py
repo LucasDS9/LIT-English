@@ -9,7 +9,6 @@ from datetime import timedelta
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
-from starlette.concurrency import run_in_threadpool
 
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
@@ -24,7 +23,6 @@ from app.models import (
     User,
     UserRole,
 )
-from app.ai_judge import judge_answer
 from app.routers.pronunciation import transcribe
 from app.schemas import (
     ExerciseAnswerResult,
@@ -51,18 +49,6 @@ router = APIRouter(prefix="/exercises", tags=["Exercícios"])
 
 def _normalize(text: str) -> str:
     return text.strip().lower().rstrip(".,!?")
-
-
-def _build_context(exercise: Exercise, given_answer: str) -> str | None:
-    """
-    Monta a frase completa em que a resposta se encaixa, quando o exercício
-    tem part1/part2 (lacuna no meio de uma frase). Ajuda a IA a julgar
-    concordância/tempo verbal olhando pra frase toda, não só a palavra
-    isolada. Se não houver part1/part2, retorna None (não é uma lacuna).
-    """
-    if not exercise.part1 and not exercise.part2:
-        return None
-    return f"{exercise.part1 or ''} {given_answer} {exercise.part2 or ''}".strip()
 
 
 def _schedule_after_submit(progress, is_correct):
@@ -585,9 +571,7 @@ def submit_answer(
     if not exercise:
         raise HTTPException(status_code=404, detail="Exercício não encontrado.")
 
-    context = _build_context(exercise, payload.answer)
-    judgment = judge_answer(exercise.correct_answer, payload.answer, context=context)
-    is_correct = judgment["correct"]
+    is_correct = _normalize(payload.answer) == _normalize(exercise.correct_answer)
 
     db.add(ExerciseSubmission(
         student_id=user.id,
@@ -607,11 +591,7 @@ def submit_answer(
 
     db.commit()
 
-    return ExerciseAnswerResult(
-        correct=is_correct,
-        correct_answer=exercise.correct_answer,
-        feedback=judgment["reason"],
-    )
+    return ExerciseAnswerResult(correct=is_correct, correct_answer=exercise.correct_answer)
 
 
 @router.post("/{exercise_id}/submit-audio", response_model=ExerciseAnswerResult)
@@ -630,15 +610,16 @@ async def submit_audio_answer(
         raise HTTPException(status_code=400, detail="Áudio muito curto ou inválido.")
 
     try:
-        transcribed_text = await run_in_threadpool(transcribe, audio_bytes, "english")
+        transcribed_text = transcribe(audio_bytes, "english")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro na transcrição: {e}")
 
     if not transcribed_text:
         transcribed_text = ""
 
-    judgment = await run_in_threadpool(judge_answer, exercise.correct_answer, transcribed_text)
-    is_correct = judgment["correct"]
+    exp = _normalize(exercise.correct_answer)
+    got = _normalize(transcribed_text)
+    is_correct = exp == got
 
     db.add(ExerciseSubmission(
         student_id=user.id,
@@ -662,5 +643,4 @@ async def submit_audio_answer(
         correct=is_correct,
         correct_answer=exercise.correct_answer,
         transcribed_text=transcribed_text,
-        feedback=judgment["reason"],
     )
