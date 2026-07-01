@@ -205,18 +205,39 @@ function buildResultArea() {
   return resultArea;
 }
 
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str == null ? "" : String(str);
+  return div.innerHTML;
+}
+
 function showResult(resultArea, result) {
   resultArea.hidden = false;
+  const feedbackHtml = result.feedback
+    ? `<div style="font-size:13px;font-weight:400;margin-top:4px;opacity:0.9;">${escapeHtml(result.feedback)}</div>`
+    : "";
+
   if (result.correct) {
     resultArea.style.background = "#f0faf4";
     resultArea.style.border = "1px solid #b7dfc7";
-    const said = result.transcribed_text ? ` Você disse: "${result.transcribed_text}"` : "";
-    resultArea.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#155724" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><span style="color:#155724;font-weight:600;">Correto!<span style="font-weight:400;">${said}</span></span>`;
+    const said = result.transcribed_text ? ` Você disse: "${result.transcribed_text}".` : "";
+    // Se o que o aluno falou/digitou for diferente (palavra por palavra) da
+    // resposta "oficial", mostramos a frase esperada mesmo assim — a IA
+    // aceitou por ter o mesmo sentido, mas é bom o aluno ver a forma de
+    // referência.
+    const givenText = result.transcribed_text || "";
+    const givenNormalized = givenText.trim().toLowerCase().replace(/[.,!?]+$/, "");
+    const expectedNormalized = (result.correct_answer || "").trim().toLowerCase().replace(/[.,!?]+$/, "");
+    const showExpected =
+      givenText && givenNormalized !== expectedNormalized
+        ? ` <span style="font-weight:400;">Resposta esperada: <strong>${result.correct_answer}</strong> — sua frase também está certa!</span>`
+        : "";
+    resultArea.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#155724" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><div><span style="color:#155724;font-weight:600;">Correto!<span style="font-weight:400;">${said}</span>${showExpected}</span>${feedbackHtml}</div>`;
   } else {
     resultArea.style.background = "#fff5f5";
     resultArea.style.border = "1px solid #f5c6cb";
     const said = result.transcribed_text ? ` Você disse: "${result.transcribed_text}".` : "";
-    resultArea.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9 9 15M9 9l6 6"/></svg><span style="color:#721c24;font-weight:600;">Errado!${said} <span style="font-weight:400;">A resposta correta era: <strong>${result.correct_answer}</strong></span></span>`;
+    resultArea.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9 9 15M9 9l6 6"/></svg><div><span style="color:#721c24;font-weight:600;">Errado!${said} <span style="font-weight:400;">A resposta correta era: <strong>${result.correct_answer}</strong></span></span>${feedbackHtml}</div>`;
   }
 }
 
@@ -245,6 +266,39 @@ function makeButton(label, variant) {
 }
 
 // ---------------------------------------------------------------------------
+// Input que cresce/encolhe conforme o texto digitado (usado no blank do
+// "Fill in the blank"). Usa um <span> escondido pra medir a largura real do
+// texto com a mesma fonte do input, e ajusta o width dentro de um mínimo e
+// um máximo pra não quebrar o layout.
+// ---------------------------------------------------------------------------
+
+function autoGrowInput(input, { min = 60, max = 520, extra = 26 } = {}) {
+  const mirror = document.createElement("span");
+  mirror.style.cssText = "position:absolute;visibility:hidden;white-space:pre;top:-9999px;left:-9999px;";
+  document.body.appendChild(mirror);
+
+  const sync = () => {
+    const cs = window.getComputedStyle(input);
+    mirror.style.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    mirror.textContent = input.value || input.placeholder || "";
+    const measured = Math.ceil(mirror.getBoundingClientRect().width) + extra;
+    input.style.width = `${Math.min(max, Math.max(min, measured))}px`;
+  };
+
+  input.addEventListener("input", sync);
+  requestAnimationFrame(sync);
+
+  // Remove o mirror do DOM quando o input sair de cena, pra não vazar nós.
+  const observer = new MutationObserver(() => {
+    if (!document.body.contains(input)) {
+      mirror.remove();
+      observer.disconnect();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+// ---------------------------------------------------------------------------
 // Fill in the blank
 // ---------------------------------------------------------------------------
 
@@ -262,8 +316,9 @@ function buildFillBlankCard(ex) {
 
   const input = document.createElement("input");
   input.type = "text";
-  input.style.cssText = "width:160px;text-align:center;border:2px solid var(--primary);border-radius:8px;padding:10px 12px;font-size:17px;font-weight:700;color:var(--primary);outline:none;background:var(--bg);";
+  input.style.cssText = "width:60px;min-width:60px;max-width:100%;text-align:center;border:2px solid var(--primary);border-radius:8px;padding:10px 12px;font-size:17px;font-weight:700;color:var(--primary);outline:none;background:var(--bg);transition:width 0.1s ease;";
   input.placeholder = "...";
+  autoGrowInput(input);
   sentenceRow.appendChild(input);
 
   if (ex.part2) {
@@ -357,24 +412,91 @@ async function fetchTtsAudioUrl(text) {
 function buildListenTypeCard(ex) {
   const { cardBox, body } = buildCardBox(ex, "Listen and type");
 
+  let audio = null;
+  let playbackRate = 1;
+
+  const playIcon = `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg>`;
+  const pauseIcon = `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" stroke="none"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`;
+
+  const playerRow = document.createElement("div");
+  playerRow.style.cssText = "display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;";
+
   const playBtn = document.createElement("button");
   playBtn.type = "button";
   playBtn.className = "speak-btn";
   playBtn.style.cssText = "width:56px;height:56px;";
-  playBtn.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg>`;
-  body.appendChild(playBtn);
+  playBtn.innerHTML = playIcon;
+  playerRow.appendChild(playBtn);
+
+  const speedRow = document.createElement("div");
+  speedRow.style.cssText = "display:flex;gap:6px;";
+
+  function setActiveSpeedBtn(activeBtn) {
+    [...speedRow.children].forEach((btn) => {
+      const active = btn === activeBtn;
+      btn.style.background = active ? "var(--primary)" : "var(--bg)";
+      btn.style.color = active ? "#fff" : "var(--primary)";
+    });
+  }
+
+  function makeSpeedBtn(label, rate) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = label;
+    btn.style.cssText = "border:2px solid var(--primary);border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;background:var(--bg);color:var(--primary);cursor:pointer;";
+    btn.addEventListener("click", () => {
+      playbackRate = rate;
+      if (audio) audio.playbackRate = rate;
+      setActiveSpeedBtn(btn);
+    });
+    return btn;
+  }
+
+  const speed075Btn = makeSpeedBtn("0.75x", 0.75);
+  const speed1Btn = makeSpeedBtn("1x", 1);
+  speedRow.appendChild(speed075Btn);
+  speedRow.appendChild(speed1Btn);
+  setActiveSpeedBtn(speed1Btn); // 1x é o padrão
+  playerRow.appendChild(speedRow);
+
+  body.appendChild(playerRow);
+
+  const setPlayingState = (isPlaying) => {
+    playBtn.innerHTML = isPlaying ? pauseIcon : playIcon;
+  };
 
   playBtn.addEventListener("click", async () => {
-    playBtn.disabled = true;
     try {
+      if (audio && !audio.paused) {
+        // Já tocando -> pausa (mantém posição pra retomar depois)
+        audio.pause();
+        setPlayingState(false);
+        return;
+      }
+      if (audio && audio.currentTime > 0 && !audio.ended) {
+        // Pausado no meio -> retoma de onde parou
+        audio.playbackRate = playbackRate;
+        await audio.play();
+        setPlayingState(true);
+        return;
+      }
+      // Primeira vez, ou já tinha terminado -> carrega e toca do início
+      playBtn.disabled = true;
       const url = await fetchTtsAudioUrl(ex.prompt);
-      const audio = new Audio(url);
-      audio.addEventListener("ended", () => { playBtn.disabled = false; });
-      audio.addEventListener("error", () => { playBtn.disabled = false; });
+      audio = new Audio(url);
+      audio.playbackRate = playbackRate;
+      audio.addEventListener("ended", () => setPlayingState(false));
+      audio.addEventListener("error", () => {
+        showToast("Erro ao tocar o áudio.");
+        setPlayingState(false);
+      });
+      playBtn.disabled = false;
       await audio.play();
+      setPlayingState(true);
     } catch {
       showToast("Erro ao tocar o áudio.");
       playBtn.disabled = false;
+      setPlayingState(false);
     }
   });
 

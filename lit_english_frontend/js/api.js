@@ -5,6 +5,7 @@
 
 // Ajuste esta URL para onde o backend estiver rodando.
 // Em desenvolvimento local (uvicorn app.main:app --reload) o padrão é:
+// const API_BASE_URL = "http://localhost:8000";
 const API_BASE_URL = "https://litenglish.up.railway.app";
 
 const TOKEN_KEY = "lit_token";
