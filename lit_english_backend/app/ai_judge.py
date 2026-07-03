@@ -6,7 +6,7 @@ certa (seja ela digitada — "Fill in the blank" e "Listen and type" — ou
 falada e transcrita pelo Faster-Whisper — "Speak it!"), SEM exigir que seja
 idêntica, palavra por palavra, à resposta esperada.
 
-Critério de "certo":
+Critério de "certo aaa":
   1. A resposta do aluno é gramaticalmente correta em inglês (no contexto da
      frase, quando aplicável).
   2. A resposta do aluno tem o MESMO SENTIDO da resposta esperada (paráfrases
