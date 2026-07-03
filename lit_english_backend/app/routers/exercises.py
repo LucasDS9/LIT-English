@@ -20,9 +20,11 @@ from app.models import (
     ExerciseBatchStudent,
     ExerciseProgress,
     ExerciseSubmission,
+    ExerciseType,
     User,
     UserRole,
 )
+from app.ai_judge import judge_answer
 from app.routers.pronunciation import transcribe
 from app.schemas import (
     ExerciseAnswerResult,
@@ -61,6 +63,13 @@ def _schedule_after_submit(progress, is_correct):
         days = 1
     progress.last_reviewed = utcnow()
     progress.next_review = utcnow() + timedelta(days=days)
+
+
+def _exercise_context(exercise: Exercise) -> str:
+    """Monta a frase completa do exercício (quando houver) para dar contexto à IA."""
+    if exercise.part1 or exercise.part2:
+        return f"{exercise.part1 or ''} ___ {exercise.part2 or ''}".strip()
+    return exercise.prompt or ""
 
 
 def _get_assignment(db: Session, student_id: int, exercise_id: int) -> ExerciseAssignment | None:
@@ -571,7 +580,19 @@ def submit_answer(
     if not exercise:
         raise HTTPException(status_code=404, detail="Exercício não encontrado.")
 
-    is_correct = _normalize(payload.answer) == _normalize(exercise.correct_answer)
+    reason: str | None = None
+    if exercise.type == ExerciseType.word_choice:
+        # Múltipla escolha: a resposta vem de uma lista fixa de opções, então
+        # comparação exata é suficiente (e mais rápida) — não precisa da IA.
+        is_correct = _normalize(payload.answer) == _normalize(exercise.correct_answer)
+    else:
+        result = judge_answer(
+            expected=exercise.correct_answer,
+            given=payload.answer,
+            context=_exercise_context(exercise),
+        )
+        is_correct = result["correct"]
+        reason = result["reason"]
 
     db.add(ExerciseSubmission(
         student_id=user.id,
@@ -591,7 +612,7 @@ def submit_answer(
 
     db.commit()
 
-    return ExerciseAnswerResult(correct=is_correct, correct_answer=exercise.correct_answer)
+    return ExerciseAnswerResult(correct=is_correct, correct_answer=exercise.correct_answer, reason=reason)
 
 
 @router.post("/{exercise_id}/submit-audio", response_model=ExerciseAnswerResult)
@@ -617,9 +638,13 @@ async def submit_audio_answer(
     if not transcribed_text:
         transcribed_text = ""
 
-    exp = _normalize(exercise.correct_answer)
-    got = _normalize(transcribed_text)
-    is_correct = exp == got
+    result = judge_answer(
+        expected=exercise.correct_answer,
+        given=transcribed_text,
+        context=_exercise_context(exercise),
+    )
+    is_correct = result["correct"]
+    reason = result["reason"]
 
     db.add(ExerciseSubmission(
         student_id=user.id,
@@ -643,4 +668,5 @@ async def submit_audio_answer(
         correct=is_correct,
         correct_answer=exercise.correct_answer,
         transcribed_text=transcribed_text,
+        reason=reason,
     )

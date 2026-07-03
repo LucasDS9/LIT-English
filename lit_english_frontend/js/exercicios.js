@@ -207,16 +207,19 @@ function buildResultArea() {
 
 function showResult(resultArea, result) {
   resultArea.hidden = false;
+  const reasonHtml = result.reason
+    ? `<div style="font-weight:400;font-size:0.9em;margin-top:4px;">${result.reason}</div>`
+    : "";
   if (result.correct) {
     resultArea.style.background = "#f0faf4";
     resultArea.style.border = "1px solid #b7dfc7";
     const said = result.transcribed_text ? ` Você disse: "${result.transcribed_text}"` : "";
-    resultArea.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#155724" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><span style="color:#155724;font-weight:600;">Correto!<span style="font-weight:400;">${said}</span></span>`;
+    resultArea.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#155724" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><span style="color:#155724;font-weight:600;">Correto!<span style="font-weight:400;">${said}</span>${reasonHtml}</span>`;
   } else {
     resultArea.style.background = "#fff5f5";
     resultArea.style.border = "1px solid #f5c6cb";
     const said = result.transcribed_text ? ` Você disse: "${result.transcribed_text}".` : "";
-    resultArea.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9 9 15M9 9l6 6"/></svg><span style="color:#721c24;font-weight:600;">Errado!${said} <span style="font-weight:400;">A resposta correta era: <strong>${result.correct_answer}</strong></span></span>`;
+    resultArea.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9 9 15M9 9l6 6"/></svg><span style="color:#721c24;font-weight:600;">Errado!${said} <span style="font-weight:400;">A resposta correta era: <strong>${result.correct_answer}</strong></span>${reasonHtml}</span>`;
   }
 }
 

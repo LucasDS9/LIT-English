@@ -208,6 +208,7 @@ class ExerciseAnswerResult(BaseModel):
     correct: bool
     correct_answer: str
     transcribed_text: Optional[str] = None
+    reason: Optional[str] = None
 
 
 class ExerciseSubmissionOut(BaseModel):
