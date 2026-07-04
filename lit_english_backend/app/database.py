@@ -146,6 +146,46 @@ def _fix_fk_ondelete(conn, table, column, ref_table, ref_column, action):
     )
 
 
+def _enum_value_exists(conn, enum_name: str, value: str) -> bool:
+    row = conn.execute(
+        text(
+            """
+            SELECT 1
+            FROM pg_type t
+            JOIN pg_enum e ON e.enumtypid = t.oid
+            WHERE t.typname = :enum_name AND e.enumlabel = :value
+            """
+        ),
+        {"enum_name": enum_name, "value": value},
+    ).first()
+    return row is not None
+
+
+def _add_enum_value(conn, enum_name: str, value: str):
+    """Adiciona um valor a um enum do Postgres, se ainda não existir.
+
+    Necessário porque Base.metadata.create_all() só cria tipos enum que ainda
+    não existem — se o enum já existe no banco (criado numa versão anterior
+    do models.py), novos valores adicionados ao Enum do Python (ex.: quando
+    ExerciseType ganhou "translate") nunca chegam ao banco sozinhos, causando
+    erro "invalid input value for enum ..." ao tentar inserir esse valor.
+    """
+    if _enum_value_exists(conn, enum_name, value):
+        return
+    # ALTER TYPE ... ADD VALUE não pode rodar dentro do mesmo bloco de
+    # transação em que o valor novo é usado, mas sozinho funciona
+    # normalmente a partir do Postgres 12.
+    conn.execute(text(f"ALTER TYPE {enum_name} ADD VALUE IF NOT EXISTS '{value}'"))
+    logger.info("Valor '%s' adicionado ao enum %s.", value, enum_name)
+
+
+# Enums que ganharam valores novos depois de já existirem em produção.
+# Formato: (nome_do_tipo_enum_no_postgres, valor_novo)
+_ENUM_VALUE_FIXES = [
+    ("exercisetype", "translate"),
+]
+
+
 def run_migrations():
     """
     Migrações incrementais e seguras (não apagam dados), portáveis entre bancos.
@@ -173,6 +213,18 @@ def run_migrations():
     """
     if engine.dialect.name == "postgresql":
         with engine.connect() as conn:
+            for enum_name, value in _ENUM_VALUE_FIXES:
+                try:
+                    _add_enum_value(conn, enum_name, value)
+                    conn.commit()
+                except Exception:
+                    logger.exception(
+                        "Falha ao adicionar valor '%s' ao enum %s (ignorando).",
+                        value, enum_name,
+                    )
+                    conn.rollback()
+                    continue
+
             for table, column, ref_table, ref_column, action in _FK_ONDELETE_FIXES:
                 try:
                     if _table_exists(conn, table):
