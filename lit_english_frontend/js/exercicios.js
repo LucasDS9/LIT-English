@@ -200,7 +200,7 @@ function buildCardBox(ex, badgeLabel) {
 
 function buildResultArea() {
   const resultArea = document.createElement("div");
-  resultArea.style.cssText = "width:100%;border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:10px;text-align:left;";
+  resultArea.style.cssText = "width:100%;max-width:100%;box-sizing:border-box;border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:10px;text-align:left;overflow-wrap:break-word;word-break:break-word;";
   resultArea.hidden = true;
   return resultArea;
 }
@@ -255,7 +255,7 @@ function buildFillBlankCard(ex) {
   const { cardBox, body } = buildCardBox(ex, "Fill in the blank");
 
   const sentenceRow = document.createElement("div");
-  sentenceRow.style.cssText = "display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;font-size:18px;font-weight:500;color:var(--text);";
+  sentenceRow.style.cssText = "display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;font-size:18px;font-weight:500;color:var(--text);width:100%;max-width:100%;box-sizing:border-box;overflow-wrap:break-word;word-break:break-word;";
 
   if (ex.part1) {
     const p1 = document.createElement("span");
@@ -364,16 +364,40 @@ function buildListenTypeCard(ex) {
   playBtn.type = "button";
   playBtn.className = "speak-btn";
   playBtn.style.cssText = "width:56px;height:56px;";
-  playBtn.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" stroke="none"><path d="M8 5v14l11-7z"/></svg>`;
+  playBtn.innerHTML = Icons.play;
   body.appendChild(playBtn);
 
+  // Mantém a instância de áudio para permitir pausar/retomar sem recarregar o TTS.
+  let currentAudio = null;
+
   playBtn.addEventListener("click", async () => {
+    // Já existe áudio carregado: apenas alterna entre pausar e retomar.
+    if (currentAudio) {
+      if (currentAudio.paused) {
+        currentAudio.play().catch(() => showToast("Erro ao tocar o áudio."));
+      } else {
+        currentAudio.pause();
+      }
+      return;
+    }
+
     playBtn.disabled = true;
     try {
       const url = await fetchTtsAudioUrl(ex.prompt);
       const audio = new Audio(url);
-      audio.addEventListener("ended", () => { playBtn.disabled = false; });
-      audio.addEventListener("error", () => { playBtn.disabled = false; });
+      currentAudio = audio;
+
+      audio.addEventListener("play", () => { playBtn.innerHTML = Icons.pause; });
+      audio.addEventListener("pause", () => { playBtn.innerHTML = Icons.play; });
+      audio.addEventListener("ended", () => { playBtn.innerHTML = Icons.play; });
+      audio.addEventListener("error", () => {
+        showToast("Erro ao tocar o áudio.");
+        currentAudio = null;
+        playBtn.innerHTML = Icons.play;
+        playBtn.disabled = false;
+      });
+
+      playBtn.disabled = false;
       await audio.play();
     } catch {
       showToast("Erro ao tocar o áudio.");

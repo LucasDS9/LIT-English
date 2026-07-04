@@ -10,7 +10,7 @@
   --primary-dark: #6B1814;
   --primary-pale: #FCEEEC;
   --primary-pale-border: #F4D9D6;
-  --nav-inactive: #3B5CA4;
+  --nav-inactive: #1A1A1A;
 
   --sidebar-bg: #FAFAFA;
   --bg: #FFFFFF;
@@ -369,7 +369,7 @@ svg {
 }
 
 .nav-item:hover {
-  background: rgba(59, 92, 164, 0.07);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .nav-item.active {
@@ -531,15 +531,16 @@ svg {
 
 .review-area-centered .review-card {
   min-height: 420px;
+  height: auto;
   padding: 40px 56px 48px;
 }
 
 .review-area-centered .front-text {
-  font-size: 42px;
+  font-size: clamp(22px, 4vw, 42px);
 }
 
 .review-area-centered .back-text {
-  font-size: 28px;
+  font-size: clamp(16px, 3vw, 28px);
 }
 
 .review-area-centered .speak-btn {
@@ -571,8 +572,12 @@ svg {
   box-shadow: var(--shadow-sm);
   padding: 28px 36px 36px;
   min-height: 290px;
+  height: auto;
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  transition: min-height 0.2s ease;
 }
 
 .review-card .counter {
@@ -590,22 +595,32 @@ svg {
   gap: 18px;
   text-align: center;
   padding: 10px 0 4px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .review-card .front-text {
-  font-size: 30px;
+  font-size: clamp(20px, 4vw, 30px);
   font-weight: 800;
   letter-spacing: 0.3px;
   text-transform: uppercase;
   color: var(--text);
   margin: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .review-card .back-text {
-  font-size: 22px;
+  font-size: clamp(16px, 3vw, 22px);
   font-weight: 700;
   color: var(--primary);
   margin: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .speak-btn {
