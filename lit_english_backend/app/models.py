@@ -138,6 +138,7 @@ class ExerciseType(str, enum.Enum):
     fill_blank = "fill_blank"
     word_choice = "word_choice"
     speaking = "speaking"
+    translate = "translate"
 
 
 class Exercise(Base):

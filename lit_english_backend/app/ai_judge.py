@@ -133,8 +133,10 @@ recebe:
 - "expected": a resposta que o aluno deveria dar.
 - "given": o que o aluno realmente respondeu (pode ter vindo de texto digitado ou de
   transcrição por reconhecimento de voz).
-- "context" (pode vir vazio): a frase completa em que a resposta se encaixa, útil quando
-  "expected"/"given" são só uma palavra ou trecho de uma lacuna a preencher.
+- "context" (pode vir vazio): contexto extra para ajudar a julgar — pode ser a frase completa em
+  que a resposta se encaixa (quando "expected"/"given" são só uma palavra ou trecho de uma lacuna
+  a preencher), ou a frase em português que o aluno deveria traduzir para o inglês (em exercícios
+  de tradução).
 
 Decida se a resposta do aluno está CORRETA. Ela está correta se, E SOMENTE SE, as duas
 condições abaixo forem verdadeiras:

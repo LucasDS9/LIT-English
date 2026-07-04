@@ -1082,20 +1082,25 @@ function buildExerciciosView(container) {
   const typeSpeak = document.createElement("button");
   typeSpeak.className = "btn btn-outline btn-sm";
   typeSpeak.textContent = "Falar (Whisper)";
+  const typeTranslate = document.createElement("button");
+  typeTranslate.className = "btn btn-outline btn-sm";
+  typeTranslate.textContent = "Traduzir (PT → EN)";
   typeRow.appendChild(typeFill);
   typeRow.appendChild(typeWord);
   typeRow.appendChild(typeSpeak);
+  typeRow.appendChild(typeTranslate);
   formCard.appendChild(typeRow);
 
   let currentType = "fill_blank";
   function setActiveTypeButton(btn) {
-    [typeFill, typeWord, typeSpeak].forEach(b => {
+    [typeFill, typeWord, typeSpeak, typeTranslate].forEach(b => {
       b.className = b === btn ? "btn btn-primary btn-sm" : "btn btn-outline btn-sm";
     });
   }
-  typeFill.addEventListener("click",  () => { currentType = "fill_blank"; setActiveTypeButton(typeFill);  fillFields.hidden = false; wordFields.hidden = true;  speakFields.hidden = true; });
-  typeWord.addEventListener("click",  () => { currentType = "word_choice"; setActiveTypeButton(typeWord); fillFields.hidden = true;  wordFields.hidden = false; speakFields.hidden = true; });
-  typeSpeak.addEventListener("click", () => { currentType = "speaking";    setActiveTypeButton(typeSpeak); fillFields.hidden = true; wordFields.hidden = true;  speakFields.hidden = false; });
+  typeFill.addEventListener("click",  () => { currentType = "fill_blank";  setActiveTypeButton(typeFill);      fillFields.hidden = false; wordFields.hidden = true;  speakFields.hidden = true;  translateFields.hidden = true; });
+  typeWord.addEventListener("click",  () => { currentType = "word_choice"; setActiveTypeButton(typeWord);      fillFields.hidden = true;  wordFields.hidden = false; speakFields.hidden = true;  translateFields.hidden = true; });
+  typeSpeak.addEventListener("click", () => { currentType = "speaking";    setActiveTypeButton(typeSpeak);     fillFields.hidden = true;  wordFields.hidden = true;  speakFields.hidden = false; translateFields.hidden = true; });
+  typeTranslate.addEventListener("click", () => { currentType = "translate"; setActiveTypeButton(typeTranslate); fillFields.hidden = true; wordFields.hidden = true; speakFields.hidden = true; translateFields.hidden = false; });
 
   // Title field
   const titleField = document.createElement("div");
@@ -1160,6 +1165,21 @@ function buildExerciciosView(container) {
   speakFields.appendChild(speakHint);
   formCard.appendChild(speakFields);
 
+  // ---- Translate (PT → EN, corrigido pela IA) fields ----
+  const translateFields = document.createElement("div"); translateFields.hidden = true;
+  const translatePt = document.createElement("div"); translatePt.style.marginBottom = "12px";
+  translatePt.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Frase em português (o aluno vai traduzir)</label>';
+  const translatePtInput = document.createElement("input"); translatePtInput.type = "text"; translatePtInput.placeholder = "Ex: Eu preciso terminar meu trabalho até amanhã."; translatePtInput.style.cssText = "width:100%;margin-top:4px;";
+  translatePt.appendChild(translatePtInput); translateFields.appendChild(translatePt);
+  const translateEn = document.createElement("div"); translateEn.style.marginBottom = "12px";
+  translateEn.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Resposta esperada em inglês</label>';
+  const translateEnInput = document.createElement("input"); translateEnInput.type = "text"; translateEnInput.placeholder = "Ex: I need to finish my work by tomorrow."; translateEnInput.style.cssText = "width:100%;margin-top:4px;";
+  translateEn.appendChild(translateEnInput); translateFields.appendChild(translateEn);
+  const translateHint = document.createElement("p"); translateHint.style.cssText = "font-size:12px;color:#888;margin:0 0 4px;";
+  translateHint.textContent = "O aluno vai ler a frase em português e digitar a tradução em inglês. A resposta é corrigida pela IA, que aceita paráfrases e sinônimos com o mesmo sentido.";
+  translateFields.appendChild(translateHint);
+  formCard.appendChild(translateFields);
+
   const errorBox = document.createElement("p");
   errorBox.style.cssText = "color:#861E19;font-size:13px;";
   errorBox.hidden = true;
@@ -1182,18 +1202,23 @@ function buildExerciciosView(container) {
       const sentence = wordSentenceInput.value.trim();
       if (!sentence) { errorBox.textContent = "Informe a frase em inglês."; errorBox.hidden = false; return; }
       payload = { title, type: "word_choice", part1: null, part2: null, prompt: sentence, correct_answer: sentence, translation: null, word_choices: null };
-    } else {
+    } else if (currentType === "speaking") {
       const pt = speakPtInput.value.trim(), en = speakEnInput.value.trim();
       if (!pt) { errorBox.textContent = "Informe a frase em português."; errorBox.hidden = false; return; }
       if (!en) { errorBox.textContent = "Informe a tradução em inglês."; errorBox.hidden = false; return; }
       payload = { title, type: "speaking", part1: null, part2: null, prompt: pt, correct_answer: en, translation: null, word_choices: null };
+    } else {
+      const pt = translatePtInput.value.trim(), en = translateEnInput.value.trim();
+      if (!pt) { errorBox.textContent = "Informe a frase em português."; errorBox.hidden = false; return; }
+      if (!en) { errorBox.textContent = "Informe a resposta esperada em inglês."; errorBox.hidden = false; return; }
+      payload = { title, type: "translate", part1: null, part2: null, prompt: pt, correct_answer: en, translation: null, word_choices: null };
     }
 
     addBtn.disabled = true; addBtn.textContent = "Adicionando...";
     try {
       const ex = await apiFetch("/exercises", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       pendingExercises.push(ex);
-      titleInput.value = ""; part1Input.value = ""; part2Input.value = ""; blankInput.value = ""; fillTransInput.value = ""; wordSentenceInput.value = ""; speakPtInput.value = ""; speakEnInput.value = "";
+      titleInput.value = ""; part1Input.value = ""; part2Input.value = ""; blankInput.value = ""; fillTransInput.value = ""; wordSentenceInput.value = ""; speakPtInput.value = ""; speakEnInput.value = ""; translatePtInput.value = ""; translateEnInput.value = "";
       showToast("Exercício adicionado à lista.");
       renderPendingList();
     } catch (err) {
@@ -1230,6 +1255,7 @@ function buildExerciciosView(container) {
       const sub = document.createElement("span"); sub.style.cssText = "font-size:13px;color:#666;margin-left:8px;";
       if (ex.type === "fill_blank")      sub.textContent = `${ex.part1 || ""} ___ ${ex.part2 || ""} → ${ex.correct_answer}`;
       else if (ex.type === "speaking")   sub.textContent = `🎤 "${ex.prompt}" → ${ex.correct_answer}`;
+      else if (ex.type === "translate")  sub.textContent = `🌐 "${ex.prompt}" → ${ex.correct_answer}`;
       else                               sub.textContent = `🔊 "${ex.prompt}" → ${ex.correct_answer}`;
       info.appendChild(label); info.appendChild(sub);
       const removeBtn = document.createElement("button"); removeBtn.className = "icon-btn"; removeBtn.innerHTML = Icons.trash; removeBtn.title = "Remover da lista";
@@ -1469,9 +1495,10 @@ async function loadHistorico(container) {
       const typeIcon = document.createElement("span");
       typeIcon.style.cssText = "display:flex;align-items:center;flex-shrink:0;";
       const style = 'width:14px;height:14px;flex-shrink:0;stroke:#861E19;';
-      if (ex.type === "word_choice")    typeIcon.innerHTML = Icons.headphones.replace('<svg ', `<svg style="${style}" `);
-      else if (ex.type === "speaking")  typeIcon.innerHTML = Icons.mic.replace('<svg ', `<svg style="${style}" `);
-      else                              typeIcon.innerHTML = Icons.edit.replace('<svg ', `<svg style="${style}" `);
+      if (ex.type === "word_choice")       typeIcon.innerHTML = Icons.headphones.replace('<svg ', `<svg style="${style}" `);
+      else if (ex.type === "speaking")     typeIcon.innerHTML = Icons.mic.replace('<svg ', `<svg style="${style}" `);
+      else if (ex.type === "translate")    typeIcon.innerHTML = Icons.translate.replace('<svg ', `<svg style="${style}" `);
+      else                                 typeIcon.innerHTML = Icons.edit.replace('<svg ', `<svg style="${style}" `);
       exRow.appendChild(typeIcon);
 
       const textWrap = document.createElement("div");
@@ -1592,7 +1619,7 @@ function openEditExerciseModal(ex, refsToUpdate) {
       prompt: sInput.value.trim(),
       correct_answer: sInput.value.trim(),
     });
-  } else {
+  } else if (ex.type === "speaking") {
     fieldsWrap = document.createElement("div");
     const ptField = document.createElement("div"); ptField.style.marginBottom = "12px";
     ptField.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Frase em português (o aluno lê)</label>';
@@ -1600,6 +1627,24 @@ function openEditExerciseModal(ex, refsToUpdate) {
     ptField.appendChild(ptInput); fieldsWrap.appendChild(ptField);
     const enField = document.createElement("div"); enField.style.marginBottom = "12px";
     enField.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Tradução em inglês (o aluno fala)</label>';
+    const enInput = document.createElement("input"); enInput.type = "text"; enInput.value = ex.correct_answer || ""; enInput.style.cssText = "width:100%;margin-top:4px;";
+    enField.appendChild(enInput); fieldsWrap.appendChild(enField);
+    modal.appendChild(fieldsWrap);
+
+    fieldsWrap._collect = () => ({
+      title: titleInput.value.trim(),
+      prompt: ptInput.value.trim(),
+      correct_answer: enInput.value.trim(),
+    });
+  } else {
+    // translate
+    fieldsWrap = document.createElement("div");
+    const ptField = document.createElement("div"); ptField.style.marginBottom = "12px";
+    ptField.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Frase em português (o aluno traduz)</label>';
+    const ptInput = document.createElement("input"); ptInput.type = "text"; ptInput.value = ex.prompt || ""; ptInput.style.cssText = "width:100%;margin-top:4px;";
+    ptField.appendChild(ptInput); fieldsWrap.appendChild(ptField);
+    const enField = document.createElement("div"); enField.style.marginBottom = "12px";
+    enField.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Resposta esperada em inglês</label>';
     const enInput = document.createElement("input"); enInput.type = "text"; enInput.value = ex.correct_answer || ""; enInput.style.cssText = "width:100%;margin-top:4px;";
     enField.appendChild(enInput); fieldsWrap.appendChild(enField);
     modal.appendChild(fieldsWrap);
@@ -1866,6 +1911,7 @@ async function renderExerciseProgressList(container, studentId) {
     if (t === "fill_blank") return "Fill the Blank";
     if (t === "word_choice") return "Listen & Type";
     if (t === "speaking") return "Speak It";
+    if (t === "translate") return "Translate";
     return t;
   };
 
@@ -1957,6 +2003,7 @@ function submissionTypeLabel(type) {
   if (type === "fill_blank")  return "Fill the Blank";
   if (type === "word_choice") return "Listen & Speak";
   if (type === "speaking")    return "Speak It";
+  if (type === "translate")   return "Translate";
   return type;
 }
 
@@ -1968,6 +2015,9 @@ function submissionTypeIcon(type) {
   }
   if (type === "speaking") {
     return Icons.mic.replace('<svg ', `<svg style="${style}" `);
+  }
+  if (type === "translate") {
+    return Icons.translate.replace('<svg ', `<svg style="${style}" `);
   }
   // fill_blank (default)
   return Icons.edit.replace('<svg ', `<svg style="${style}" `);

@@ -131,6 +131,8 @@ function renderCurrent() {
     cardBox = buildListenTypeCard(ex);
   } else if (ex.type === "speaking") {
     cardBox = buildSpeakingCard(ex);
+  } else if (ex.type === "translate") {
+    cardBox = buildTranslateCard(ex);
   } else {
     // Tipo desconhecido — avança automaticamente para não travar o carrossel
     session.index += 1;
@@ -616,6 +618,98 @@ function buildSpeakingCard(ex) {
   };
 
   confirmBtn.addEventListener("click", doConfirm);
+
+  return cardBox;
+}
+
+// ---------------------------------------------------------------------------
+// Translate — frase em português, resposta em inglês, corrigida pela IA
+// ---------------------------------------------------------------------------
+
+function buildTranslateCard(ex) {
+  const { cardBox, body } = buildCardBox(ex, "Translate");
+
+  const ptLabel = document.createElement("div");
+  ptLabel.style.cssText = "font-size:13px;font-weight:700;color:var(--primary);letter-spacing:1px;";
+  ptLabel.textContent = "Traduza para o inglês:";
+  body.appendChild(ptLabel);
+
+  const ptText = document.createElement("p");
+  ptText.className = "front-text";
+  ptText.style.cssText = "font-size:24px;text-transform:none;";
+  ptText.textContent = ex.prompt;
+  body.appendChild(ptText);
+
+  const inputLabel = document.createElement("div");
+  inputLabel.style.cssText = "font-size:14px;color:var(--text-secondary);";
+  inputLabel.textContent = "Digite a tradução em inglês:";
+  body.appendChild(inputLabel);
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.lang = "en";
+  input.autocomplete = "off";
+  input.autocapitalize = "off";
+  input.spellcheck = true;
+  input.style.cssText = "width:100%;max-width:380px;text-align:center;border:2px solid var(--primary);border-radius:8px;padding:12px 16px;font-size:17px;font-weight:700;color:var(--primary);outline:none;background:var(--bg);";
+  input.placeholder = "Type in English...";
+  body.appendChild(input);
+
+  const resultArea = buildResultArea();
+  body.appendChild(resultArea);
+
+  const { actions, hint, btnRow } = buildActions();
+  cardBox.appendChild(actions);
+
+  let confirmed = false;
+  let confirmedValue = "";
+
+  const confirmBtn = makeButton("Confirmar", "outline");
+  btnRow.appendChild(confirmBtn);
+  hint.textContent = "Digite a tradução em inglês e confirme.";
+
+  const doConfirm = () => {
+    const val = input.value.trim();
+    if (!val) { showToast("Digite uma resposta antes de confirmar."); return; }
+    confirmed = true;
+    confirmedValue = val;
+    input.disabled = true;
+
+    const sendBtn = makeButton("Enviar", "primary");
+    btnRow.innerHTML = "";
+    btnRow.appendChild(sendBtn);
+    hint.textContent = "Resposta confirmada. Envie para o professor.";
+    sendBtn.addEventListener("click", doSubmit);
+  };
+
+  const doSubmit = async () => {
+    const sendBtn = btnRow.querySelector("button");
+    sendBtn.disabled = true;
+    sendBtn.textContent = "Enviando...";
+
+    try {
+      const result = await apiFetch(`/exercises/${ex.id}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answer: confirmedValue }),
+      });
+      showResult(resultArea, result);
+      hint.textContent = "";
+      const nextBtn = makeButton("Próximo", "primary");
+      btnRow.innerHTML = "";
+      btnRow.appendChild(nextBtn);
+      nextBtn.addEventListener("click", goToNext);
+    } catch (err) {
+      showToast(err.message || "Erro ao enviar resposta.");
+      sendBtn.disabled = false;
+      sendBtn.textContent = "Enviar";
+    }
+  };
+
+  confirmBtn.addEventListener("click", doConfirm);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); if (!confirmed) doConfirm(); }
+  });
 
   return cardBox;
 }
