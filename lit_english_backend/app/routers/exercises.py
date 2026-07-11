@@ -464,6 +464,43 @@ def dismiss_submissions(
     return {"dismissed": affected}
 
 
+@router.delete("/student-progress/{student_id}/{exercise_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_exercise_from_student(
+    student_id: int,
+    exercise_id: int,
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    """
+    Remove um exercício apenas deste aluno (não afeta o exercício em si nem
+    os outros alunos que também o receberam). O exercício some da lista
+    "Exercícios dos Alunos" e do app do aluno.
+    """
+    student = db.query(User).filter(User.id == student_id, User.role == UserRole.aluno).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Aluno não encontrado.")
+
+    assignment = _get_assignment(db, student_id, exercise_id)
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Este exercício não está atribuído a este aluno.")
+
+    db.query(ExerciseAssignment).filter(
+        ExerciseAssignment.student_id == student_id,
+        ExerciseAssignment.exercise_id == exercise_id,
+    ).delete()
+    db.query(ExerciseSubmission).filter(
+        ExerciseSubmission.student_id == student_id,
+        ExerciseSubmission.exercise_id == exercise_id,
+    ).delete()
+    db.query(ExerciseProgress).filter(
+        ExerciseProgress.student_id == student_id,
+        ExerciseProgress.exercise_id == exercise_id,
+    ).delete()
+
+    db.commit()
+    return None
+
+
 @router.get("/student-progress/{student_id}", response_model=list[ExerciseProgressItemOut])
 def get_student_exercise_progress(
     student_id: int,

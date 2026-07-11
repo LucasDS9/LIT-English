@@ -16,6 +16,7 @@ from app.schemas import (
     CardProgressOut,
     FlashcardCreate,
     FlashcardOut,
+    FlashcardResendPayload,
     FlashcardUpdate,
     ReviewCardOut,
     ReviewQueueOut,
@@ -127,6 +128,48 @@ def delete_flashcard(
     db.delete(card)
     db.commit()
     return None
+
+
+@router.post("/resend", status_code=200)
+def resend_flashcards(
+    payload: FlashcardResendPayload,
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    """
+    Reenvia (atribui) um ou mais flashcards já existentes a outro(s) aluno(s),
+    sem afetar quem já os recebeu. Usado pelo botão "Selecionar" no
+    Vocabulário do aluno.
+    """
+    cards = db.query(Flashcard).filter(Flashcard.id.in_(payload.flashcard_ids)).all()
+    found_card_ids = {c.id for c in cards}
+    missing_cards = set(payload.flashcard_ids) - found_card_ids
+    if missing_cards:
+        raise HTTPException(status_code=404, detail=f"Flashcard(s) não encontrado(s): {list(missing_cards)}")
+
+    _validate_student_ids(payload.student_ids, db)
+
+    # Assignments já existentes, pra não duplicar (violaria a constraint única).
+    existing = (
+        db.query(FlashcardAssignment.flashcard_id, FlashcardAssignment.student_id)
+        .filter(
+            FlashcardAssignment.flashcard_id.in_(payload.flashcard_ids),
+            FlashcardAssignment.student_id.in_(payload.student_ids),
+        )
+        .all()
+    )
+    existing_pairs = {(fid, sid) for fid, sid in existing}
+
+    total = 0
+    for flashcard_id in payload.flashcard_ids:
+        for student_id in set(payload.student_ids):
+            if (flashcard_id, student_id) in existing_pairs:
+                continue
+            db.add(FlashcardAssignment(flashcard_id=flashcard_id, student_id=student_id))
+            total += 1
+
+    db.commit()
+    return {"assigned": total}
 
 
 # ============================================================

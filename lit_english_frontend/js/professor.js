@@ -369,15 +369,27 @@ function renderStudentVocabularySection(container, approvedStudents) {
   const wrap = document.createElement("div");
   wrap.style.cssText = "margin-top:36px;";
 
+  const headerRow = document.createElement("div");
+  headerRow.style.cssText = "display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;";
+
+  const titleBox = document.createElement("div");
   const title = document.createElement("h3");
   title.textContent = "Vocabulário do aluno";
   title.style.cssText = "font-size:16px;margin-bottom:4px;";
-  wrap.appendChild(title);
+  titleBox.appendChild(title);
 
   const subtitle = document.createElement("p");
   subtitle.style.cssText = "font-size:13px;color:#666;margin-bottom:14px;";
   subtitle.textContent = "Veja as palavras enviadas a um aluno e quando serão revisadas.";
-  wrap.appendChild(subtitle);
+  titleBox.appendChild(subtitle);
+  headerRow.appendChild(titleBox);
+
+  const selectModeBtn = document.createElement("button");
+  selectModeBtn.className = "btn btn-outline btn-sm";
+  selectModeBtn.style.cssText = "white-space:nowrap;flex-shrink:0;";
+  selectModeBtn.textContent = "Selecionar";
+  headerRow.appendChild(selectModeBtn);
+  wrap.appendChild(headerRow);
 
   const pickerRow = document.createElement("div");
   pickerRow.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:16px;";
@@ -404,6 +416,19 @@ function renderStudentVocabularySection(container, approvedStudents) {
   pickerRow.appendChild(select);
   wrap.appendChild(pickerRow);
 
+  // Barra de ação exibida no modo de seleção (some quando não há nada selecionado).
+  const selectionBar = document.createElement("div");
+  selectionBar.style.cssText = "display:none;align-items:center;gap:12px;margin-bottom:14px;";
+  const selectionCount = document.createElement("span");
+  selectionCount.style.cssText = "font-size:13px;color:#666;";
+  const resendSelectedBtn = document.createElement("button");
+  resendSelectedBtn.className = "btn btn-primary btn-sm";
+  resendSelectedBtn.textContent = "Reenviar selecionados";
+  resendSelectedBtn.disabled = true;
+  selectionBar.appendChild(selectionCount);
+  selectionBar.appendChild(resendSelectedBtn);
+  wrap.appendChild(selectionBar);
+
   const vocabBox = document.createElement("div");
   wrap.appendChild(vocabBox);
   container.appendChild(wrap);
@@ -413,11 +438,46 @@ function renderStudentVocabularySection(container, approvedStudents) {
     return;
   }
 
-  select.addEventListener("change", () => loadStudentVocabulary(vocabBox, select.value, approvedStudents));
-  loadStudentVocabulary(vocabBox, select.value, approvedStudents);
+  // Estado de seleção: mantido aqui fora, por aluno selecionado no picker.
+  const vocabState = { selectMode: false, selectedIds: new Set() };
+
+  const updateSelectionBar = () => {
+    const count = vocabState.selectedIds.size;
+    selectionBar.style.display = vocabState.selectMode ? "flex" : "none";
+    selectionCount.textContent = count === 0 ? "Nenhum flashcard selecionado" : `${count} flashcard${count === 1 ? "" : "s"} selecionado${count === 1 ? "" : "s"}`;
+    resendSelectedBtn.disabled = count === 0;
+  };
+
+  selectModeBtn.addEventListener("click", () => {
+    vocabState.selectMode = !vocabState.selectMode;
+    vocabState.selectedIds.clear();
+    selectModeBtn.textContent = vocabState.selectMode ? "Cancelar seleção" : "Selecionar";
+    updateSelectionBar();
+    loadStudentVocabulary(vocabBox, select.value, approvedStudents, vocabState, updateSelectionBar);
+  });
+
+  resendSelectedBtn.addEventListener("click", () => {
+    if (vocabState.selectedIds.size === 0) return;
+    openFlashcardResendModal(Array.from(vocabState.selectedIds), approvedStudents, select.value, () => {
+      vocabState.selectMode = false;
+      vocabState.selectedIds.clear();
+      selectModeBtn.textContent = "Selecionar";
+      updateSelectionBar();
+      loadStudentVocabulary(vocabBox, select.value, approvedStudents, vocabState, updateSelectionBar);
+    });
+  });
+
+  select.addEventListener("change", () => {
+    vocabState.selectedIds.clear();
+    updateSelectionBar();
+    loadStudentVocabulary(vocabBox, select.value, approvedStudents, vocabState, updateSelectionBar);
+  });
+
+  updateSelectionBar();
+  loadStudentVocabulary(vocabBox, select.value, approvedStudents, vocabState, updateSelectionBar);
 }
 
-async function loadStudentVocabulary(container, studentId, approvedStudents) {
+async function loadStudentVocabulary(container, studentId, approvedStudents, vocabState, updateSelectionBar) {
   container.innerHTML = '<div class="skeleton">Carregando vocabulário...</div>';
   try {
     const items = await apiFetch(`/flashcards/vocabulary/${studentId}`);
@@ -434,6 +494,21 @@ async function loadStudentVocabulary(container, studentId, approvedStudents) {
     items.forEach((item) => {
       const row = document.createElement("div");
       row.className = "list-row";
+
+      if (vocabState && vocabState.selectMode) {
+        const checkboxWrap = document.createElement("div");
+        checkboxWrap.style.cssText = "display:flex;align-items:center;margin-right:10px;";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = vocabState.selectedIds.has(item.flashcard_id);
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) vocabState.selectedIds.add(item.flashcard_id);
+          else vocabState.selectedIds.delete(item.flashcard_id);
+          updateSelectionBar();
+        });
+        checkboxWrap.appendChild(checkbox);
+        row.appendChild(checkboxWrap);
+      }
 
       const info = document.createElement("div");
       info.className = "info";
@@ -454,46 +529,49 @@ async function loadStudentVocabulary(container, studentId, approvedStudents) {
       status.textContent = formatReviewStatus(item);
       meta.appendChild(status);
 
-      const actions = document.createElement("div");
-      actions.className = "row-actions";
+      if (!vocabState || !vocabState.selectMode) {
+        const actions = document.createElement("div");
+        actions.className = "row-actions";
 
-      const editBtn = document.createElement("button");
-      editBtn.className = "icon-btn";
-      editBtn.title = "Editar";
-      editBtn.innerHTML = Icons.edit;
-      editBtn.addEventListener("click", async () => {
-        // Pega o flashcard completo (com a lista de alunos atribuídos)
-        // pra pré-preencher o modal de edição.
-        let fullCard;
-        try {
-          const allCards = await apiFetch("/flashcards");
-          fullCard = allCards.find((c) => c.id === item.flashcard_id);
-        } catch (err) {
-          showToast(err.message || "Não foi possível carregar o flashcard.");
-          return;
-        }
-        if (!fullCard) {
-          showToast("Flashcard não encontrado.");
-          return;
-        }
-        openFlashcardModal(fullCard, approvedStudents, () =>
-          loadStudentVocabulary(container, studentId, approvedStudents)
+        const editBtn = document.createElement("button");
+        editBtn.className = "icon-btn";
+        editBtn.title = "Editar";
+        editBtn.innerHTML = Icons.edit;
+        editBtn.addEventListener("click", async () => {
+          // Pega o flashcard completo (com a lista de alunos atribuídos)
+          // pra pré-preencher o modal de edição.
+          let fullCard;
+          try {
+            const allCards = await apiFetch("/flashcards");
+            fullCard = allCards.find((c) => c.id === item.flashcard_id);
+          } catch (err) {
+            showToast(err.message || "Não foi possível carregar o flashcard.");
+            return;
+          }
+          if (!fullCard) {
+            showToast("Flashcard não encontrado.");
+            return;
+          }
+          openFlashcardModal(fullCard, approvedStudents, () =>
+            loadStudentVocabulary(container, studentId, approvedStudents, vocabState, updateSelectionBar)
+          );
+        });
+        actions.appendChild(editBtn);
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "icon-btn danger";
+        deleteBtn.title = "Excluir";
+        deleteBtn.innerHTML = Icons.trash;
+        deleteBtn.addEventListener("click", () =>
+          deleteFlashcard(item.flashcard_id, () =>
+            loadStudentVocabulary(container, studentId, approvedStudents, vocabState, updateSelectionBar)
+          )
         );
-      });
-      actions.appendChild(editBtn);
+        actions.appendChild(deleteBtn);
 
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "icon-btn danger";
-      deleteBtn.title = "Excluir";
-      deleteBtn.innerHTML = Icons.trash;
-      deleteBtn.addEventListener("click", () =>
-        deleteFlashcard(item.flashcard_id, () =>
-          loadStudentVocabulary(container, studentId, approvedStudents)
-        )
-      );
-      actions.appendChild(deleteBtn);
+        meta.appendChild(actions);
+      }
 
-      meta.appendChild(actions);
       row.appendChild(meta);
 
       list.appendChild(row);
@@ -503,6 +581,93 @@ async function loadStudentVocabulary(container, studentId, approvedStudents) {
   } catch (err) {
     container.innerHTML = `<p style="color:#861E19;font-size:14px;">Erro: ${err.message}</p>`;
   }
+}
+
+// ── Modal reenviar flashcards selecionados ─────────────────────────────────
+
+function openFlashcardResendModal(flashcardIds, approvedStudents, currentStudentId, onDone) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+
+  const modal = document.createElement("div"); modal.className = "modal";
+
+  const mHeader = document.createElement("div"); mHeader.className = "modal-header";
+  const mTitle = document.createElement("h2"); mTitle.textContent = "Reenviar flashcards"; mHeader.appendChild(mTitle);
+  const closeBtn = document.createElement("button"); closeBtn.className = "icon-btn"; closeBtn.innerHTML = Icons.x;
+  closeBtn.addEventListener("click", () => overlay.remove());
+  mHeader.appendChild(closeBtn);
+  modal.appendChild(mHeader);
+
+  const p = document.createElement("p"); p.style.cssText = "margin-bottom:12px;font-size:14px;color:#555;";
+  p.innerHTML = `Reenviar <strong>${flashcardIds.length} flashcard${flashcardIds.length === 1 ? "" : "s"}</strong> para:`;
+  modal.appendChild(p);
+
+  const studentsBox = document.createElement("div");
+  studentsBox.style.cssText = "display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:12px;";
+  const checkboxes = [];
+  approvedStudents.forEach((s) => {
+    const lbl = document.createElement("label");
+    lbl.style.cssText = "display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;";
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = s.id;
+    cb.checked = String(s.id) === String(currentStudentId);
+    lbl.appendChild(cb);
+    const sp = document.createElement("span"); sp.textContent = s.name; lbl.appendChild(sp);
+    if (String(s.id) === String(currentStudentId)) {
+      const curTag = document.createElement("span");
+      curTag.style.cssText = "font-size:11px;color:#888;";
+      curTag.textContent = "(já recebeu)";
+      lbl.appendChild(curTag);
+    }
+    studentsBox.appendChild(lbl);
+    checkboxes.push(cb);
+  });
+  modal.appendChild(studentsBox);
+
+  const selAllBtn = document.createElement("button");
+  selAllBtn.className = "btn btn-outline btn-sm"; selAllBtn.style.marginBottom = "16px"; selAllBtn.textContent = "Selecionar todos";
+  selAllBtn.addEventListener("click", () => {
+    const allChecked = checkboxes.every((c) => c.checked);
+    checkboxes.forEach((c) => (c.checked = !allChecked));
+    selAllBtn.textContent = allChecked ? "Selecionar todos" : "Desmarcar todos";
+  });
+  modal.appendChild(selAllBtn);
+
+  const errBox = document.createElement("p"); errBox.style.cssText = "color:#861E19;font-size:13px;"; errBox.hidden = true;
+  modal.appendChild(errBox);
+
+  const actions = document.createElement("div"); actions.className = "modal-actions";
+  const cancelBtn = document.createElement("button"); cancelBtn.className = "btn btn-outline"; cancelBtn.textContent = "Cancelar";
+  cancelBtn.addEventListener("click", () => overlay.remove());
+  const confirmBtn = document.createElement("button"); confirmBtn.className = "btn btn-primary"; confirmBtn.textContent = "Reenviar";
+
+  confirmBtn.addEventListener("click", async () => {
+    errBox.hidden = true;
+    const selectedIds = checkboxes.filter((c) => c.checked).map((c) => parseInt(c.value));
+    if (selectedIds.length === 0) { errBox.textContent = "Selecione ao menos um aluno."; errBox.hidden = false; return; }
+    confirmBtn.disabled = true; confirmBtn.textContent = "Reenviando...";
+    try {
+      await apiFetch("/flashcards/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ flashcard_ids: flashcardIds, student_ids: selectedIds }),
+      });
+      overlay.remove();
+      const names = approvedStudents.filter((s) => selectedIds.includes(s.id)).map((s) => s.name).join(", ");
+      showToast(`Flashcards reenviados para: ${names}`);
+      if (onDone) onDone();
+    } catch (err) {
+      errBox.textContent = err.message || "Erro ao reenviar."; errBox.hidden = false;
+      confirmBtn.disabled = false; confirmBtn.textContent = "Reenviar";
+    }
+  });
+
+  actions.appendChild(cancelBtn); actions.appendChild(confirmBtn);
+  modal.appendChild(actions);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
 }
 
 function openFlashcardModal(existingCard, approvedStudents, onSaved) {
@@ -1889,6 +2054,21 @@ async function loadStudentExerciseProgress(container) {
   renderExerciseProgressList(progressBox, select.value);
 }
 
+async function deleteStudentExercise(studentId, exerciseId, title, container) {
+  const ok = window.confirm(
+    `Excluir o exercício "${title || "(sem título)"}" deste aluno? Ele deixará de aparecer para o aluno. Essa ação não pode ser desfeita.`
+  );
+  if (!ok) return;
+
+  try {
+    await apiFetch(`/exercises/student-progress/${studentId}/${exerciseId}`, { method: "DELETE" });
+    showToast("Exercício removido do aluno.");
+    renderExerciseProgressList(container, studentId);
+  } catch (err) {
+    showToast(err.message || "Não foi possível excluir o exercício.");
+  }
+}
+
 async function renderExerciseProgressList(container, studentId) {
   container.innerHTML = '<div class="skeleton">Carregando exercícios...</div>';
 
@@ -1951,9 +2131,19 @@ async function renderExerciseProgressList(container, studentId) {
     statusBadge.className = `badge ${isDue ? "badge-warning" : "badge-success"}`;
     statusBadge.textContent = statusLabel(item);
 
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "icon-btn danger";
+    deleteBtn.title = "Excluir este exercício deste aluno";
+    deleteBtn.innerHTML = Icons.trash;
+    deleteBtn.style.flexShrink = "0";
+    deleteBtn.addEventListener("click", () =>
+      deleteStudentExercise(studentId, item.exercise_id, item.title, container)
+    );
+
     topRow.appendChild(title);
     topRow.appendChild(typeBadge);
     topRow.appendChild(statusBadge);
+    topRow.appendChild(deleteBtn);
     card.appendChild(topRow);
 
     // Prompt

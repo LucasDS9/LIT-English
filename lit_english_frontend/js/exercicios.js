@@ -38,6 +38,35 @@ function formatDate(dateStr) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Campo de resposta que cresce em altura conforme o aluno digita, em vez de
+// rolar o texto para os lados (usado no Listen & Type e no Translate).
+// ---------------------------------------------------------------------------
+function createAutoGrowTextInput({ placeholder = "", lang = "en" } = {}) {
+  const textarea = document.createElement("textarea");
+  textarea.rows = 1;
+  textarea.lang = lang;
+  textarea.autocomplete = "off";
+  textarea.autocapitalize = "off";
+  textarea.spellcheck = true;
+  textarea.placeholder = placeholder;
+  textarea.style.cssText =
+    "width:100%;max-width:380px;text-align:center;border:2px solid var(--primary);" +
+    "border-radius:8px;padding:12px 16px;font-size:17px;font-weight:700;color:var(--primary);" +
+    "outline:none;background:var(--bg);font-family:inherit;line-height:1.4;resize:none;" +
+    "overflow:hidden;min-height:52px;box-sizing:border-box;";
+
+  const autoGrow = () => {
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  };
+  textarea.addEventListener("input", autoGrow);
+  // Ajusta a altura inicial (ex.: quando o valor já vem preenchido).
+  requestAnimationFrame(autoGrow);
+
+  return textarea;
+}
+
 function renderStateBox({ icon, title, text }) {
   area.innerHTML = "";
   const box = document.createElement("div");
@@ -371,13 +400,19 @@ function buildListenTypeCard(ex) {
 
   // Mantém a instância de áudio para permitir pausar/retomar sem recarregar o TTS.
   let currentAudio = null;
+  // Guarda manualmente o ponto onde parou, pra garantir que "retomar" sempre
+  // continue do mesmo lugar (alguns navegadores, principalmente no celular,
+  // podem zerar a posição sozinhos ao pausar/retomar um <audio>).
+  let pausedAt = 0;
 
   playBtn.addEventListener("click", async () => {
     // Já existe áudio carregado: apenas alterna entre pausar e retomar.
     if (currentAudio) {
       if (currentAudio.paused) {
+        currentAudio.currentTime = pausedAt;
         currentAudio.play().catch(() => showToast("Erro ao tocar o áudio."));
       } else {
+        pausedAt = currentAudio.currentTime;
         currentAudio.pause();
       }
       return;
@@ -390,11 +425,18 @@ function buildListenTypeCard(ex) {
       currentAudio = audio;
 
       audio.addEventListener("play", () => { playBtn.innerHTML = Icons.pause; });
-      audio.addEventListener("pause", () => { playBtn.innerHTML = Icons.play; });
-      audio.addEventListener("ended", () => { playBtn.innerHTML = Icons.play; });
+      audio.addEventListener("pause", () => {
+        pausedAt = audio.currentTime;
+        playBtn.innerHTML = Icons.play;
+      });
+      audio.addEventListener("ended", () => {
+        pausedAt = 0;
+        playBtn.innerHTML = Icons.play;
+      });
       audio.addEventListener("error", () => {
         showToast("Erro ao tocar o áudio.");
         currentAudio = null;
+        pausedAt = 0;
         playBtn.innerHTML = Icons.play;
         playBtn.disabled = false;
       });
@@ -412,14 +454,7 @@ function buildListenTypeCard(ex) {
   inputLabel.textContent = "Digite em inglês o que você ouviu:";
   body.appendChild(inputLabel);
 
-  const input = document.createElement("input");
-  input.type = "text";
-  input.lang = "en";
-  input.autocomplete = "off";
-  input.autocapitalize = "off";
-  input.spellcheck = true;
-  input.style.cssText = "width:100%;max-width:380px;text-align:center;border:2px solid var(--primary);border-radius:8px;padding:12px 16px;font-size:17px;font-weight:700;color:var(--primary);outline:none;background:var(--bg);";
-  input.placeholder = "Type in English...";
+  const input = createAutoGrowTextInput({ placeholder: "Type in English..." });
   body.appendChild(input);
 
   const resultArea = buildResultArea();
@@ -645,14 +680,7 @@ function buildTranslateCard(ex) {
   inputLabel.textContent = "Digite a tradução em inglês:";
   body.appendChild(inputLabel);
 
-  const input = document.createElement("input");
-  input.type = "text";
-  input.lang = "en";
-  input.autocomplete = "off";
-  input.autocapitalize = "off";
-  input.spellcheck = true;
-  input.style.cssText = "width:100%;max-width:380px;text-align:center;border:2px solid var(--primary);border-radius:8px;padding:12px 16px;font-size:17px;font-weight:700;color:var(--primary);outline:none;background:var(--bg);";
-  input.placeholder = "Type in English...";
+  const input = createAutoGrowTextInput({ placeholder: "Type in English..." });
   body.appendChild(input);
 
   const resultArea = buildResultArea();

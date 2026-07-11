@@ -113,6 +113,12 @@ class VocabularyItemOut(BaseModel):
     is_due: bool
 
 
+class FlashcardResendPayload(BaseModel):
+    """Reenvia (atribui) um ou mais flashcards já existentes a outro(s) aluno(s)."""
+    flashcard_ids: List[int] = Field(min_length=1)
+    student_ids: List[int] = Field(min_length=1)
+
+
 # ---------- Read and Listen ----------
 
 class ReadingTextCreate(BaseModel):
