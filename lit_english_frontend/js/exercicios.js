@@ -391,12 +391,25 @@ async function fetchTtsAudioUrl(text) {
 function buildListenTypeCard(ex) {
   const { cardBox, body } = buildCardBox(ex, "Listen and type");
 
+  const audioControls = document.createElement("div");
+  audioControls.style.cssText = "display:flex;align-items:center;justify-content:center;gap:14px;";
+
   const playBtn = document.createElement("button");
   playBtn.type = "button";
   playBtn.className = "speak-btn";
   playBtn.style.cssText = "width:56px;height:56px;";
   playBtn.innerHTML = Icons.play;
-  body.appendChild(playBtn);
+  audioControls.appendChild(playBtn);
+
+  const replayBtn = document.createElement("button");
+  replayBtn.type = "button";
+  replayBtn.className = "icon-btn";
+  replayBtn.title = "Reescutar do começo";
+  replayBtn.innerHTML = Icons.refresh;
+  replayBtn.style.cssText = "width:40px;height:40px;";
+  audioControls.appendChild(replayBtn);
+
+  body.appendChild(audioControls);
 
   // Mantém a instância de áudio para permitir pausar/retomar sem recarregar o TTS.
   let currentAudio = null;
@@ -404,6 +417,37 @@ function buildListenTypeCard(ex) {
   // continue do mesmo lugar (alguns navegadores, principalmente no celular,
   // podem zerar a posição sozinhos ao pausar/retomar um <audio>).
   let pausedAt = 0;
+
+  function attachAudioListeners(audio) {
+    audio.addEventListener("play", () => { playBtn.innerHTML = Icons.pause; });
+    audio.addEventListener("pause", () => {
+      pausedAt = audio.currentTime;
+      playBtn.innerHTML = Icons.play;
+    });
+    audio.addEventListener("ended", () => {
+      pausedAt = 0;
+      playBtn.innerHTML = Icons.play;
+    });
+    audio.addEventListener("error", () => {
+      showToast("Erro ao tocar o áudio.");
+      currentAudio = null;
+      pausedAt = 0;
+      playBtn.innerHTML = Icons.play;
+      playBtn.disabled = false;
+      replayBtn.disabled = false;
+    });
+  }
+
+  // Carrega o áudio uma única vez (reaproveitando o cache do TTS) e mantém a
+  // mesma instância pra tocar, pausar, retomar ou reescutar.
+  async function loadAudio() {
+    if (currentAudio) return currentAudio;
+    const url = await fetchTtsAudioUrl(ex.prompt);
+    const audio = new Audio(url);
+    currentAudio = audio;
+    attachAudioListeners(audio);
+    return audio;
+  }
 
   playBtn.addEventListener("click", async () => {
     // Já existe áudio carregado: apenas alterna entre pausar e retomar.
@@ -420,32 +464,28 @@ function buildListenTypeCard(ex) {
 
     playBtn.disabled = true;
     try {
-      const url = await fetchTtsAudioUrl(ex.prompt);
-      const audio = new Audio(url);
-      currentAudio = audio;
-
-      audio.addEventListener("play", () => { playBtn.innerHTML = Icons.pause; });
-      audio.addEventListener("pause", () => {
-        pausedAt = audio.currentTime;
-        playBtn.innerHTML = Icons.play;
-      });
-      audio.addEventListener("ended", () => {
-        pausedAt = 0;
-        playBtn.innerHTML = Icons.play;
-      });
-      audio.addEventListener("error", () => {
-        showToast("Erro ao tocar o áudio.");
-        currentAudio = null;
-        pausedAt = 0;
-        playBtn.innerHTML = Icons.play;
-        playBtn.disabled = false;
-      });
-
+      const audio = await loadAudio();
       playBtn.disabled = false;
       await audio.play();
     } catch {
       showToast("Erro ao tocar o áudio.");
       playBtn.disabled = false;
+    }
+  });
+
+  // "Reescutar": sempre volta pro começo e toca — pode clicar quantas vezes
+  // quiser, sempre repete do início.
+  replayBtn.addEventListener("click", async () => {
+    replayBtn.disabled = true;
+    try {
+      const audio = await loadAudio();
+      pausedAt = 0;
+      audio.currentTime = 0;
+      await audio.play();
+    } catch {
+      showToast("Erro ao tocar o áudio.");
+    } finally {
+      replayBtn.disabled = false;
     }
   });
 
