@@ -17,7 +17,9 @@ from app.models import (
     ExerciseProgress,
     ExerciseSubmission,
     FlashcardAssignment,
+    LitPointLog,
     QAAnswerLog,
+    ReadingTimeLog,
     ReviewLog,
     TextAssignment,
     User,
@@ -94,6 +96,8 @@ def delete_student(
     db.query(FlashcardAssignment).filter(FlashcardAssignment.student_id == student_id).delete()
     db.query(TextAssignment).filter(TextAssignment.student_id == student_id).delete()
     db.query(QAAnswerLog).filter(QAAnswerLog.student_id == student_id).delete()
+    db.query(LitPointLog).filter(LitPointLog.student_id == student_id).delete()
+    db.query(ReadingTimeLog).filter(ReadingTimeLog.student_id == student_id).delete()
 
     db.delete(student)
     db.commit()

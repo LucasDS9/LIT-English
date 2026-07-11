@@ -25,6 +25,7 @@ from app.models import (
     UserRole,
 )
 from app.ai_judge import judge_answer
+from app.lit_points import maybe_award_exercise_daily_bonus
 from app.routers.pronunciation import transcribe
 from app.schemas import (
     ExerciseAnswerResult,
@@ -647,6 +648,8 @@ def submit_answer(
         db.add(progress)
     _schedule_after_submit(progress, is_correct)
 
+    maybe_award_exercise_daily_bonus(db, user.id)
+
     db.commit()
 
     return ExerciseAnswerResult(correct=is_correct, correct_answer=exercise.correct_answer, reason=reason)
@@ -698,6 +701,8 @@ async def submit_audio_answer(
         progress = ExerciseProgress(student_id=user.id, exercise_id=exercise_id)
         db.add(progress)
     _schedule_after_submit(progress, is_correct)
+
+    maybe_award_exercise_daily_bonus(db, user.id)
 
     db.commit()
 

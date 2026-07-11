@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
+from app.lit_points import maybe_award_flashcard_daily_bonus
 from app.models import CardProgress, Flashcard, FlashcardAssignment, QAAnswerLog, ReviewLog, User, UserRole
 from app.schemas import (
     CardProgressOut,
@@ -286,6 +287,8 @@ def submit_review(
     progress.last_reviewed = datetime.utcnow()
 
     db.add(ReviewLog(student_id=student.id, flashcard_id=flashcard_id))
+    db.flush()
+    maybe_award_flashcard_daily_bonus(db, student.id)
     db.commit()
     db.refresh(progress)
     return progress

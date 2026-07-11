@@ -97,7 +97,11 @@ _FK_ONDELETE_FIXES = [
     ("qa_answer_logs", "flashcard_id", "flashcards", "id", "SET NULL"),
     ("exercise_progress", "student_id", "users", "id", "CASCADE"),
     ("exercise_progress", "exercise_id", "exercises", "id", "CASCADE"),
+    ("lit_point_logs", "student_id", "users", "id", "CASCADE"),
+    ("reading_time_logs", "student_id", "users", "id", "CASCADE"),
+    ("reading_time_logs", "text_id", "reading_texts", "id", "SET NULL"),
 ]
+
 
 
 def _fix_fk_ondelete(conn, table, column, ref_table, ref_column, action):

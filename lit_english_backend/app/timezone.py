@@ -30,3 +30,10 @@ def start_of_next_day_brazil_utc() -> datetime:
         hour=0, minute=0, second=0, microsecond=0
     )
     return tomorrow_br.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def start_of_day_brazil_utc() -> datetime:
+    """Meia-noite de hoje em Brasília, retornado como UTC naive."""
+    now_br = datetime.now(BR_OFFSET)
+    today_br = now_br.replace(hour=0, minute=0, second=0, microsecond=0)
+    return today_br.astimezone(timezone.utc).replace(tzinfo=None)

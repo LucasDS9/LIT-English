@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine, run_migrations
-from app.routers import admin, auth, exercises, flashcards, qa, texts, tts
+from app.routers import admin, auth, dashboard, exercises, flashcards, qa, texts, tts
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,6 +39,7 @@ app.include_router(texts.router)
 app.include_router(exercises.router)
 app.include_router(qa.router)
 app.include_router(tts.router)
+app.include_router(dashboard.router)
 
 
 @app.get("/")

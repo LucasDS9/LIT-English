@@ -263,3 +263,39 @@ class ExerciseProgress(Base):
 
     student = relationship("User")
     exercise = relationship("Exercise")
+
+
+# ── Métricas da tela inicial do aluno (LIT Points / Tempo de Texto) ──────────
+
+class LitPointLog(Base):
+    """
+    Registra eventos de LIT Points que não podem ser recalculados a partir de
+    outras tabelas (bônus por concluir todas as atividades do dia). Os pontos
+    "base" de exercícios, flashcards e textos são derivados diretamente das
+    tabelas existentes (exercise_submissions, review_logs, reading_time_logs)
+    no momento da consulta, para refletir sempre o dado real e persistido.
+    """
+    __tablename__ = "lit_point_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    points = Column(Integer, nullable=False)
+    source = Column(String, nullable=False)  # ex.: "exercise_daily_bonus", "flashcard_daily_bonus"
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    student = relationship("User")
+
+
+class ReadingTimeLog(Base):
+    """Incrementos de tempo ativo de leitura/escuta (Read and Listen), enviados
+    periodicamente pelo frontend enquanto o aluno tem um texto aberto."""
+    __tablename__ = "reading_time_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    text_id = Column(Integer, ForeignKey("reading_texts.id", ondelete="SET NULL"), nullable=True)
+    seconds = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    student = relationship("User")
+

@@ -59,4 +59,12 @@ const Icons = {
   pause: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6.5" y="5" width="4.2" height="14" rx="1"/><rect x="13.3" y="5" width="4.2" height="14" rx="1"/></svg>`,
 
   translate: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6h8"/><path d="M7.2 4v2.3c0 3.1-1.9 5.7-4.7 7.1"/><path d="M4 9.3c1 1.9 2.7 3.2 4.7 3.9"/><path d="M13 20l4-9.5L21 20"/><path d="M14.3 17h5.4"/></svg>`,
+
+  target: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.6" fill="currentColor" stroke="none"/><path d="M17 3.5 20.5 3.5 20.5 7 14 13.5"/></svg>`,
+
+  trophy: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0V4Z"/><path d="M7 5.5H4a3 3 0 0 0 3 4.3"/><path d="M17 5.5h3a3 3 0 0 1-3 4.3"/><path d="M12 14v3.5"/><path d="M8.5 20.5h7"/><path d="M9.5 17.5h5l1 3H8.5l1-3Z"/></svg>`,
+
+  clipboardList: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="4.5" width="13" height="17" rx="2"/><path d="M9 4.5V3.7a1.7 1.7 0 0 1 1.7-1.7h2.6A1.7 1.7 0 0 1 15 3.7v.8"/><path d="M9 11h6M9 15h6M9 19h3.5"/></svg>`,
+
+  cards: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6.3" y="4" width="12" height="16" rx="2.2" transform="rotate(-8 6.3 4)"/><rect x="6" y="4.6" width="12" height="16" rx="2.2" fill="var(--bg)"/><path d="M9.5 9.5h5M9.5 13h5M9.5 16.5h3"/></svg>`,
 };

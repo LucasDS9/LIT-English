@@ -465,13 +465,14 @@ svg {
 }
 
 .home-welcome {
-  height: 80vh;
+  min-height: 34vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
   gap: 14px;
+  padding-top: 24px;
 }
 
 .home-welcome h1 {
@@ -491,6 +492,130 @@ svg {
   color: #861E19;
   font-size: 15px;
   font-weight: 600;
+}
+
+/* ---------- Métricas da tela inicial (aluno) ---------- */
+
+.home-metrics {
+  max-width: 1040px;
+  margin: 12px auto 40px;
+  padding: 0 8px;
+}
+
+.home-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+
+.metric-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 28px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+}
+
+.metric-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--primary-pale);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.metric-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+}
+
+.metric-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: var(--text);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.metric-value-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.metric-value {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1;
+}
+
+.metric-unit {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.metric-sub {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.metric-sub-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-sub-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.metric-sub-row .metric-sub-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.metric-sub-row .metric-sub-unit {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.metric-card.is-loading .metric-value,
+.metric-card.is-loading .metric-sub-value {
+  opacity: 0.35;
+}
+
+@media (max-width: 860px) {
+  .home-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .home-metrics-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .page-header h1 {

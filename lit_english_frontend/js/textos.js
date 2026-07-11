@@ -110,6 +110,7 @@ function renderStateBox(container, { icon, title, text, actionLabel, onAction })
 // ---------------------------------------------------------------------------
 
 async function renderTextList() {
+  stopReadingHeartbeat();
   textsArea.innerHTML = '<div class="skeleton">Carregando textos...</div>';
 
   let texts;
@@ -188,6 +189,40 @@ const player = {
   blobUrls: new Map(), // chunk -> object URL já buscado
 };
 
+// Contabiliza tempo ativo de leitura/escuta para a métrica "Tempo de Texto"
+// e os LIT Points correspondentes (POST /dashboard/reading-heartbeat a cada
+// intervalo, enquanto o aluno está com um texto aberto e a aba visível).
+const HEARTBEAT_SECONDS = 20;
+const reading = {
+  timer: null,
+  textId: null,
+};
+
+function stopReadingHeartbeat() {
+  if (reading.timer) {
+    clearInterval(reading.timer);
+    reading.timer = null;
+  }
+  reading.textId = null;
+}
+
+function sendReadingHeartbeat() {
+  if (document.hidden || !reading.textId) return;
+  apiFetch(`/dashboard/reading-heartbeat?text_id=${reading.textId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ seconds: HEARTBEAT_SECONDS }),
+  }).catch(() => {
+    // Falha silenciosa: não interrompe a leitura do aluno por causa da métrica.
+  });
+}
+
+function startReadingHeartbeat(textId) {
+  stopReadingHeartbeat();
+  reading.textId = textId;
+  reading.timer = setInterval(sendReadingHeartbeat, HEARTBEAT_SECONDS * 1000);
+}
+
 function resetPlayer() {
   if (player.audio) {
     player.audio.pause();
@@ -227,6 +262,7 @@ async function openText(textId) {
   resetPlayer();
   player.chunks = splitIntoChunks(text.content);
 
+  startReadingHeartbeat(text.id);
   renderReader(text);
 }
 
@@ -238,6 +274,7 @@ function renderReader(text) {
   backLink.className = "btn btn-outline reader-back";
   backLink.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l-6 6 6 6"/></svg><span>Voltar</span>`;
   backLink.addEventListener("click", () => {
+    stopReadingHeartbeat();
     resetPlayer();
     renderTextList();
   });

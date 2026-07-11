@@ -373,3 +373,29 @@ class QAAnswerLogOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ---------- Dashboard (tela inicial do aluno) ----------
+
+class DashboardMetricsOut(BaseModel):
+    """Métricas consolidadas da tela inicial do aluno."""
+    accuracy_rate: int             # Taxa de acerto (%), 0-100
+    performance_points: int        # Pontos obtidos (eficiência)
+    performance_max: int           # Pontos máximos possíveis (eficiência)
+    lit_points: int                # Total de LIT Points
+    exercises_today: int           # Exercícios respondidos hoje
+    exercises_today_target: int    # Exercícios disponíveis hoje (feitos + pendentes)
+    exercises_total: int           # Total de exercícios respondidos desde sempre
+    reading_minutes: int           # Minutos totais de Read and Listen
+    flashcards_reviewed: int       # Total de flashcards revisados
+
+
+class ReadingHeartbeatIn(BaseModel):
+    """Enviado periodicamente pelo frontend enquanto o aluno tem um texto
+    aberto, para contabilizar tempo ativo de estudo (Read and Listen)."""
+    seconds: int = Field(ge=1, le=120)
+
+
+class ReadingHeartbeatOut(BaseModel):
+    total_seconds: int
+    points_awarded: int
