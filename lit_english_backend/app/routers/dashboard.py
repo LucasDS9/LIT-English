@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_approved_user
 from app.database import get_db
 from app.lit_points import (
+    DAILY_EXERCISE_LIMIT,
     POINTS_PER_TEXT_BLOCK,
     TEXT_BLOCK_SECONDS,
     bonus_points_total,
@@ -26,12 +27,11 @@ from app.timezone import start_of_day_brazil_utc
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 
-@router.get("/metrics", response_model=DashboardMetricsOut)
-def get_dashboard_metrics(
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_approved_user),
-):
-    student_id = user.id
+def build_dashboard_metrics(db: Session, student_id: int) -> DashboardMetricsOut:
+    """Monta as métricas consolidadas de um aluno (taxa de acerto, eficiência,
+    LIT Points, exercícios, tempo de texto, flashcards). Reutilizado tanto
+    pela tela inicial do próprio aluno quanto pela tela de detalhes do
+    professor (Configurações > Ver detalhes)."""
 
     # ---- Exercícios: taxa de acerto + eficiência + pontos, numa só passada ----
     ex_stats = compute_exercise_stats(db, student_id)
@@ -54,7 +54,12 @@ def get_dashboard_metrics(
         )
         .count()
     )
-    exercises_today_target = exercises_today + due_exercises_count(db, student_id)
+    # A meta do dia respeita o limite diário de exercícios (acúmulo do que
+    # exceder o limite é mostrado nos dias seguintes, não no mesmo dia).
+    exercises_today_target = min(
+        DAILY_EXERCISE_LIMIT,
+        exercises_today + due_exercises_count(db, student_id),
+    )
 
     # ---- Flashcards revisados + pontos ----
     flashcard_points, flashcards_reviewed = flashcard_points_total(db, student_id)
@@ -86,6 +91,14 @@ def get_dashboard_metrics(
         reading_minutes=reading_minutes,
         flashcards_reviewed=flashcards_reviewed,
     )
+
+
+@router.get("/metrics", response_model=DashboardMetricsOut)
+def get_dashboard_metrics(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_approved_user),
+):
+    return build_dashboard_metrics(db, user.id)
 
 
 @router.post("/reading-heartbeat", response_model=ReadingHeartbeatOut)

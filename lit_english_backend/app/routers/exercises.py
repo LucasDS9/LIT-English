@@ -25,7 +25,6 @@ from app.models import (
     UserRole,
 )
 from app.ai_judge import judge_answer
-from app.lit_points import maybe_award_exercise_daily_bonus
 from app.routers.pronunciation import transcribe
 from app.schemas import (
     ExerciseAnswerResult,
@@ -45,7 +44,13 @@ from app.schemas import (
     ExerciseSubmissionItemOut,
     ExerciseUpdate,
 )
-from app.timezone import brazil_date_key, start_of_next_day_brazil_utc, utcnow
+from app.lit_points import DAILY_EXERCISE_LIMIT, maybe_award_exercise_daily_bonus
+from app.timezone import (
+    brazil_date_key,
+    start_of_day_brazil_utc,
+    start_of_next_day_brazil_utc,
+    utcnow,
+)
 
 router = APIRouter(prefix="/exercises", tags=["Exercícios"])
 
@@ -583,6 +588,22 @@ def my_assignments(
 ):
     now = utcnow()
 
+    # Quantos exercícios o aluno já respondeu hoje contam para o limite diário.
+    # O que sobrar de exercícios devidos não é descartado: continua devido e
+    # reaparece nos próximos dias (acumula), respeitando o mesmo limite.
+    start_today = start_of_day_brazil_utc()
+    answered_today = (
+        db.query(ExerciseSubmission)
+        .filter(
+            ExerciseSubmission.student_id == user.id,
+            ExerciseSubmission.created_at >= start_today,
+        )
+        .count()
+    )
+    remaining_quota = max(0, DAILY_EXERCISE_LIMIT - answered_today)
+    if remaining_quota == 0:
+        return []
+
     assigned_ids_subquery = (
         db.query(ExerciseAssignment.exercise_id)
         .filter(ExerciseAssignment.student_id == user.id)
@@ -600,11 +621,40 @@ def my_assignments(
         db.query(Exercise)
         .filter(Exercise.id.in_(assigned_ids_subquery))
         .filter(~Exercise.id.in_(not_due_subquery))
-        .order_by(Exercise.created_at.asc())
         .all()
     )
 
-    return due_exercises
+    # "Novo" = aluno nunca respondeu esse exercício (sem registro de progresso).
+    progress_by_exercise = {
+        p.exercise_id: p
+        for p in db.query(ExerciseProgress).filter(ExerciseProgress.student_id == user.id).all()
+    }
+
+    # Para os novos, a ordem segue a fila de atribuição (o mais antigo enviado
+    # pelo professor primeiro). Quando o mesmo exercício foi atribuído mais de
+    # uma vez, usamos a atribuição mais antiga.
+    earliest_assigned_at: dict[int, object] = {}
+    for a in (
+        db.query(ExerciseAssignment)
+        .filter(ExerciseAssignment.student_id == user.id)
+        .all()
+    ):
+        current = earliest_assigned_at.get(a.exercise_id)
+        if current is None or a.assigned_at < current:
+            earliest_assigned_at[a.exercise_id] = a.assigned_at
+
+    def sort_key(ex: Exercise):
+        progress = progress_by_exercise.get(ex.id)
+        if progress is None:
+            # Novos primeiro, ordenados por ordem de chegada (fila).
+            return (0, earliest_assigned_at.get(ex.id) or ex.created_at)
+        # Depois, por ordem de disponibilidade: quem está devido há mais
+        # tempo (next_review mais antigo) aparece primeiro.
+        return (1, progress.next_review or ex.created_at)
+
+    due_exercises.sort(key=sort_key)
+
+    return due_exercises[:remaining_quota]
 
 
 @router.post("/{exercise_id}/submit", response_model=ExerciseAnswerResult)

@@ -25,7 +25,8 @@ from app.models import (
     User,
     UserRole,
 )
-from app.schemas import UserOut
+from app.routers.dashboard import build_dashboard_metrics
+from app.schemas import StudentDetailsOut, UserOut
 
 router = APIRouter(prefix="/admin", tags=["Admin (Professor)"])
 
@@ -48,6 +49,19 @@ def list_students(
 ):
     """Lista todos os alunos cadastrados (aprovados e pendentes)."""
     return db.query(User).filter(User.role == UserRole.aluno).order_by(User.created_at.desc()).all()
+
+
+@router.get("/students/{student_id}/details", response_model=StudentDetailsOut)
+def get_student_details(
+    student_id: int,
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    """Detalhes de um aluno: quantidade de exercícios respondidos, tempo de
+    texto e demais métricas (mesmas exibidas na tela inicial do aluno)."""
+    student = _get_student_or_404(student_id, db)
+    metrics = build_dashboard_metrics(db, student_id)
+    return StudentDetailsOut(student=student, metrics=metrics)
 
 
 @router.patch("/students/{student_id}/approve", response_model=UserOut)

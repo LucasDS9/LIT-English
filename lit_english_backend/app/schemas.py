@@ -390,6 +390,12 @@ class DashboardMetricsOut(BaseModel):
     flashcards_reviewed: int       # Total de flashcards revisados
 
 
+class StudentDetailsOut(BaseModel):
+    """Detalhes de um aluno para o professor (Configurações > Ver detalhes)."""
+    student: UserOut
+    metrics: DashboardMetricsOut
+
+
 class ReadingHeartbeatIn(BaseModel):
     """Enviado periodicamente pelo frontend enquanto o aluno tem um texto
     aberto, para contabilizar tempo ativo de estudo (Read and Listen)."""

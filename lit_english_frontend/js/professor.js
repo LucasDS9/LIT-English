@@ -252,6 +252,12 @@ async function renderConfiguracoes() {
     date.textContent = formatDate(student.created_at);
     meta.appendChild(date);
 
+    const detailsBtn = document.createElement("button");
+    detailsBtn.className = "btn btn-outline btn-sm";
+    detailsBtn.textContent = "Ver detalhes";
+    detailsBtn.addEventListener("click", () => openStudentDetailsModal(student));
+    meta.appendChild(detailsBtn);
+
     const actionBtn = document.createElement("button");
     if (student.is_approved) {
       actionBtn.className = "btn btn-outline btn-sm";
@@ -307,6 +313,89 @@ async function deleteStudent(studentId, studentName) {
   } catch (err) {
     showToast(err.message || "Não foi possível excluir o aluno.");
   }
+}
+
+// ── Modal detalhes do aluno ───────────────────────────────────────────────────
+
+function buildDetailStat(label, valueHtml) {
+  const stat = document.createElement("div");
+  stat.className = "student-details-stat";
+  const labelEl = document.createElement("p");
+  labelEl.className = "label";
+  labelEl.textContent = label;
+  const valueEl = document.createElement("p");
+  valueEl.className = "value";
+  valueEl.innerHTML = valueHtml;
+  stat.appendChild(labelEl);
+  stat.appendChild(valueEl);
+  return stat;
+}
+
+async function openStudentDetailsModal(student) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+
+  const modal = document.createElement("div");
+  modal.className = "modal modal-lg";
+
+  const mHeader = document.createElement("div");
+  mHeader.className = "modal-header";
+  const mTitle = document.createElement("h2");
+  mTitle.textContent = student.name;
+  mHeader.appendChild(mTitle);
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "icon-btn";
+  closeBtn.innerHTML = Icons.x;
+  closeBtn.addEventListener("click", () => overlay.remove());
+  mHeader.appendChild(closeBtn);
+  modal.appendChild(mHeader);
+
+  const subtitle = document.createElement("p");
+  subtitle.className = "secondary";
+  subtitle.style.cssText = "margin:-10px 0 16px;";
+  subtitle.textContent = student.email;
+  modal.appendChild(subtitle);
+
+  const body = document.createElement("div");
+  body.textContent = "Carregando...";
+  modal.appendChild(body);
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  try {
+    const details = await apiFetch(`/admin/students/${student.id}/details`);
+    const m = details.metrics;
+    const performancePercent = m.performance_max
+      ? Math.round((m.performance_points / m.performance_max) * 100)
+      : 0;
+
+    body.innerHTML = "";
+    const grid = document.createElement("div");
+    grid.className = "student-details-grid";
+
+    grid.appendChild(buildDetailStat("Exercícios respondidos hoje", `${m.exercises_today} <span>/ ${m.exercises_today_target}</span>`));
+    grid.appendChild(buildDetailStat("Exercícios respondidos (total)", `${m.exercises_total}`));
+    grid.appendChild(buildDetailStat("Taxa de acerto", `${m.accuracy_rate}<span>%</span>`));
+    grid.appendChild(buildDetailStat("Eficiência (performance)", `${performancePercent}<span>%</span>`));
+    grid.appendChild(buildDetailStat("Tempo de texto", `${m.reading_minutes} <span>min</span>`));
+    grid.appendChild(buildDetailStat("Flashcards revisados", `${m.flashcards_reviewed}`));
+    grid.appendChild(buildDetailStat("LIT Points", `${m.lit_points.toLocaleString("pt-BR")}`));
+
+    body.appendChild(grid);
+  } catch (err) {
+    body.textContent = err.message || "Não foi possível carregar os detalhes deste aluno.";
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "modal-actions";
+  const closeActionBtn = document.createElement("button");
+  closeActionBtn.className = "btn btn-outline";
+  closeActionBtn.textContent = "Fechar";
+  closeActionBtn.addEventListener("click", () => overlay.remove());
+  actions.appendChild(closeActionBtn);
+  modal.appendChild(actions);
 }
 
 // ---------------------------------------------------------------------------

@@ -34,9 +34,11 @@ function renderMetrics(metrics) {
   // Taxa de acerto
   setField("metric-accuracy", "value", metrics.accuracy_rate);
 
-  // Eficiência (performance)
-  setField("metric-performance", "obtained", metrics.performance_points);
-  setField("metric-performance", "max", metrics.performance_max);
+  // Eficiência (performance) — exibida em porcentagem
+  const performancePercent = metrics.performance_max
+    ? Math.round((metrics.performance_points / metrics.performance_max) * 100)
+    : 0;
+  setField("metric-performance", "value", performancePercent);
 
   // LIT Points
   setField("metric-litpoints", "value", metrics.lit_points.toLocaleString("pt-BR"));
@@ -90,9 +92,11 @@ async function init() {
     return;
   }
 
+  const firstName = (user.name || "").trim().split(/\s+/)[0] || user.name;
+
   studentNameEl.textContent = user.name;
   roleLabelEl.textContent = "ALUNO";
-  welcomeTitleEl.textContent = `Bem-vindo, ${user.name}!`;
+  welcomeTitleEl.textContent = `Bem-vindo, ${firstName}!`;
 
   renderMetricIcons();
 

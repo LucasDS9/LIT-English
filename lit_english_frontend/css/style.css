@@ -1140,6 +1140,46 @@ svg {
   margin-top: 22px;
 }
 
+.modal-lg {
+  max-width: 560px;
+}
+
+.student-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.student-details-stat {
+  background: var(--sidebar-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+
+.student-details-stat .label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0 0 6px;
+}
+
+.student-details-stat .value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.student-details-stat .value span {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
 .field textarea {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
