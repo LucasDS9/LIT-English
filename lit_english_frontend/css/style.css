@@ -644,50 +644,50 @@ svg {
 
 .main-review .page-header {
   width: 100%;
-  max-width: 880px;
+  max-width: 1200px;
   text-align: center;
 }
 
 .review-area-centered {
   width: 100%;
-  max-width: 1040px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
 .review-area-centered .review-card {
-  min-height: 520px;
+  min-height: 640px;
   height: auto;
-  padding: 56px 72px 64px;
+  padding: 72px 96px 80px;
 }
 
 .review-area-centered .front-text {
-  font-size: clamp(28px, 5vw, 52px);
+  font-size: clamp(34px, 6vw, 68px);
 }
 
 .review-area-centered .back-text {
-  font-size: clamp(18px, 3.4vw, 32px);
+  font-size: clamp(22px, 4vw, 40px);
 }
 
 .review-area-centered .speak-btn {
-  width: 64px;
-  height: 64px;
+  width: 76px;
+  height: 76px;
 }
 
 .review-area-centered .speak-btn svg {
-  width: 26px;
-  height: 26px;
+  width: 32px;
+  height: 32px;
 }
 
 .review-area-centered .quality-row {
-  max-width: 720px;
+  max-width: 800px;
   margin-left: auto;
   margin-right: auto;
 }
 
 .review-area-centered .state-box {
-  min-height: 520px;
+  min-height: 640px;
   justify-content: center;
-  padding: 72px 56px;
+  padding: 88px 64px;
 }
 
 .review-card {
@@ -707,7 +707,7 @@ svg {
 
 .review-card .counter {
   align-self: flex-end;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text-muted);
 }
 
@@ -717,7 +717,7 @@ svg {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: 26px;
   text-align: center;
   padding: 10px 0 4px;
   width: 100%;
@@ -1414,75 +1414,152 @@ svg {
     flex-direction: column;
   }
 
+  /* ---- Sidebar vira uma barra superior compacta (logo + aluno) ---- */
   .sidebar {
     width: 100%;
     flex-direction: row;
-    flex-wrap: wrap;
     align-items: center;
-    padding: 14px 16px;
-    gap: 12px;
+    justify-content: space-between;
+    padding: 10px 14px;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: var(--sidebar-bg);
+    border-right: none;
+    border-bottom: 1px solid var(--border);
   }
 
   .sidebar .logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0;
+    border: none;
+    background: none;
+    flex-shrink: 0;
+  }
+
+  .sidebar .logo-mark {
+    width: 30px;
+    height: auto;
+  }
+
+  .sidebar .logo-word {
+    font-size: 13px;
+  }
+
+  .sidebar .logo-rule,
+  .sidebar .logo-tagline {
     display: none;
   }
 
   .aluno-badge {
-    padding: 8px 12px;
-  }
-
-  .nav {
     flex-direction: row;
-    flex-wrap: wrap;
+    align-items: center;
     gap: 6px;
+    padding: 6px 12px;
   }
 
-  .nav-item span {
+  .aluno-badge .label {
+    display: none;
+  }
+
+  .aluno-badge .name {
+    font-size: 13px;
+  }
+
+  /* ---- Nav vira uma barra fixa inferior, tipo app de celular ---- */
+  .nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: space-around;
+    align-items: stretch;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+    gap: 2px;
+    z-index: 50;
+    box-shadow: 0 -4px 16px rgba(20, 20, 30, 0.06);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-spacer {
     display: none;
   }
 
   .nav-item {
-    padding: 10px;
+    width: auto;
+    flex: 1 1 0;
+    min-width: 58px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 6px 2px;
+    border-radius: 10px;
+    text-align: center;
   }
 
+  .nav-item span {
+    display: block;
+    font-size: 10px;
+    line-height: 1.15;
+  }
+
+  .nav-item svg {
+    width: 21px;
+    height: 21px;
+    margin: 0 auto;
+  }
+
+  /* Espaço para o conteúdo não ficar escondido atrás da barra inferior fixa */
   .main {
-    padding: 28px 18px;
+    padding: 24px 18px calc(90px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .toast {
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   }
 
   .review-card {
-    padding: 26px 20px 32px;
+    padding: 28px 22px 34px;
   }
 
   .review-card .front-text {
-    font-size: 28px;
-  }
-
-  .review-area-centered .review-card {
-    min-height: 340px;
-    padding: 26px 20px 32px;
-  }
-
-  .review-area-centered .front-text {
     font-size: 30px;
   }
 
+  .review-area-centered .review-card {
+    min-height: 380px;
+    padding: 28px 22px 34px;
+  }
+
+  .review-area-centered .front-text {
+    font-size: 32px;
+  }
+
   .review-area-centered .back-text {
-    font-size: 22px;
+    font-size: 24px;
   }
 
   .review-area-centered .speak-btn {
-    width: 52px;
-    height: 52px;
+    width: 56px;
+    height: 56px;
   }
 
   .review-area-centered .speak-btn svg {
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
   }
 
   .review-area-centered .state-box {
-    min-height: 340px;
-    padding: 44px 26px;
+    min-height: 380px;
+    padding: 48px 28px;
   }
 
   .quality-row {
