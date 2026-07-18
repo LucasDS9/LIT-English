@@ -44,7 +44,11 @@ from app.schemas import (
     ExerciseSubmissionItemOut,
     ExerciseUpdate,
 )
-from app.lit_points import DAILY_EXERCISE_LIMIT, maybe_award_exercise_daily_bonus
+from app.lit_points import (
+    DAILY_EXERCISE_LIMIT,
+    DAILY_EXERCISE_LIMIT_WITH_BACKLOG,
+    maybe_award_exercise_daily_bonus,
+)
 from app.timezone import (
     brazil_date_key,
     start_of_day_brazil_utc,
@@ -590,7 +594,7 @@ def my_assignments(
 
     # Quantos exercícios o aluno já respondeu hoje contam para o limite diário.
     # O que sobrar de exercícios devidos não é descartado: continua devido e
-    # reaparece nos próximos dias (acumula), respeitando o mesmo limite.
+    # reaparece nos próximos dias (acumula).
     start_today = start_of_day_brazil_utc()
     answered_today = (
         db.query(ExerciseSubmission)
@@ -600,9 +604,6 @@ def my_assignments(
         )
         .count()
     )
-    remaining_quota = max(0, DAILY_EXERCISE_LIMIT - answered_today)
-    if remaining_quota == 0:
-        return []
 
     assigned_ids_subquery = (
         db.query(ExerciseAssignment.exercise_id)
@@ -623,6 +624,18 @@ def my_assignments(
         .filter(~Exercise.id.in_(not_due_subquery))
         .all()
     )
+
+    # Se o aluno acumulou mais exercícios devidos do que o limite normal (ou
+    # seja, não conseguiu zerar algum dia anterior), o limite do dia dobra
+    # (10 -> 20) para ajudar a resolver o acúmulo mais rápido.
+    daily_limit = (
+        DAILY_EXERCISE_LIMIT_WITH_BACKLOG
+        if len(due_exercises) > DAILY_EXERCISE_LIMIT
+        else DAILY_EXERCISE_LIMIT
+    )
+    remaining_quota = max(0, daily_limit - answered_today)
+    if remaining_quota == 0:
+        return []
 
     # "Novo" = aluno nunca respondeu esse exercício (sem registro de progresso).
     progress_by_exercise = {
