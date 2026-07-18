@@ -25,8 +25,7 @@
       <nav class="landing-nav">
         <a href="#inicio" class="landing-nav-link active">Início</a>
         <a href="#beneficios" class="landing-nav-link">Benefícios</a>
-        <button type="button" class="landing-nav-link" data-wip>Como Funciona</button>
-        <button type="button" class="landing-nav-link" data-wip>Entre em Contato</button>
+        <a href="#contato" class="landing-nav-link">Entre em Contato</a>
       </nav>
 
       <div class="landing-header-actions">
@@ -121,6 +120,100 @@
           <h3>Evolução<br />Constante</h3>
           <p>Acompanhe seu progresso e desenvolva confiança para falar inglês cada vez melhor.</p>
         </div>
+
+      </div>
+    </section>
+
+    <!-- ENTRE EM CONTATO -->
+    <section class="landing-contact" id="contato">
+      <div class="contact-heading">
+        <h2>Entre em <span class="highlight">Contato</span></h2>
+        <p>Vamos encontrar o melhor caminho para o seu inglês.</p>
+      </div>
+
+      <div class="contact-card">
+
+        <div class="contact-field">
+          <label for="contact-name">Nome completo <span class="required">*</span></label>
+          <div class="contact-input">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="8" r="3.5" stroke-width="1.8"/>
+              <path d="M4.5 20c1.4-3.6 4.2-5.5 7.5-5.5s6.1 1.9 7.5 5.5" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <input type="text" id="contact-name" placeholder="Digite seu nome completo" />
+          </div>
+        </div>
+
+        <div class="contact-field">
+          <label for="contact-whatsapp">WhatsApp <span class="required">*</span></label>
+          <div class="contact-input">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3a9 9 0 0 0-7.8 13.4L3 21l4.8-1.2A9 9 0 1 0 12 3Z" stroke-width="1.8" stroke-linejoin="round"/>
+              <path d="M8.3 8.7c.2-.6.6-.6 1-.6h.4c.2 0 .5 0 .6.4.2.6.7 1.6.7 1.8 0 .1.1.3 0 .4-.1.2-.2.3-.3.4l-.4.5c-.1.2-.3.3-.1.6.2.4 1 1.5 2 2.3 1.3 1 1.6 1.1 1.8 1 .2-.1.5-.4.7-.6.2-.2.3-.2.5-.1l1.7.9c.2.1.4.2.4.4 0 .6-.2 1.2-.5 1.4-.6.5-1.7.8-2.5.6-.9-.2-3-.9-4.7-2.6-1.4-1.4-2.2-2.8-2.5-3.7-.3-.9-.1-1.8.2-2.4Z" stroke-width="1.4" stroke-linejoin="round"/>
+            </svg>
+            <input type="tel" id="contact-whatsapp" placeholder="(11) 99999-9999" />
+          </div>
+        </div>
+
+        <div class="contact-field-row">
+          <div class="contact-field">
+            <label for="contact-level">Nível de inglês <span class="required">*</span></label>
+            <div class="contact-input">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 20V13M10 20V8M16 20V4" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              <select id="contact-level">
+                <option value="" disabled selected>Selecione seu nível</option>
+                <option value="iniciante">Iniciante</option>
+                <option value="basico">Básico</option>
+                <option value="intermediario">Intermediário</option>
+                <option value="avancado">Avançado</option>
+              </select>
+              <svg class="contact-chevron" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+
+          <div class="contact-field">
+            <label for="contact-goal">Objetivo <span class="required">*</span></label>
+            <div class="contact-input">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="8" stroke-width="1.8"/>
+                <circle cx="12" cy="12" r="4.5" stroke-width="1.8"/>
+                <circle cx="12" cy="12" r="1.3"/>
+              </svg>
+              <select id="contact-goal">
+                <option value="" disabled selected>Selecione seu objetivo</option>
+                <option value="viagem">Viagem</option>
+                <option value="trabalho">Trabalho / Carreira</option>
+                <option value="estudos">Estudos / Intercâmbio</option>
+                <option value="conversacao">Conversação do dia a dia</option>
+                <option value="outro">Outro</option>
+              </select>
+              <svg class="contact-chevron" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="contact-field">
+          <label for="contact-message">Conte um pouco sobre seu objetivo ou dificuldade <span class="optional">(opcional)</span></label>
+          <div class="contact-input contact-input-textarea">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 20l1-4.5L15.5 5 19 8.5 8.5 19 4 20Z" stroke-width="1.8" stroke-linejoin="round"/>
+            </svg>
+            <textarea id="contact-message" rows="4" placeholder="Ex.: Quero melhorar minha conversação para entrevistas de emprego."></textarea>
+          </div>
+        </div>
+
+        <button type="button" class="btn-solid-primary contact-submit" data-wip>
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 3 3 10.5l7.5 3M21 3 13.5 21l-3-7.5M21 3l-10.5 10.5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Enviar
+        </button>
 
       </div>
     </section>

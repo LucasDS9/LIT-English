@@ -370,6 +370,183 @@ html {
   }
 }
 
+/* ---------- Entre em Contato ---------- */
+
+.landing-contact {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 24px 140px;
+}
+
+.contact-heading {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.contact-heading h2 {
+  font-family: 'Anton', 'Poppins', sans-serif;
+  font-weight: 400;
+  font-size: 44px;
+  letter-spacing: 0.3px;
+  color: var(--nav-inactive);
+  text-transform: uppercase;
+  margin: 0 0 16px;
+}
+
+.contact-heading h2 .highlight {
+  color: var(--primary);
+}
+
+.contact-heading p {
+  font-size: 17px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.contact-card {
+  background: var(--bg);
+  border: 1px solid var(--primary-pale-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.contact-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.contact-field label {
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: var(--nav-inactive);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.contact-field label .required {
+  color: var(--primary);
+}
+
+.contact-field label .optional {
+  color: var(--text-muted);
+  text-transform: none;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.contact-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  transition: border-color 0.15s ease;
+}
+
+.contact-input:focus-within {
+  border-color: var(--primary);
+}
+
+.contact-input svg {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  stroke: var(--text-muted);
+  margin-left: 16px;
+}
+
+.contact-input input,
+.contact-input select,
+.contact-input textarea {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--text);
+  padding: 15px 16px;
+}
+
+.contact-input select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 40px;
+  cursor: pointer;
+}
+
+.contact-input select:invalid,
+.contact-input select option[value=""] {
+  color: var(--text-muted);
+}
+
+.contact-chevron {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  stroke: var(--text-muted);
+  margin: 0;
+  pointer-events: none;
+}
+
+.contact-input-textarea {
+  align-items: flex-start;
+}
+
+.contact-input-textarea svg {
+  margin-top: 15px;
+}
+
+.contact-input textarea {
+  resize: vertical;
+  min-height: 90px;
+  line-height: 1.5;
+}
+
+.contact-submit {
+  width: 100%;
+  gap: 10px;
+  padding: 18px 26px;
+  font-size: 15px;
+  border-radius: var(--radius-sm);
+}
+
+.contact-submit svg {
+  width: 18px;
+  height: 18px;
+  stroke: #fff;
+}
+
+@media (max-width: 640px) {
+  .landing-contact {
+    padding: 24px 20px 96px;
+  }
+
+  .contact-heading h2 {
+    font-size: 30px;
+  }
+
+  .contact-card {
+    padding: 28px 22px;
+  }
+
+  .contact-field-row {
+    grid-template-columns: 1fr;
+    gap: 26px;
+  }
+}
+
 /* ---------- "Em construção" toast ---------- */
 
 .wip-toast {
