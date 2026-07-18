@@ -1535,7 +1535,7 @@ svg {
 
   /* Espaço para o conteúdo não ficar escondido atrás da barra inferior fixa */
   .main {
-    padding: 24px 18px calc(90px + env(safe-area-inset-bottom, 0px));
+    padding: 24px 12px calc(90px + env(safe-area-inset-bottom, 0px));
   }
 
   .toast {
@@ -1543,7 +1543,7 @@ svg {
   }
 
   .review-card {
-    padding: 28px 22px 34px;
+    padding: 28px 16px 34px;
   }
 
   .review-card .front-text {
@@ -1552,7 +1552,7 @@ svg {
 
   .review-area-centered .review-card {
     min-height: 380px;
-    padding: 28px 22px 34px;
+    padding: 28px 16px 34px;
   }
 
   .review-area-centered .front-text {
