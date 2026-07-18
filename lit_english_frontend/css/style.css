@@ -666,32 +666,32 @@ svg {
 
 .review-area-centered {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1060px;
   margin: 0 auto;
 }
 
 .review-area-centered .review-card {
-  min-height: 640px;
+  min-height: 500px;
   height: auto;
-  padding: 72px 96px 80px;
+  padding: 44px 70px 40px;
 }
 
 .review-area-centered .front-text {
-  font-size: clamp(34px, 6vw, 68px);
+  font-size: clamp(30px, 5vw, 58px);
 }
 
 .review-area-centered .back-text {
-  font-size: clamp(22px, 4vw, 40px);
+  font-size: clamp(20px, 3.4vw, 32px);
 }
 
 .review-area-centered .speak-btn {
-  width: 76px;
-  height: 76px;
+  width: 82px;
+  height: 82px;
 }
 
 .review-area-centered .speak-btn svg {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
 }
 
 .review-area-centered .quality-row {
@@ -796,25 +796,39 @@ svg {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  margin-top: 22px;
+  gap: 16px;
+  margin-top: 30px;
 }
 
 .review-hint {
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
   color: var(--text-secondary);
   margin: 0;
+}
+
+.review-hint svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  flex-shrink: 0;
 }
 
 .flip-btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
+  padding: 13px 30px;
+  border-radius: 999px;
+  font-size: 15.5px;
+  font-weight: 700;
 }
 
 .flip-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   stroke: currentColor;
 }
 

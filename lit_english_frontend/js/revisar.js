@@ -253,12 +253,12 @@ function renderCard() {
   if (!session.flipped) {
     const hint = document.createElement("p");
     hint.className = "review-hint";
-    hint.textContent = "Tente lembrar a tradução antes de virar";
+    hint.innerHTML = `${Icons.info}<span>Tente lembrar a tradução antes de virar</span>`;
     actions.appendChild(hint);
   } else {
     const hint = document.createElement("p");
     hint.className = "review-hint";
-    hint.textContent = "Como foi?";
+    hint.innerHTML = `${Icons.info}<span>Como foi?</span>`;
     actions.appendChild(hint);
 
     const qualityRow = document.createElement("div");
