@@ -65,6 +65,11 @@
   font-family: inherit;
 }
 
+.landing-nav-link {
+  text-decoration: none;
+  display: inline-block;
+}
+
 .landing-nav-link:hover {
   color: var(--primary);
 }
@@ -248,6 +253,121 @@
   color: var(--primary);
   font-size: 20px;
   font-weight: 800;
+}
+
+/* ---------- Benefícios / Diferenciais ---------- */
+
+html {
+  scroll-behavior: smooth;
+}
+
+.landing-hero,
+.landing-benefits {
+  scroll-margin-top: 32px;
+}
+
+.landing-benefits {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 40px 64px 120px;
+}
+
+.benefits-heading {
+  text-align: center;
+  margin-bottom: 64px;
+}
+
+.benefits-heading h2 {
+  font-family: 'Anton', 'Poppins', sans-serif;
+  font-weight: 400;
+  font-size: 44px;
+  line-height: 1.25;
+  letter-spacing: 0.3px;
+  color: var(--nav-inactive);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.benefits-heading h2 .highlight {
+  color: var(--primary);
+}
+
+.benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.benefit-card {
+  background: var(--bg);
+  border: 1px solid var(--primary-pale-border);
+  border-radius: var(--radius-lg);
+  padding: 40px 28px;
+  text-align: center;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.benefit-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+}
+
+.benefit-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.benefit-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: var(--primary);
+}
+
+.benefit-icon svg circle[r="1.8"] {
+  fill: var(--primary);
+  stroke: none;
+}
+
+.benefit-card h3 {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: var(--primary);
+  text-transform: uppercase;
+  margin: 0 0 6px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--primary-pale-border);
+}
+
+.benefit-card p {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 14px 0 0;
+}
+
+@media (max-width: 1180px) {
+  .benefits-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .landing-benefits {
+    padding: 24px 24px 72px;
+  }
+
+  .benefits-heading h2 {
+    font-size: 30px;
+  }
+
+  .benefits-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---------- "Em construção" toast ---------- */
