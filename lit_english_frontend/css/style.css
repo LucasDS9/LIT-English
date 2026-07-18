@@ -619,9 +619,25 @@ svg {
 }
 
 .page-header h1 {
-  font-size: 30px;
-  font-weight: 700;
-  margin: 0 0 6px;
+  display: inline-block;
+  position: relative;
+  font-size: clamp(28px, 5vw, 44px);
+  font-weight: 800;
+  color: var(--primary);
+  margin: 0 0 22px;
+  padding-bottom: 16px;
+}
+
+.page-header h1::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 64px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--primary);
 }
 
 .page-header p {
