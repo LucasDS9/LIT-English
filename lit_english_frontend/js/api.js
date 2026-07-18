@@ -39,7 +39,7 @@ const Auth = {
 
   logout() {
     this.clear();
-    window.location.href = "index.html";
+    window.location.href = "login.html";
   },
 };
 

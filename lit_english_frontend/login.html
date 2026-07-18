@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Entrar — LIT English</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="auth-page">
+
+  <div class="auth-wrapper">
+
+    <div class="logo">
+      <svg class="logo-mark" viewBox="0 0 100 70" xmlns="http://www.w3.org/2000/svg">
+        <rect x="6" y="6" width="88" height="50" rx="12" fill="none" stroke="#861E19" stroke-width="4"/>
+        <text x="50" y="42" text-anchor="middle" font-family="Poppins, sans-serif" font-weight="800" font-size="30" fill="#861E19">CC</text>
+        <line x1="14" y1="50" x2="86" y2="12" stroke="#861E19" stroke-width="4" stroke-linecap="round"/>
+      </svg>
+      <div class="logo-word">LIT ENGLISH</div>
+      <div class="logo-rule"></div>
+      <div class="logo-tagline">— Don't Get Lost In Translation —</div>
+    </div>
+
+    <a href="index.html" class="auth-back-link">&larr; Voltar para o site</a>
+
+    <!-- LOGIN FORM -->
+    <div class="auth-card" id="login-card">
+      <h1>Entrar</h1>
+      <p class="muted">Acesse sua conta para continuar seus estudos.</p>
+
+      <form id="login-form" novalidate>
+        <div class="field">
+          <label for="email">E-mail</label>
+          <input type="email" id="email" name="email" placeholder="voce@email.com" autocomplete="username" required />
+        </div>
+
+        <div class="field">
+          <label for="password">Senha</label>
+          <input type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" required />
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" id="submit-btn">Entrar</button>
+      </form>
+
+      <p class="form-error" id="form-error" hidden></p>
+      <p class="form-info" id="form-info" hidden></p>
+    </div>
+
+    <p class="auth-footer" id="login-footer">Ainda não tem conta? <a href="#" class="auth-link" id="go-register">Criar conta</a></p>
+
+    <!-- REGISTER FORM -->
+    <div class="auth-card" id="register-card" style="display:none;">
+      <h1>Criar Conta</h1>
+      <p class="muted">Preencha seus dados para solicitar acesso à plataforma. Seu cadastro será analisado e aprovado por um professor antes da liberação do acesso.</p>
+
+      <form id="register-form" novalidate>
+        <div class="field">
+          <label for="reg-name">Nome Completo</label>
+          <input type="text" id="reg-name" name="name" placeholder="Lucas Vinicius" required />
+        </div>
+
+        <div class="field">
+          <label for="reg-whatsapp">WhatsApp</label>
+          <input type="tel" id="reg-whatsapp" name="whatsapp" placeholder="(81) 99999-9999" required />
+        </div>
+
+        <div class="field">
+          <label for="reg-email">E-mail</label>
+          <div class="email-split-field">
+            <input type="text" id="reg-email-user" name="email_user" placeholder="seunome" autocomplete="off" required />
+            <span class="email-domain">@litstudent.com</span>
+          </div>
+          <input type="hidden" id="reg-email" name="email" />
+        </div>
+
+        <div class="field">
+          <label for="reg-password">Senha</label>
+          <input type="password" id="reg-password" name="password" placeholder="••••••••" autocomplete="new-password" required />
+        </div>
+
+        <div class="field">
+          <label for="reg-password-confirm">Confirmar Senha</label>
+          <input type="password" id="reg-password-confirm" name="password_confirm" placeholder="••••••••" autocomplete="new-password" required />
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" id="register-btn">Solicitar Cadastro</button>
+      </form>
+
+      <p class="form-error" id="reg-form-error" hidden></p>
+      <p class="form-info" id="reg-form-info" hidden></p>
+    </div>
+
+    <p class="auth-footer" id="register-footer" style="display:none;">Já tem conta? <a href="#" class="auth-link" id="go-login">Fazer login</a></p>
+
+  </div>
+
+  <script src="js/api.js"></script>
+  <script src="js/login.js"></script>
+</body>
+</html>

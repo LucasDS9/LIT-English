@@ -253,12 +253,12 @@ function renderCard() {
   if (!session.flipped) {
     const hint = document.createElement("p");
     hint.className = "review-hint";
-    hint.innerHTML = `${Icons.info}<span>Tente lembrar a tradução antes de virar</span>`;
+    hint.textContent = "Tente lembrar a tradução antes de virar";
     actions.appendChild(hint);
   } else {
     const hint = document.createElement("p");
     hint.className = "review-hint";
-    hint.innerHTML = `${Icons.info}<span>Como foi?</span>`;
+    hint.textContent = "Como foi?";
     actions.appendChild(hint);
 
     const qualityRow = document.createElement("div");
@@ -404,7 +404,7 @@ async function loadQueue() {
 
 async function init() {
   if (!Auth.isLoggedIn()) {
-    window.location.href = "index.html";
+    window.location.href = "login.html";
     return;
   }
 
@@ -413,7 +413,7 @@ async function init() {
     user = await fetchCurrentUser();
   } catch (err) {
     Auth.clear();
-    window.location.href = "index.html";
+    window.location.href = "login.html";
     return;
   }
 

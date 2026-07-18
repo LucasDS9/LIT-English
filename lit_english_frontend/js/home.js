@@ -74,7 +74,7 @@ async function loadMetrics() {
 
 async function init() {
   if (!Auth.isLoggedIn()) {
-    window.location.href = "index.html";
+    window.location.href = "login.html";
     return;
   }
 
@@ -83,7 +83,7 @@ async function init() {
     user = await fetchCurrentUser();
   } catch (err) {
     Auth.clear();
-    window.location.href = "index.html";
+    window.location.href = "login.html";
     return;
   }
 

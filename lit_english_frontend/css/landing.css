@@ -1,0 +1,317 @@
+/* ==========================================================================
+   LIT English — Landing Page
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
+
+.landing {
+  min-height: 100vh;
+  background: var(--bg);
+  overflow-x: hidden;
+}
+
+/* ---------- Header / Navbar ---------- */
+
+.landing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 48px;
+  border-bottom: 1px solid var(--border);
+}
+
+.landing-header .logo {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.landing-header .logo-mark {
+  width: 42px;
+  height: 30px;
+}
+
+.landing-header .logo-word {
+  font-size: 17px;
+  line-height: 1.1;
+}
+
+.landing-header .logo-tagline {
+  display: none;
+}
+
+.landing-header .logo-rule {
+  display: none;
+}
+
+.landing-nav {
+  display: flex;
+  align-items: center;
+  gap: 36px;
+}
+
+.landing-nav-link {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--nav-inactive);
+  text-transform: uppercase;
+  position: relative;
+  padding-bottom: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.landing-nav-link:hover {
+  color: var(--primary);
+}
+
+.landing-nav-link.active {
+  color: var(--primary);
+}
+
+.landing-nav-link.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--primary);
+}
+
+.landing-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-outline-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 22px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--primary);
+  background: transparent;
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  text-transform: uppercase;
+  font-family: inherit;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btn-outline-primary:hover {
+  background: var(--primary-pale);
+}
+
+.btn-solid-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 22px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  text-transform: uppercase;
+  font-family: inherit;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.btn-solid-primary:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+}
+
+/* ---------- Hero ---------- */
+
+.landing-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 32px;
+  padding: 72px 48px 96px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.landing-hero-copy h1 {
+  font-family: 'Anton', 'Poppins', sans-serif;
+  font-weight: 400;
+  font-size: 58px;
+  line-height: 1.05;
+  letter-spacing: 0.5px;
+  color: var(--primary);
+  margin: 0 0 24px;
+  text-transform: uppercase;
+}
+
+.landing-hero-copy p {
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--text);
+  max-width: 460px;
+  margin: 0 0 36px;
+}
+
+.landing-hero-copy .btn-solid-primary {
+  padding: 18px 34px;
+  font-size: 14px;
+  border-radius: var(--radius-md);
+}
+
+/* ---------- Hero visual ---------- */
+
+.landing-hero-visual {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 520px;
+}
+
+.landing-dots {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.landing-hero-badge {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.landing-hero-badge .logo-mark {
+  width: 150px;
+  height: 106px;
+}
+
+.landing-hero-badge .logo-word {
+  font-family: 'Anton', 'Poppins', sans-serif;
+  font-weight: 400;
+  font-size: 64px;
+  letter-spacing: 1px;
+  color: var(--primary);
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+
+.landing-hero-badge .logo-rule {
+  width: 64px;
+  height: 3px;
+  background: var(--primary);
+  margin: 6px 0;
+}
+
+.landing-hero-badge .logo-tagline {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--primary);
+}
+
+/* ---------- "Em construção" toast ---------- */
+
+.wip-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--primary);
+  color: #fff;
+  padding: 14px 24px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 999;
+  white-space: nowrap;
+}
+
+.wip-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 960px) {
+  .landing-header {
+    flex-wrap: wrap;
+    padding: 16px 24px;
+  }
+
+  .landing-nav {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    gap: 20px;
+    padding-top: 12px;
+    flex-wrap: wrap;
+  }
+
+  .landing-header-actions {
+    gap: 8px;
+  }
+
+  .btn-outline-primary,
+  .btn-solid-primary {
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+
+  .landing-hero {
+    grid-template-columns: 1fr;
+    padding: 48px 24px 64px;
+    text-align: center;
+  }
+
+  .landing-hero-copy p {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .landing-hero-copy h1 {
+    font-size: 40px;
+  }
+
+  .landing-hero-visual {
+    min-height: 360px;
+  }
+
+  .landing-hero-badge .logo-mark {
+    width: 100px;
+    height: 70px;
+  }
+
+  .landing-hero-badge .logo-word {
+    font-size: 42px;
+  }
+}
+
+@media (max-width: 560px) {
+  .landing-nav {
+    display: none;
+  }
+}

@@ -67,6 +67,4 @@ const Icons = {
   clipboardList: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="4.5" width="13" height="17" rx="2"/><path d="M9 4.5V3.7a1.7 1.7 0 0 1 1.7-1.7h2.6A1.7 1.7 0 0 1 15 3.7v.8"/><path d="M9 11h6M9 15h6M9 19h3.5"/></svg>`,
 
   cards: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6.3" y="4" width="12" height="16" rx="2.2" transform="rotate(-8 6.3 4)"/><rect x="6" y="4.6" width="12" height="16" rx="2.2" fill="var(--bg)"/><path d="M9.5 9.5h5M9.5 13h5M9.5 16.5h3"/></svg>`,
-
-  info: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6h.01"/></svg>`,
 };

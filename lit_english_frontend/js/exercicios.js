@@ -91,10 +91,10 @@ function renderStateBox({ icon, title, text }) {
 }
 
 async function init() {
-  if (!Auth.isLoggedIn()) { window.location.href = "index.html"; return; }
+  if (!Auth.isLoggedIn()) { window.location.href = "login.html"; return; }
 
   let user;
-  try { user = await fetchCurrentUser(); } catch { Auth.clear(); window.location.href = "index.html"; return; }
+  try { user = await fetchCurrentUser(); } catch { Auth.clear(); window.location.href = "login.html"; return; }
 
   if (user.role === "professor") { window.location.href = "professor.html"; return; }
 
