@@ -1,0 +1,457 @@
+/* ==========================================================================
+   LIT English — Design tokens
+   ========================================================================== */
+:root {
+  --color-bg: #faf9f7;
+  --color-card: #ffffff;
+  --color-border: #eee2e1;
+  --color-primary: #8a0f13;
+  --color-primary-dark: #6b0a0d;
+  --color-primary-tint: #fbe9e9;
+  --color-ink: #1c1414;
+  --color-muted: #7a7270;
+  --color-success: #1e7a3d;
+
+  --font-display: "Anton", "Archivo Black", sans-serif;
+  --font-body: "Poppins", "Segoe UI", sans-serif;
+
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+
+  --shadow-card: 0 20px 45px -20px rgba(138, 15, 19, 0.28);
+  --shadow-button: 0 10px 24px -8px rgba(107, 10, 13, 0.55);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-body);
+  color: var(--color-ink);
+  background: var(--color-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* Fundo com o degradê sutil só aparece no desktop, onde dá pra ver
+   a área ao redor do card. No mobile o card ocupa a tela inteira. */
+@media (min-width: 641px) {
+  body {
+    background: var(--color-bg);
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(138, 15, 19, 0.05), transparent 45%),
+      radial-gradient(circle at 85% 80%, rgba(138, 15, 19, 0.06), transparent 45%);
+    padding: 40px 20px;
+  }
+}
+
+/* ==========================================================================
+   Card
+   ========================================================================== */
+.card {
+  width: 100%;
+  max-width: 440px;
+  min-height: 100vh;
+  background: var(--color-card);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 48px 26px 40px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  opacity: 0;
+  transform: translateY(14px);
+  animation: card-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@media (min-width: 641px) {
+  .card {
+    width: 100%;
+    max-width: 560px;
+    min-height: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    padding: 64px 60px 52px;
+    display: block;
+  }
+}
+
+@keyframes card-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ==========================================================================
+   Logo mark (CC riscado)
+   ========================================================================== */
+.logo-mark {
+  width: 92px;
+  height: 68px;
+  margin: 0 auto 4px;
+  display: block;
+  color: var(--color-primary);
+}
+
+.logo-mark .cc-stroke {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 5;
+}
+
+.logo-mark .cc-letters {
+  fill: currentColor;
+  font-family: var(--font-display);
+}
+
+.logo-mark .cc-slash {
+  stroke: currentColor;
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-dasharray: 110;
+  stroke-dashoffset: 110;
+  animation: draw-slash 0.5s ease-out 0.45s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-mark .cc-slash {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes draw-slash {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-size: 40px;
+  letter-spacing: 1px;
+  color: var(--color-primary);
+  margin: 6px 0 6px;
+  line-height: 1;
+}
+
+.tagline {
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  margin: 0 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tagline .dot {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  opacity: 0.6;
+}
+
+.tagline .accent {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 20px auto 24px;
+  width: 64px;
+}
+
+/* ==========================================================================
+   Heading
+   ========================================================================== */
+.heading {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: var(--color-ink);
+}
+
+.subheading {
+  font-size: 14.5px;
+  color: var(--color-muted);
+  margin: 0 0 28px;
+  line-height: 1.5;
+}
+
+.subheading .highlight {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Form
+   ========================================================================== */
+.field {
+  text-align: left;
+  margin-bottom: 22px;
+}
+
+.field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-wrap svg {
+  position: absolute;
+  left: 16px;
+  width: 18px;
+  height: 18px;
+  color: var(--color-muted);
+  pointer-events: none;
+  transition: color 0.2s ease;
+}
+
+.input-wrap input {
+  width: 100%;
+  font-family: var(--font-body);
+  font-size: 15px;
+  padding: 14px 16px 14px 46px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--color-border);
+  background: #fff;
+  color: var(--color-ink);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-wrap input::placeholder {
+  color: #b9b0ae;
+}
+
+.input-wrap input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px var(--color-primary-tint);
+}
+
+.input-wrap input:focus + svg,
+.input-wrap:focus-within svg {
+  color: var(--color-primary);
+}
+
+.field-error {
+  min-height: 18px;
+  font-size: 12.5px;
+  color: var(--color-primary);
+  margin-top: 7px;
+  text-align: left;
+}
+
+/* ==========================================================================
+   Button
+   ========================================================================== */
+.btn-primary {
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #fff;
+  padding: 16px 20px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  box-shadow: var(--shadow-button);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 28px -8px rgba(107, 10, 13, 0.6);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  filter: brightness(0.96);
+}
+
+.btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary .rocket {
+  font-size: 17px;
+  transform: translateY(-1px);
+}
+
+.btn-primary .spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+
+.btn-primary.is-loading .spinner {
+  display: inline-block;
+}
+
+.btn-primary.is-loading .btn-label,
+.btn-primary.is-loading .rocket {
+  opacity: 0.75;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ==========================================================================
+   Footer note
+   ========================================================================== */
+.footer-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.footer-note svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--color-muted);
+}
+
+/* ==========================================================================
+   Responsive — desktop fica maior e mais respirado
+   ========================================================================== */
+@media (min-width: 641px) {
+  .logo-mark {
+    width: 108px;
+    height: 80px;
+  }
+
+  .wordmark {
+    font-size: 50px;
+  }
+
+  .tagline {
+    font-size: 12.5px;
+    margin-bottom: 26px;
+  }
+
+  .divider {
+    margin: 26px auto 30px;
+  }
+
+  .heading {
+    font-size: 30px;
+  }
+
+  .subheading {
+    font-size: 16px;
+    margin-bottom: 34px;
+  }
+
+  .field {
+    margin-bottom: 26px;
+  }
+
+  .field-label {
+    font-size: 12px;
+  }
+
+  .input-wrap input {
+    font-size: 16px;
+    padding: 17px 18px 17px 50px;
+  }
+
+  .input-wrap svg {
+    width: 20px;
+    height: 20px;
+    left: 18px;
+  }
+
+  .btn-primary {
+    font-size: 16.5px;
+    padding: 19px 22px;
+  }
+
+  .footer-note {
+    font-size: 13px;
+    margin-top: 26px;
+  }
+}
+
+/* Telas bem grandes: card ainda maior */
+@media (min-width: 1200px) {
+  .card {
+    max-width: 620px;
+    padding: 72px 68px 58px;
+  }
+}
+
+/* Link para voltar ao site principal (fixo, canto superior esquerdo) */
+.back-to-site-link {
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-decoration: none;
+  z-index: 10;
+  transition: color 0.15s ease;
+}
+
+.back-to-site-link:hover {
+  color: var(--color-primary);
+}

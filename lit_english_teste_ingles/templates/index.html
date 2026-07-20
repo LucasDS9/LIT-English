@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LIT English — Descubra seu nível de inglês</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <main class="card" role="main">
+    <a href="#" class="back-to-site-link" id="back-to-site-link">← Voltar para o site</a>
+
+    <!-- Logo: "CC" (closed captions) riscado -->
+    <svg class="logo-mark" viewBox="0 0 92 68" aria-hidden="true">
+      <rect class="cc-stroke" x="4" y="4" width="84" height="52" rx="14" />
+      <text class="cc-letters" x="46" y="42" font-size="26" text-anchor="middle">CC</text>
+      <line class="cc-slash" x1="10" y1="62" x2="82" y2="6" />
+    </svg>
+
+    <h1 class="wordmark">LIT ENGLISH</h1>
+
+    <p class="tagline">
+      <span class="dot"></span>
+      DON'T GET <span class="accent">L</span>OST
+      <span class="accent">I</span>N <span class="accent">T</span>RANSLATION.
+      <span class="dot"></span>
+    </p>
+
+    <hr class="divider" />
+
+    <h2 class="heading">Descubra seu nível de inglês.</h2>
+    <p class="subheading">
+      Um teste rápido, preciso e <span class="highlight">100% gratuito</span>.
+    </p>
+
+    <form id="name-form" novalidate>
+      <div class="field">
+        <label class="field-label" for="nome">Seu nome</label>
+        <div class="input-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 21a8 8 0 0 0-16 0" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          <input
+            type="text"
+            id="nome"
+            name="nome"
+            placeholder="Digite seu nome"
+            autocomplete="name"
+            autofocus
+          />
+        </div>
+        <p class="field-error" id="field-error" aria-live="polite"></p>
+      </div>
+
+      <button type="submit" class="btn-primary" id="submit-btn">
+        <span class="spinner" aria-hidden="true"></span>
+        <span class="rocket" aria-hidden="true">🚀</span>
+        <span class="btn-label">FAÇA O TESTE</span>
+      </button>
+    </form>
+
+    <p class="footer-note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </svg>
+      Seus dados estão seguros e não serão compartilhados.
+    </p>
+  </main>
+
+  <script>
+    // Ajuste esta URL para onde o site principal (lit_english_frontend) estiver rodando.
+    window.SITE_PRINCIPAL_URL = "http://127.0.0.1:5500/index.html";
+    document.getElementById("back-to-site-link").addEventListener("click", (e) => {
+      e.preventDefault();
+      window.location.href = window.SITE_PRINCIPAL_URL;
+    });
+  </script>
+  <script src="{{ url_for('static', filename='js/name-screen.js') }}"></script>
+</body>
+</html>

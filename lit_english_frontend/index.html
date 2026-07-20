@@ -29,7 +29,7 @@
       </nav>
 
       <div class="landing-header-actions">
-        <button type="button" class="btn-outline-primary" data-wip>Teste de Inglês</button>
+        <a href="#" id="teste-ingles-link" class="btn-outline-primary">Teste de Inglês</a>
         <a href="login.html" class="btn-solid-primary">Acesse a Plataforma</a>
       </div>
     </header>
@@ -223,6 +223,15 @@
   <div class="wip-toast" id="wip-toast">🚧 Em construção — em breve por aqui!</div>
 
   <script>
+    // Ajuste esta URL para onde o app do Teste de Inglês estiver rodando.
+    // Em desenvolvimento local (python3 app.py, dentro de lit_english_teste_ingles) o padrão é:
+    const TESTE_INGLES_URL = "http://127.0.0.1:5050/";
+
+    document.getElementById('teste-ingles-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location.href = TESTE_INGLES_URL;
+    });
+
     const toast = document.getElementById('wip-toast');
     let hideTimer;
     document.querySelectorAll('[data-wip]').forEach((el) => {

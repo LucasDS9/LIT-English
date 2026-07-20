@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LIT English — Teste</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/quiz.css') }}" />
+</head>
+<body class="quiz-body">
+  <main class="quiz-shell" id="quiz-shell">
+    <!-- preenchido dinamicamente pelo quiz.js -->
+    <div class="quiz-loading">
+      <div class="spinner-lg" aria-hidden="true"></div>
+      <p>Carregando seu teste…</p>
+    </div>
+  </main>
+
+  <script>
+    // Ajuste esta URL para onde o site principal (lit_english_frontend) estiver rodando.
+    window.SITE_PRINCIPAL_URL = "http://127.0.0.1:5500/index.html";
+  </script>
+  <script src="{{ url_for('static', filename='js/quiz.js') }}"></script>
+</body>
+</html>
