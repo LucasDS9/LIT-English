@@ -12,9 +12,26 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
 from app.lit_points import maybe_award_flashcard_daily_bonus
-from app.models import CardProgress, Flashcard, FlashcardAssignment, QAAnswerLog, ReviewLog, User, UserRole
+from app.models import (
+    CardProgress,
+    Flashcard,
+    FlashcardAssignment,
+    FlashcardBatch,
+    FlashcardBatchItem,
+    FlashcardBatchStudent,
+    QAAnswerLog,
+    ReviewLog,
+    User,
+    UserRole,
+)
 from app.schemas import (
     CardProgressOut,
+    FlashcardBatchCardOut,
+    FlashcardBatchCreatePayload,
+    FlashcardBatchOut,
+    FlashcardBatchRenamePayload,
+    FlashcardBatchResendPayload,
+    FlashcardBatchStudentOut,
     FlashcardCreate,
     FlashcardOut,
     FlashcardResendPayload,
@@ -120,6 +137,7 @@ def delete_flashcard(
     # cascade da relationship "assignments" do model Flashcard.
     db.query(CardProgress).filter(CardProgress.flashcard_id == flashcard_id).delete()
     db.query(ReviewLog).filter(ReviewLog.flashcard_id == flashcard_id).delete()
+    db.query(FlashcardBatchItem).filter(FlashcardBatchItem.flashcard_id == flashcard_id).delete()
     # QAAnswerLog mantém o histórico de respostas do QA mesmo se o flashcard
     # gerado a partir dela for excluído — só desvincula.
     db.query(QAAnswerLog).filter(QAAnswerLog.flashcard_id == flashcard_id).update(
@@ -167,6 +185,177 @@ def resend_flashcards(
             if (flashcard_id, student_id) in existing_pairs:
                 continue
             db.add(FlashcardAssignment(flashcard_id=flashcard_id, student_id=student_id))
+            total += 1
+
+    db.commit()
+    return {"assigned": total}
+
+
+@router.post("/batch", response_model=FlashcardBatchOut, status_code=status.HTTP_201_CREATED)
+def create_flashcard_batch(
+    payload: FlashcardBatchCreatePayload,
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    """
+    Cria vários flashcards de uma vez (um "deck"), já atribuídos aos alunos
+    selecionados, e agrupa tudo num lote que aparece no Histórico — mesmo
+    padrão usado no envio de exercícios em lote.
+    """
+    _validate_student_ids(payload.student_ids, db)
+
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Informe um nome para o deck.")
+
+    now = datetime.utcnow()
+    batch = FlashcardBatch(name=name, sent_at=now)
+    db.add(batch)
+    db.flush()  # gera batch.id
+
+    student_ids = set(payload.student_ids)
+    created_cards = []
+    for card_in in payload.cards:
+        card = Flashcard(front=card_in.front.strip(), back=card_in.back.strip())
+        db.add(card)
+        db.flush()  # gera card.id
+        db.add(FlashcardBatchItem(batch_id=batch.id, flashcard_id=card.id))
+        for student_id in student_ids:
+            db.add(FlashcardAssignment(flashcard_id=card.id, student_id=student_id))
+        created_cards.append(card)
+
+    for student_id in student_ids:
+        db.add(FlashcardBatchStudent(batch_id=batch.id, student_id=student_id))
+
+    db.commit()
+
+    students = db.query(User).filter(User.id.in_(student_ids)).all()
+    return FlashcardBatchOut(
+        batch_id=batch.id,
+        batch_name=batch.name,
+        sent_at=batch.sent_at,
+        students=[FlashcardBatchStudentOut(id=s.id, name=s.name) for s in students],
+        cards=[FlashcardBatchCardOut(id=c.id, front=c.front, back=c.back) for c in created_cards],
+    )
+
+
+# ============================================================
+# PROFESSOR: histórico de lotes (decks) de flashcards
+# ============================================================
+
+@router.get("/batches", response_model=list[FlashcardBatchOut])
+def list_flashcard_batches(
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    """Lista todos os decks de flashcards enviados, do mais recente para o mais antigo."""
+    batches = db.query(FlashcardBatch).order_by(FlashcardBatch.sent_at.desc()).all()
+
+    result = []
+    for batch in batches:
+        cards = [item.flashcard for item in batch.items if item.flashcard]
+        students = [link.student for link in batch.student_links if link.student]
+        result.append(
+            FlashcardBatchOut(
+                batch_id=batch.id,
+                batch_name=batch.name,
+                sent_at=batch.sent_at,
+                students=[FlashcardBatchStudentOut(id=s.id, name=s.name) for s in students],
+                cards=[FlashcardBatchCardOut(id=c.id, front=c.front, back=c.back) for c in cards],
+            )
+        )
+    return result
+
+
+@router.patch("/batches/{batch_id}/rename", status_code=200)
+def rename_flashcard_batch(
+    batch_id: int,
+    payload: FlashcardBatchRenamePayload,
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    batch = db.query(FlashcardBatch).filter(FlashcardBatch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Deck não encontrado.")
+    new_name = payload.name.strip()
+    if not new_name:
+        raise HTTPException(status_code=422, detail="Informe um nome.")
+    batch.name = new_name
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/batches/{batch_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_flashcard_batch(
+    batch_id: int,
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    """
+    Remove um deck do histórico. Isso NÃO revoga os flashcards já atribuídos
+    aos alunos (eles continuam disponíveis para revisão); apenas o registro
+    do histórico (e seus vínculos de card/aluno) é excluído.
+    """
+    batch = db.query(FlashcardBatch).filter(FlashcardBatch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Deck não encontrado.")
+    db.delete(batch)
+    db.commit()
+    return None
+
+
+@router.post("/batches/{batch_id}/resend", status_code=201)
+def resend_flashcard_batch(
+    batch_id: int,
+    payload: FlashcardBatchResendPayload,
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    """
+    Reenvia todos os flashcards de um deck para os alunos informados.
+    Cria um novo lote no histórico com o mesmo nome do original.
+    """
+    original = db.query(FlashcardBatch).filter(FlashcardBatch.id == batch_id).first()
+    if not original:
+        raise HTTPException(status_code=404, detail="Deck não encontrado.")
+
+    card_ids = [item.flashcard_id for item in original.items]
+    if not card_ids:
+        raise HTTPException(status_code=422, detail="Deck sem flashcards.")
+
+    students = (
+        db.query(User)
+        .filter(User.id.in_(payload.student_ids), User.role == UserRole.aluno)
+        .all()
+    )
+    if not students:
+        raise HTTPException(status_code=404, detail="Nenhum aluno válido informado.")
+
+    existing = (
+        db.query(FlashcardAssignment.flashcard_id, FlashcardAssignment.student_id)
+        .filter(
+            FlashcardAssignment.flashcard_id.in_(card_ids),
+            FlashcardAssignment.student_id.in_([s.id for s in students]),
+        )
+        .all()
+    )
+    existing_pairs = {(fid, sid) for fid, sid in existing}
+
+    now = datetime.utcnow()
+    new_batch = FlashcardBatch(name=original.name, sent_at=now)
+    db.add(new_batch)
+    db.flush()
+
+    for card_id in card_ids:
+        db.add(FlashcardBatchItem(batch_id=new_batch.id, flashcard_id=card_id))
+
+    total = 0
+    for student in students:
+        db.add(FlashcardBatchStudent(batch_id=new_batch.id, student_id=student.id))
+        for card_id in card_ids:
+            if (card_id, student.id) in existing_pairs:
+                continue
+            db.add(FlashcardAssignment(flashcard_id=card_id, student_id=student.id))
             total += 1
 
     db.commit()

@@ -119,6 +119,57 @@ class FlashcardResendPayload(BaseModel):
     student_ids: List[int] = Field(min_length=1)
 
 
+# ---------- Histórico de lotes de flashcards ----------
+
+class FlashcardBatchCardIn(BaseModel):
+    front: str
+    back: str
+
+
+class FlashcardBatchCreatePayload(BaseModel):
+    """Cria vários flashcards de uma vez, agrupados num lote (deck) nomeado,
+    e já envia para os alunos selecionados."""
+    name: str
+    cards: List[FlashcardBatchCardIn] = Field(min_length=1)
+    student_ids: List[int] = Field(min_length=1)
+
+
+class FlashcardBatchStudentOut(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
+class FlashcardBatchCardOut(BaseModel):
+    id: int
+    front: str
+    back: str
+
+    class Config:
+        from_attributes = True
+
+
+class FlashcardBatchOut(BaseModel):
+    batch_id: int
+    batch_name: str
+    sent_at: datetime
+    students: List[FlashcardBatchStudentOut]
+    cards: List[FlashcardBatchCardOut]
+
+    class Config:
+        from_attributes = True
+
+
+class FlashcardBatchRenamePayload(BaseModel):
+    name: str
+
+
+class FlashcardBatchResendPayload(BaseModel):
+    student_ids: List[int] = Field(min_length=1)
+
+
 # ---------- Read and Listen ----------
 
 class ReadingTextCreate(BaseModel):

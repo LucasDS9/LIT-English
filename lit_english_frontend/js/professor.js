@@ -559,49 +559,106 @@ async function openStudentDetailsModal(student) {
 async function renderFlashcards() {
   renderLoading();
 
-  let cards, allStudents;
+  let allStudents;
   try {
-    [cards, allStudents] = await Promise.all([
-      apiFetch("/flashcards"),
-      apiFetch("/admin/students"),
-    ]);
+    allStudents = await apiFetch("/admin/students");
   } catch (err) {
-    showToast(err.message || "Não foi possível carregar os flashcards.");
+    showToast(err.message || "Não foi possível carregar os alunos.");
     return;
   }
   const approvedStudents = allStudents.filter((s) => s.is_approved);
 
   contentArea.innerHTML = "";
-  contentArea.appendChild(
-    renderSectionHeader({
-      title: "Flashcards",
-      subtitle: "Crie e gerencie o vocabulário disponível para revisão.",
-      actionLabel: "Novo Flashcard",
-      onAction: () => openFlashcardModal(null, approvedStudents),
-    })
+
+  const header = renderSectionHeader({
+    title: "Flashcards",
+    subtitle: "Crie e gerencie o vocabulário disponível para revisão.",
+  });
+
+  // Tab bar — mesmo padrão usado em Exercícios
+  const tabBar = document.createElement("div");
+  tabBar.className = "tab-bar";
+  tabBar.style.cssText = "display:flex;gap:8px;margin-bottom:20px;";
+  const tabCards = document.createElement("button");
+  tabCards.className = "btn btn-primary btn-sm";
+  tabCards.textContent = "Flashcards";
+  const tabHistorico = document.createElement("button");
+  tabHistorico.className = "btn btn-outline btn-sm";
+  tabHistorico.textContent = "Histórico";
+  tabBar.appendChild(tabCards);
+  tabBar.appendChild(tabHistorico);
+
+  const cardsView = document.createElement("div");
+  const historicoView = document.createElement("div");
+  historicoView.hidden = true;
+
+  function activateTab(activeBtn, activeView) {
+    [tabCards, tabHistorico].forEach((b) => (b.className = "btn btn-outline btn-sm"));
+    activeBtn.className = "btn btn-primary btn-sm";
+    [cardsView, historicoView].forEach((v) => (v.hidden = true));
+    activeView.hidden = false;
+  }
+
+  tabCards.addEventListener("click", () => activateTab(tabCards, cardsView));
+  tabHistorico.addEventListener("click", () => {
+    activateTab(tabHistorico, historicoView);
+    loadFlashcardHistorico(historicoView, approvedStudents);
+  });
+
+  contentArea.appendChild(header);
+  contentArea.appendChild(tabBar);
+  contentArea.appendChild(cardsView);
+  contentArea.appendChild(historicoView);
+
+  await buildFlashcardsMainView(cardsView, approvedStudents);
+}
+
+async function buildFlashcardsMainView(container, approvedStudents) {
+  container.innerHTML = '<div class="skeleton">Carregando flashcards...</div>';
+
+  let cards;
+  try {
+    cards = await apiFetch("/flashcards");
+  } catch (err) {
+    container.innerHTML = "";
+    showToast(err.message || "Não foi possível carregar os flashcards.");
+    return;
+  }
+
+  container.innerHTML = "";
+
+  const actionHeader = document.createElement("div");
+  actionHeader.style.cssText = "display:flex;justify-content:flex-end;margin-bottom:12px;";
+  const newDeckBtn = document.createElement("button");
+  newDeckBtn.className = "btn btn-primary btn-sm";
+  newDeckBtn.innerHTML = `${Icons.plus}<span>Novo Flashcard</span>`;
+  newDeckBtn.addEventListener("click", () =>
+    openFlashcardDeckModal(approvedStudents, () => renderFlashcards())
   );
+  actionHeader.appendChild(newDeckBtn);
+  container.appendChild(actionHeader);
 
   if (cards.length === 0) {
-    renderStateBox(contentArea, {
+    renderStateBox(container, {
       icon: Icons.library,
       title: "Nenhum flashcard cadastrado ainda",
       text: "Crie o primeiro flashcard para que seus alunos possam começar a revisar.",
       actionLabel: "Novo Flashcard",
-      onAction: () => openFlashcardModal(null, approvedStudents),
+      onAction: () => openFlashcardDeckModal(approvedStudents, () => renderFlashcards()),
     });
   } else {
     // A lista de todos os flashcards fica só no Vocabulário do aluno
-    // (abaixo): editar e excluir cards é feito por lá, escolhendo o aluno.
-    renderStateBox(contentArea, {
+    // (abaixo) e no Histórico: editar e excluir cards é feito por lá.
+    renderStateBox(container, {
       icon: Icons.library,
       title: "Flashcards em uso",
-      text: "Para ver, editar ou excluir os flashcards já enviados, escolha o aluno em \"Vocabulário do aluno\" abaixo.",
+      text: "Para ver, editar ou excluir os flashcards já enviados, escolha o aluno em \"Vocabulário do aluno\" abaixo, ou veja a aba \"Histórico\".",
       actionLabel: "Novo Flashcard",
-      onAction: () => openFlashcardModal(null, approvedStudents),
+      onAction: () => openFlashcardDeckModal(approvedStudents, () => renderFlashcards()),
     });
   }
 
-  renderStudentVocabularySection(contentArea, approvedStudents);
+  renderStudentVocabularySection(container, approvedStudents);
 }
 
 // ---------------------------------------------------------------------------
@@ -1078,6 +1135,522 @@ async function deleteFlashcard(id, onDeleted) {
   } catch (err) {
     showToast(err.message || "Não foi possível excluir o flashcard.");
   }
+}
+
+// ── Modal criar deck de flashcards (vários cards de uma vez) ────────────────
+// Permite dar um título ao deck (ex: "Infinitivo x Gerúndio"), adicionar
+// quantos cartões quiser ("adicionar mais") e enviar tudo de uma vez para
+// os alunos selecionados. O deck vira um bloco no Histórico.
+
+function openFlashcardDeckModal(approvedStudents, onDone) {
+  if (!approvedStudents || approvedStudents.length === 0) {
+    showToast("Nenhum aluno aprovado para enviar flashcards.");
+    return;
+  }
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+
+  const modal = document.createElement("div");
+  modal.className = "modal";
+
+  const header = document.createElement("div");
+  header.className = "modal-header";
+  const h2 = document.createElement("h2");
+  h2.textContent = "Novo Flashcard";
+  header.appendChild(h2);
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "icon-btn";
+  closeBtn.innerHTML = Icons.x;
+  closeBtn.addEventListener("click", () => overlay.remove());
+  header.appendChild(closeBtn);
+  modal.appendChild(header);
+
+  const form = document.createElement("form");
+
+  // Título do deck
+  const nameField = document.createElement("div");
+  nameField.className = "field";
+  nameField.style.marginBottom = "12px";
+  nameField.innerHTML = '<label style="font-size:13px;font-weight:600;color:#444;">Título do deck</label>';
+  const nameInput = document.createElement("input");
+  nameInput.type = "text";
+  nameInput.required = true;
+  nameInput.placeholder = "Ex: Infinitivo x Gerúndio";
+  nameInput.style.cssText = "width:100%;margin-top:4px;";
+  nameField.appendChild(nameInput);
+  form.appendChild(nameField);
+
+  // Alunos
+  const studentsField = document.createElement("div");
+  studentsField.className = "field";
+  studentsField.style.marginBottom = "12px";
+  studentsField.innerHTML = '<label>Enviar para</label>';
+  const studentsBox = document.createElement("div");
+  studentsBox.style.cssText = "display:flex;flex-direction:column;gap:6px;max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-top:6px;";
+  const studentCheckboxes = [];
+  approvedStudents.forEach((s) => {
+    const label = document.createElement("label");
+    label.style.cssText = "display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = s.id;
+    label.appendChild(checkbox);
+    const span = document.createElement("span");
+    span.textContent = s.name;
+    label.appendChild(span);
+    studentsBox.appendChild(label);
+    studentCheckboxes.push(checkbox);
+  });
+  studentsField.appendChild(studentsBox);
+  const selAllBtn = document.createElement("button");
+  selAllBtn.type = "button";
+  selAllBtn.className = "btn btn-outline btn-sm";
+  selAllBtn.style.cssText = "margin-top:8px;";
+  selAllBtn.textContent = "Selecionar todos";
+  selAllBtn.addEventListener("click", () => {
+    const allChecked = studentCheckboxes.every((c) => c.checked);
+    studentCheckboxes.forEach((c) => (c.checked = !allChecked));
+    selAllBtn.textContent = allChecked ? "Selecionar todos" : "Desmarcar todos";
+  });
+  studentsField.appendChild(selAllBtn);
+  form.appendChild(studentsField);
+
+  // Cartões (front/back), dinâmico
+  const cardsField = document.createElement("div");
+  cardsField.style.marginBottom = "8px";
+  const cardsLabel = document.createElement("label");
+  cardsLabel.style.cssText = "font-size:13px;font-weight:600;color:#444;display:block;margin-bottom:6px;";
+  cardsLabel.textContent = "Cartões";
+  cardsField.appendChild(cardsLabel);
+  const cardsList = document.createElement("div");
+  cardsList.style.cssText = "display:flex;flex-direction:column;gap:8px;";
+  cardsField.appendChild(cardsList);
+  form.appendChild(cardsField);
+
+  const rows = [];
+
+  function addCardRow(front = "", back = "") {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;gap:8px;";
+    const frontInput = document.createElement("input");
+    frontInput.type = "text";
+    frontInput.placeholder = "Frase em inglês";
+    frontInput.value = front;
+    frontInput.style.flex = "1";
+    const backInput = document.createElement("input");
+    backInput.type = "text";
+    backInput.placeholder = "Tradução em português";
+    backInput.value = back;
+    backInput.style.flex = "1";
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "icon-btn";
+    removeBtn.title = "Remover cartão";
+    removeBtn.innerHTML = Icons.x;
+    removeBtn.addEventListener("click", () => {
+      if (rows.length <= 1) return; // sempre mantém pelo menos 1 cartão
+      const idx = rows.indexOf(entry);
+      if (idx !== -1) rows.splice(idx, 1);
+      row.remove();
+    });
+    row.appendChild(frontInput);
+    row.appendChild(backInput);
+    row.appendChild(removeBtn);
+    cardsList.appendChild(row);
+    const entry = { frontInput, backInput };
+    rows.push(entry);
+  }
+
+  addCardRow();
+
+  const addRowBtn = document.createElement("button");
+  addRowBtn.type = "button";
+  addRowBtn.className = "btn btn-outline btn-sm";
+  addRowBtn.style.cssText = "margin-top:10px;";
+  addRowBtn.innerHTML = `${Icons.plus}<span>Adicionar mais um cartão</span>`;
+  addRowBtn.addEventListener("click", () => addCardRow());
+  form.appendChild(addRowBtn);
+
+  const errorBox = document.createElement("p");
+  errorBox.className = "form-error";
+  errorBox.style.marginTop = "12px";
+  errorBox.hidden = true;
+  form.appendChild(errorBox);
+
+  const actions = document.createElement("div");
+  actions.className = "modal-actions";
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "btn btn-outline";
+  cancelBtn.textContent = "Cancelar";
+  cancelBtn.addEventListener("click", () => overlay.remove());
+  actions.appendChild(cancelBtn);
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "submit";
+  saveBtn.className = "btn btn-primary";
+  saveBtn.textContent = "Criar e enviar";
+  actions.appendChild(saveBtn);
+  form.appendChild(actions);
+
+  modal.appendChild(form);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  nameInput.focus();
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errorBox.hidden = true;
+
+    const name = nameInput.value.trim();
+    if (!name) { errorBox.textContent = "Informe o título do deck."; errorBox.hidden = false; return; }
+
+    const student_ids = studentCheckboxes.filter((c) => c.checked).map((c) => parseInt(c.value));
+    if (student_ids.length === 0) { errorBox.textContent = "Selecione ao menos um aluno."; errorBox.hidden = false; return; }
+
+    const cards = rows.map((r) => ({ front: r.frontInput.value.trim(), back: r.backInput.value.trim() }));
+    if (cards.some((c) => !c.front || !c.back)) {
+      errorBox.textContent = "Preencha a frase em inglês e a tradução de todos os cartões.";
+      errorBox.hidden = false;
+      return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Enviando...";
+
+    try {
+      await apiFetch("/flashcards/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, cards, student_ids }),
+      });
+      showToast(`Deck "${name}" criado e enviado.`);
+      overlay.remove();
+      (onDone || renderFlashcards)();
+    } catch (err) {
+      errorBox.textContent = err.message || "Não foi possível salvar o deck.";
+      errorBox.hidden = false;
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Criar e enviar";
+    }
+  });
+}
+
+// ── Histórico de decks de flashcards ─────────────────────────────────────────
+
+async function loadFlashcardHistorico(container, approvedStudents) {
+  container.innerHTML = '<div class="skeleton">Carregando histórico...</div>';
+
+  let batches = [];
+  try { batches = await apiFetch("/flashcards/batches"); }
+  catch (err) { container.innerHTML = `<p style="color:#861E19;">Erro: ${err.message}</p>`; return; }
+
+  container.innerHTML = "";
+
+  if (batches.length === 0) {
+    container.innerHTML = '<p style="color:#666;font-size:14px;padding:20px 0;">Nenhum deck enviado ainda.</p>';
+    return;
+  }
+
+  const subtitle = document.createElement("p");
+  subtitle.style.cssText = "font-size:13px;color:#666;margin-bottom:16px;";
+  subtitle.textContent = "Cada bloco representa um deck de flashcards enviado de uma vez, com os alunos que o receberam. Você pode renomear, reenviar ou excluir o bloco, além de editar ou excluir cada flashcard.";
+  container.appendChild(subtitle);
+
+  const list = document.createElement("div");
+  list.style.cssText = "display:flex;flex-direction:column;gap:14px;";
+
+  batches.forEach((batch) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.cssText = "padding:18px 20px;";
+
+    // ── Cabeçalho do bloco ────────────────────────────────────────────────
+    const topRow = document.createElement("div");
+    topRow.style.cssText = "display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;";
+
+    const leftCol = document.createElement("div");
+    leftCol.style.cssText = "display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;";
+
+    const nameRow = document.createElement("div");
+    nameRow.style.cssText = "display:flex;align-items:center;gap:8px;";
+    const nameSpan = document.createElement("strong");
+    nameSpan.style.cssText = "font-size:15px;color:#1a1a1a;";
+    nameSpan.textContent = batch.batch_name;
+    const editNameBtn = document.createElement("button");
+    editNameBtn.className = "icon-btn";
+    editNameBtn.title = "Renomear deck";
+    editNameBtn.innerHTML = Icons.edit;
+    editNameBtn.addEventListener("click", () => openFlashcardBatchRenameModal(batch, nameSpan));
+    nameRow.appendChild(nameSpan);
+    nameRow.appendChild(editNameBtn);
+    leftCol.appendChild(nameRow);
+
+    const dateEl = document.createElement("span");
+    dateEl.style.cssText = "font-size:12px;color:#888;";
+    const d = new Date(batch.sent_at);
+    dateEl.textContent = `Enviado em ${d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}`;
+    leftCol.appendChild(dateEl);
+
+    const studentsEl = document.createElement("span");
+    studentsEl.style.cssText = "font-size:12px;color:#555;";
+    studentsEl.textContent = "Para: " + (batch.students.length > 0 ? batch.students.map((s) => s.name).join(", ") : "—");
+    leftCol.appendChild(studentsEl);
+
+    topRow.appendChild(leftCol);
+
+    const btnGroup = document.createElement("div");
+    btnGroup.style.cssText = "display:flex;gap:8px;flex-shrink:0;";
+
+    const resendBtn = document.createElement("button");
+    resendBtn.className = "btn btn-outline btn-sm";
+    resendBtn.style.cssText = "white-space:nowrap;flex-shrink:0;";
+    resendBtn.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9l20-7z"/></svg>Reenviar`;
+    resendBtn.addEventListener("click", () => openFlashcardBatchResendModal(batch, approvedStudents));
+    btnGroup.appendChild(resendBtn);
+
+    const deleteBatchBtn = document.createElement("button");
+    deleteBatchBtn.className = "icon-btn danger";
+    deleteBatchBtn.title = "Excluir deck do histórico";
+    deleteBatchBtn.innerHTML = Icons.trash;
+    deleteBatchBtn.addEventListener("click", async () => {
+      if (!window.confirm(`Excluir o deck "${batch.batch_name}" do histórico?\n\nOs flashcards já enviados continuam disponíveis para os alunos — apenas o registro do histórico é removido.`)) return;
+      try {
+        await apiFetch(`/flashcards/batches/${batch.batch_id}`, { method: "DELETE" });
+        showToast("Deck excluído do histórico.");
+        card.style.transition = "opacity 0.2s";
+        card.style.opacity = "0";
+        setTimeout(() => {
+          card.remove();
+          if (list.children.length === 0) {
+            container.innerHTML = '<p style="color:#666;font-size:14px;padding:20px 0;">Nenhum deck enviado ainda.</p>';
+          }
+        }, 200);
+      } catch (err) {
+        showToast(err.message || "Erro ao excluir deck.");
+      }
+    });
+    btnGroup.appendChild(deleteBatchBtn);
+
+    topRow.appendChild(btnGroup);
+    card.appendChild(topRow);
+
+    const divider = document.createElement("div");
+    divider.style.cssText = "height:1px;background:#f0f0f0;margin-bottom:10px;";
+    card.appendChild(divider);
+
+    // ── Lista de flashcards do deck ─────────────────────────────────────────
+    const cardList = document.createElement("div");
+    cardList.style.cssText = "display:flex;flex-direction:column;gap:6px;";
+
+    batch.cards.forEach((fc) => {
+      const fcRow = document.createElement("div");
+      fcRow.style.cssText = "display:flex;align-items:center;gap:10px;padding:8px 12px;background:#fafafa;border-radius:8px;border:1px solid #f0f0f0;";
+
+      const typeIcon = document.createElement("span");
+      typeIcon.style.cssText = "display:flex;align-items:center;flex-shrink:0;";
+      typeIcon.innerHTML = Icons.library.replace('<svg ', '<svg style="width:14px;height:14px;flex-shrink:0;stroke:#861E19;" ');
+      fcRow.appendChild(typeIcon);
+
+      const textWrap = document.createElement("div");
+      textWrap.style.cssText = "display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;";
+      const fcFront = document.createElement("span");
+      fcFront.style.cssText = "font-size:13px;font-weight:700;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+      fcFront.textContent = fc.front;
+      fcFront.title = fc.front;
+      const fcBack = document.createElement("span");
+      fcBack.style.cssText = "font-size:12px;color:#666;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+      fcBack.textContent = fc.back;
+      fcBack.title = fc.back;
+      textWrap.appendChild(fcFront);
+      textWrap.appendChild(fcBack);
+      fcRow.appendChild(textWrap);
+
+      const fcActions = document.createElement("div");
+      fcActions.style.cssText = "display:flex;gap:4px;flex-shrink:0;";
+
+      const editBtn = document.createElement("button");
+      editBtn.className = "icon-btn";
+      editBtn.title = "Editar flashcard";
+      editBtn.innerHTML = Icons.edit;
+      editBtn.addEventListener("click", async () => {
+        let fullCard;
+        try {
+          const allCards = await apiFetch("/flashcards");
+          fullCard = allCards.find((c) => c.id === fc.id);
+        } catch (err) {
+          showToast(err.message || "Não foi possível carregar o flashcard.");
+          return;
+        }
+        if (!fullCard) { showToast("Flashcard não encontrado."); return; }
+        openFlashcardModal(fullCard, approvedStudents, () => {
+          fc.front = fullCard.front; fc.back = fullCard.back;
+          loadFlashcardHistorico(container, approvedStudents);
+        });
+      });
+      fcActions.appendChild(editBtn);
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.className = "icon-btn danger";
+      deleteBtn.title = "Excluir flashcard";
+      deleteBtn.innerHTML = Icons.trash;
+      deleteBtn.addEventListener("click", async () => {
+        if (!window.confirm(`Excluir o flashcard "${fc.front}" definitivamente?\n\nIsso remove o flashcard e todo o progresso de revisão relacionado a ele.`)) return;
+        try {
+          await apiFetch(`/flashcards/${fc.id}`, { method: "DELETE" });
+          showToast("Flashcard excluído.");
+          fcRow.style.transition = "opacity 0.2s";
+          fcRow.style.opacity = "0";
+          setTimeout(() => fcRow.remove(), 200);
+        } catch (err) {
+          showToast(err.message || "Erro ao excluir flashcard.");
+        }
+      });
+      fcActions.appendChild(deleteBtn);
+
+      fcRow.appendChild(fcActions);
+      cardList.appendChild(fcRow);
+    });
+
+    card.appendChild(cardList);
+    list.appendChild(card);
+  });
+
+  container.appendChild(list);
+}
+
+// ── Modal renomear deck ──────────────────────────────────────────────────────
+
+function openFlashcardBatchRenameModal(batch, nameSpan) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+
+  const modal = document.createElement("div"); modal.className = "modal";
+
+  const mHeader = document.createElement("div"); mHeader.className = "modal-header";
+  const mTitle = document.createElement("h2"); mTitle.textContent = "Renomear deck"; mHeader.appendChild(mTitle);
+  const closeBtn = document.createElement("button"); closeBtn.className = "icon-btn"; closeBtn.innerHTML = Icons.x; closeBtn.addEventListener("click", () => overlay.remove()); mHeader.appendChild(closeBtn);
+  modal.appendChild(mHeader);
+
+  const field = document.createElement("div"); field.className = "field";
+  field.innerHTML = '<label>Novo nome</label>';
+  const nameInput = document.createElement("input"); nameInput.type = "text"; nameInput.value = batch.batch_name; nameInput.style.cssText = "width:100%;margin-top:6px;";
+  field.appendChild(nameInput); modal.appendChild(field);
+
+  const errBox = document.createElement("p"); errBox.style.cssText = "color:#861E19;font-size:13px;margin-top:8px;"; errBox.hidden = true; modal.appendChild(errBox);
+
+  const actions = document.createElement("div"); actions.className = "modal-actions";
+  const cancelBtn = document.createElement("button"); cancelBtn.className = "btn btn-outline"; cancelBtn.textContent = "Cancelar"; cancelBtn.addEventListener("click", () => overlay.remove());
+  const saveBtn = document.createElement("button"); saveBtn.className = "btn btn-primary"; saveBtn.textContent = "Salvar";
+
+  saveBtn.addEventListener("click", async () => {
+    const newName = nameInput.value.trim();
+    if (!newName) { errBox.textContent = "Informe um nome."; errBox.hidden = false; return; }
+    saveBtn.disabled = true; saveBtn.textContent = "Salvando...";
+    try {
+      await apiFetch(`/flashcards/batches/${batch.batch_id}/rename`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: newName }) });
+      batch.batch_name = newName;
+      nameSpan.textContent = newName;
+      overlay.remove();
+      showToast("Deck renomeado.");
+    } catch (err) {
+      errBox.textContent = err.message || "Erro ao renomear."; errBox.hidden = false;
+      saveBtn.disabled = false; saveBtn.textContent = "Salvar";
+    }
+  });
+
+  actions.appendChild(cancelBtn); actions.appendChild(saveBtn);
+  modal.appendChild(actions);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  nameInput.focus(); nameInput.select();
+}
+
+// ── Modal reenviar deck ──────────────────────────────────────────────────────
+
+function openFlashcardBatchResendModal(batch, approvedStudents) {
+  if (!approvedStudents || approvedStudents.length === 0) {
+    showToast("Nenhum aluno aprovado encontrado.");
+    return;
+  }
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+
+  const modal = document.createElement("div"); modal.className = "modal";
+
+  const mHeader = document.createElement("div"); mHeader.className = "modal-header";
+  const mTitle = document.createElement("h2"); mTitle.textContent = "Reenviar flashcards"; mHeader.appendChild(mTitle);
+  const closeBtn = document.createElement("button"); closeBtn.className = "icon-btn"; closeBtn.innerHTML = Icons.x; closeBtn.addEventListener("click", () => overlay.remove()); mHeader.appendChild(closeBtn);
+  modal.appendChild(mHeader);
+
+  const p = document.createElement("p"); p.style.cssText = "margin-bottom:12px;font-size:14px;color:#555;";
+  p.innerHTML = `Reenviar <strong>${batch.cards.length} flashcard(s)</strong> do deck <em>"${batch.batch_name}"</em> para:`;
+  modal.appendChild(p);
+
+  const studentsBox = document.createElement("div");
+  studentsBox.style.cssText = "display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:12px;";
+  const checkboxes = [];
+  const prevStudentIds = new Set(batch.students.map((s) => s.id));
+  approvedStudents.forEach((s) => {
+    const lbl = document.createElement("label");
+    lbl.style.cssText = "display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.value = s.id;
+    lbl.appendChild(cb);
+    const sp = document.createElement("span"); sp.textContent = s.name; lbl.appendChild(sp);
+    if (prevStudentIds.has(s.id)) {
+      const prevTag = document.createElement("span");
+      prevTag.style.cssText = "font-size:11px;color:#888;";
+      prevTag.textContent = "(já recebeu)";
+      lbl.appendChild(prevTag);
+    }
+    studentsBox.appendChild(lbl);
+    checkboxes.push(cb);
+  });
+  modal.appendChild(studentsBox);
+
+  const selAllBtn = document.createElement("button");
+  selAllBtn.className = "btn btn-outline btn-sm"; selAllBtn.style.marginBottom = "16px"; selAllBtn.textContent = "Selecionar todos";
+  selAllBtn.addEventListener("click", () => {
+    const allChecked = checkboxes.every((c) => c.checked);
+    checkboxes.forEach((c) => (c.checked = !allChecked));
+    selAllBtn.textContent = allChecked ? "Selecionar todos" : "Desmarcar todos";
+  });
+  modal.appendChild(selAllBtn);
+
+  const errBox = document.createElement("p"); errBox.style.cssText = "color:#861E19;font-size:13px;"; errBox.hidden = true; modal.appendChild(errBox);
+
+  const actions = document.createElement("div"); actions.className = "modal-actions";
+  const cancelBtn = document.createElement("button"); cancelBtn.className = "btn btn-outline"; cancelBtn.textContent = "Cancelar"; cancelBtn.addEventListener("click", () => overlay.remove());
+  const confirmBtn = document.createElement("button"); confirmBtn.className = "btn btn-primary"; confirmBtn.textContent = "Reenviar";
+
+  confirmBtn.addEventListener("click", async () => {
+    errBox.hidden = true;
+    const selectedIds = checkboxes.filter((c) => c.checked).map((c) => parseInt(c.value));
+    if (selectedIds.length === 0) { errBox.textContent = "Selecione ao menos um aluno."; errBox.hidden = false; return; }
+    confirmBtn.disabled = true; confirmBtn.textContent = "Reenviando...";
+    try {
+      await apiFetch(`/flashcards/batches/${batch.batch_id}/resend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ student_ids: selectedIds }),
+      });
+      overlay.remove();
+      const names = approvedStudents.filter((s) => selectedIds.includes(s.id)).map((s) => s.name).join(", ");
+      showToast(`Flashcards reenviados para: ${names}`);
+    } catch (err) {
+      errBox.textContent = err.message || "Erro ao reenviar."; errBox.hidden = false;
+      confirmBtn.disabled = false; confirmBtn.textContent = "Reenviar";
+    }
+  });
+
+  actions.appendChild(cancelBtn); actions.appendChild(confirmBtn);
+  modal.appendChild(actions);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
 }
 
 // ---------------------------------------------------------------------------

@@ -69,6 +69,45 @@ class FlashcardAssignment(Base):
     student = relationship("User")
 
 
+# ── Lote (deck) de flashcards ──────────────────────────────────────────────
+# Um lote agrupa N flashcards enviados numa mesma ação "Enviar" pelo
+# professor. Espelha o mesmo padrão usado no histórico de exercícios
+# (ExerciseBatch / ExerciseBatchItem / ExerciseBatchStudent).
+
+class FlashcardBatch(Base):
+    """Lote de flashcards enviados de uma vez (aparece no Histórico)."""
+    __tablename__ = "flashcard_batches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)          # editável pelo professor
+    sent_at = Column(DateTime, default=datetime.utcnow)
+
+    items = relationship("FlashcardBatchItem", cascade="all, delete-orphan", passive_deletes=True, backref="batch")
+    student_links = relationship("FlashcardBatchStudent", cascade="all, delete-orphan", passive_deletes=True, backref="batch")
+
+
+class FlashcardBatchItem(Base):
+    """Flashcard pertencente a um lote."""
+    __tablename__ = "flashcard_batch_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    batch_id = Column(Integer, ForeignKey("flashcard_batches.id", ondelete="CASCADE"), nullable=False)
+    flashcard_id = Column(Integer, ForeignKey("flashcards.id", ondelete="CASCADE"), nullable=False)
+
+    flashcard = relationship("Flashcard")
+
+
+class FlashcardBatchStudent(Base):
+    """Aluno que recebeu um lote de flashcards."""
+    __tablename__ = "flashcard_batch_students"
+
+    id = Column(Integer, primary_key=True, index=True)
+    batch_id = Column(Integer, ForeignKey("flashcard_batches.id", ondelete="CASCADE"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    student = relationship("User")
+
+
 class CardProgress(Base):
     __tablename__ = "card_progress"
     __table_args__ = (UniqueConstraint("student_id", "flashcard_id", name="uq_student_card"),)
