@@ -45,12 +45,7 @@
 
       // Guarda o nome para a próxima tela usar
       sessionStorage.setItem("lit_english_nome", data.nome || nome);
-
-      if (data.redirect === "painel") {
-        window.location.href = "/painel";
-      } else {
-        window.location.href = "/quiz";
-      }
+      window.location.href = "/quiz";
     } catch (err) {
       showError("Erro de conexão com o servidor. Verifique se o backend está rodando.");
       setLoading(false);

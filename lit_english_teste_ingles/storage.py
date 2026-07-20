@@ -1,101 +1,79 @@
 # -*- coding: utf-8 -*-
 """
-Armazenamento simples dos resultados dos testes em um arquivo JSON local.
+Armazenamento dos resultados do teste — agora gravados direto no backend
+principal (lit_english_backend), via a API /level-test/*, em vez de um
+arquivo JSON local.
 
-Para produção, isso pode ser trocado por um banco de verdade (SQLite/Postgres)
-sem alterar a interface (save_result / list_results) usada pelo app.py.
+Isso é o que permite que os leads (quem terminou o teste e deixou o
+WhatsApp) apareçam no painel do professor do site principal, que já usa
+esse mesmo banco de dados.
 """
-import json
 import os
-import threading
-from datetime import datetime
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-RESULTS_FILE = os.path.join(DATA_DIR, "results.json")
+import requests
 
-_lock = threading.Lock()
+# Ajuste esta URL para onde o backend principal (lit_english_backend)
+# estiver rodando.
+BACKEND_URL = os.environ.get("BACKEND_URL", "https://litenglish.up.railway.app")
 
-
-def _ensure_storage():
-    os.makedirs(DATA_DIR, exist_ok=True)
-    if not os.path.exists(RESULTS_FILE):
-        with open(RESULTS_FILE, "w", encoding="utf-8") as f:
-            json.dump([], f, ensure_ascii=False, indent=2)
+_TIMEOUT = 8  # segundos
 
 
 def save_result(nome: str, whatsapp: str, score: dict) -> dict:
     """
-    Salva um resultado de teste e retorna o registro salvo (com id e data).
+    Salva um resultado de teste no backend principal e retorna o registro
+    salvo (com id). Se o backend estiver fora do ar, não derruba o teste do
+    aluno — apenas não fica com WhatsApp/histórico registrado dessa vez.
     """
-    _ensure_storage()
-    with _lock:
-        with open(RESULTS_FILE, "r", encoding="utf-8") as f:
-            results = json.load(f)
-
-        record = {
-            "id": len(results) + 1,
-            "nome": nome.strip() if nome else "Aluno",
-            "whatsapp": (whatsapp or "").strip(),
-            "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
-            "acertos": score["correct_count"],
-            "erros": score["wrong_count"],
-            "total_questoes": score["total_questions"],
-            "porcentagem": score["percent_geral"],
-            "pontos": score["points"],
-            "pontuacao_maxima": score["max_points"],
-            "desempenho_a1": score["percent_a1"],
-            "desempenho_a2": score["percent_a2"],
-            "desempenho_b1": score["percent_b1"],
-            "nivel_estimado": score["nivel_estimado"],
-            "trilha_recomendada": score["trilha_recomendada"],
-        }
-
-        results.append(record)
-
-        with open(RESULTS_FILE, "w", encoding="utf-8") as f:
-            json.dump(results, f, ensure_ascii=False, indent=2)
-
-        return record
+    payload = {
+        "nome": (nome or "Aluno").strip(),
+        "whatsapp": (whatsapp or "").strip(),
+        "acertos": score["correct_count"],
+        "erros": score["wrong_count"],
+        "total_questoes": score["total_questions"],
+        "porcentagem": score["percent_geral"],
+        "pontos": score["points"],
+        "pontuacao_maxima": score["max_points"],
+        "desempenho_a1": score["percent_a1"],
+        "desempenho_a2": score["percent_a2"],
+        "desempenho_b1": score["percent_b1"],
+        "nivel_estimado": score["nivel_estimado"],
+        "trilha_recomendada": score["trilha_recomendada"],
+        "quer_aula_experimental": False,
+        "quer_analise_plano": False,
+    }
+    try:
+        resp = requests.post(f"{BACKEND_URL}/level-test/submit", json=payload, timeout=_TIMEOUT)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException:
+        # Backend indisponível: devolve um registro "local" sem id real,
+        # pra tela de resultado do aluno continuar funcionando normalmente.
+        return {**payload, "id": None}
 
 
-def update_whatsapp(record_id: int, whatsapp: str, interesses: dict = None) -> dict | None:
+def update_whatsapp(record_id, whatsapp: str, interesses: dict = None) -> dict | None:
     """
-    Atualiza o WhatsApp de um registro já salvo (usado quando o aluno
-    deixa o número na tela de resultado, depois do teste já corrigido).
-    Opcionalmente recebe os interesses marcados (aula experimental,
-    análise/plano de estudos). Retorna o registro atualizado, ou None
-    se o id não existir.
+    Atualiza o WhatsApp (e os interesses marcados) de um registro já salvo
+    no backend principal. Retorna o registro atualizado, ou None se não foi
+    possível (backend fora do ar ou id inválido).
     """
-    _ensure_storage()
-    with _lock:
-        with open(RESULTS_FILE, "r", encoding="utf-8") as f:
-            results = json.load(f)
+    if not record_id:
+        return None
 
-        updated = None
-        for record in results:
-            if record.get("id") == record_id:
-                record["whatsapp"] = (whatsapp or "").strip()
-                if interesses is not None:
-                    record["quer_aula_experimental"] = bool(interesses.get("aula_experimental"))
-                    record["quer_analise_plano"] = bool(interesses.get("analise_plano"))
-                updated = record
-                break
-
-        if updated is not None:
-            with open(RESULTS_FILE, "w", encoding="utf-8") as f:
-                json.dump(results, f, ensure_ascii=False, indent=2)
-
-        return updated
-
-
-def list_results(days: int = None) -> list:
-    """
-    Retorna todos os resultados salvos, mais recentes primeiro.
-    (o filtro por período de dias pode ser feito no front-end com a data
-    já formatada, ou aqui futuramente parseando 'data')
-    """
-    _ensure_storage()
-    with _lock:
-        with open(RESULTS_FILE, "r", encoding="utf-8") as f:
-            results = json.load(f)
-    return list(reversed(results))
+    interesses = interesses or {}
+    payload = {
+        "whatsapp": (whatsapp or "").strip(),
+        "quer_aula_experimental": bool(interesses.get("aula_experimental")),
+        "quer_analise_plano": bool(interesses.get("analise_plano")),
+    }
+    try:
+        resp = requests.patch(
+            f"{BACKEND_URL}/level-test/{record_id}/whatsapp", json=payload, timeout=_TIMEOUT
+        )
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException:
+        return None

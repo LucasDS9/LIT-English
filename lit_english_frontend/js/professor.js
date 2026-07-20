@@ -205,6 +205,7 @@ async function renderConfiguracoes() {
       text: "Quando um aluno se cadastrar, ele aparece aqui para você aprovar o acesso.",
     });
     contentArea.appendChild(subsection);
+    await renderLevelTestLeads(contentArea);
     return;
   }
 
@@ -285,6 +286,106 @@ async function renderConfiguracoes() {
 
   subsection.appendChild(list);
   contentArea.appendChild(subsection);
+
+  await renderLevelTestLeads(contentArea);
+}
+
+// ---------------------------------------------------------------------------
+// Leads do Teste de Nivelamento (lit_english_teste_ingles)
+// Só aparece aqui quem terminou o teste E deixou o WhatsApp — é isso que
+// interessa comercialmente (potencial aluno a converter).
+// ---------------------------------------------------------------------------
+
+async function renderLevelTestLeads(container) {
+  const subsection = document.createElement("div");
+  subsection.className = "settings-subsection";
+
+  const subHeader = document.createElement("div");
+  subHeader.className = "settings-subheader";
+  const subTitle = document.createElement("h2");
+  subTitle.textContent = "Leads — Teste de Nivelamento";
+  subHeader.appendChild(subTitle);
+  const subText = document.createElement("p");
+  subText.textContent = "Pessoas que terminaram o teste de inglês público e deixaram o WhatsApp.";
+  subHeader.appendChild(subText);
+  subsection.appendChild(subHeader);
+
+  let leads;
+  try {
+    leads = await apiFetch("/level-test/leads");
+  } catch (err) {
+    renderStateBox(subsection, {
+      icon: Icons.users,
+      title: "Não foi possível carregar os leads",
+      text: err.message || "Tente novamente em instantes.",
+    });
+    container.appendChild(subsection);
+    return;
+  }
+
+  if (leads.length === 0) {
+    renderStateBox(subsection, {
+      icon: Icons.users,
+      title: "Nenhum lead ainda",
+      text: "Quando alguém terminar o teste de inglês e deixar o WhatsApp, aparece aqui.",
+    });
+    container.appendChild(subsection);
+    return;
+  }
+
+  const list = document.createElement("div");
+  list.className = "list";
+
+  leads.forEach((lead) => {
+    const row = document.createElement("div");
+    row.className = "list-row";
+
+    const info = document.createElement("div");
+    info.className = "info";
+
+    const primary = document.createElement("p");
+    primary.className = "primary";
+    primary.textContent = lead.nome;
+    info.appendChild(primary);
+
+    const whatsEl = document.createElement("p");
+    whatsEl.className = "secondary";
+    whatsEl.style.cssText = "display:flex;align-items:center;gap:4px;margin-top:2px;";
+    whatsEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;flex-shrink:0;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>${lead.whatsapp}`;
+    info.appendChild(whatsEl);
+
+    const interesses = [];
+    if (lead.quer_aula_experimental) interesses.push("aula experimental");
+    if (lead.quer_analise_plano) interesses.push("análise e plano de estudos");
+    if (interesses.length > 0) {
+      const interesseEl = document.createElement("p");
+      interesseEl.className = "secondary";
+      interesseEl.style.marginTop = "2px";
+      interesseEl.textContent = `Quer: ${interesses.join(" · ")}`;
+      info.appendChild(interesseEl);
+    }
+
+    row.appendChild(info);
+
+    const meta = document.createElement("div");
+    meta.className = "meta";
+
+    const badge = document.createElement("span");
+    badge.className = "badge badge-success";
+    badge.innerHTML = `<span>${lead.nivel_estimado} · ${lead.porcentagem}%</span>`;
+    meta.appendChild(badge);
+
+    const date = document.createElement("span");
+    date.className = "date";
+    date.textContent = formatDateTime(lead.created_at);
+    meta.appendChild(date);
+
+    row.appendChild(meta);
+    list.appendChild(row);
+  });
+
+  subsection.appendChild(list);
+  container.appendChild(subsection);
 }
 
 async function setStudentApproval(studentId, approve, btn) {

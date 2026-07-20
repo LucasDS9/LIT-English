@@ -299,3 +299,30 @@ class ReadingTimeLog(Base):
 
     student = relationship("User")
 
+
+# ── Teste de Nivelamento (lit_english_teste_ingles) ──────────────────────────
+# Resultados do teste de inglês público (fora do login), usado como fonte de
+# leads: o professor só se interessa por quem terminou o teste E deixou o
+# WhatsApp (é isso que vira um contato comercial em potencial).
+
+class LevelTestResult(Base):
+    __tablename__ = "level_test_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nome = Column(String, nullable=False)
+    whatsapp = Column(String, nullable=True, default="")
+    acertos = Column(Integer, nullable=False, default=0)
+    erros = Column(Integer, nullable=False, default=0)
+    total_questoes = Column(Integer, nullable=False, default=0)
+    porcentagem = Column(Integer, nullable=False, default=0)
+    pontos = Column(Integer, nullable=False, default=0)
+    pontuacao_maxima = Column(Integer, nullable=False, default=0)
+    desempenho_a1 = Column(Integer, nullable=False, default=0)
+    desempenho_a2 = Column(Integer, nullable=False, default=0)
+    desempenho_b1 = Column(Integer, nullable=False, default=0)
+    nivel_estimado = Column(String, nullable=False, default="")
+    trilha_recomendada = Column(String, nullable=False, default="")
+    quer_aula_experimental = Column(Boolean, nullable=False, default=False)
+    quer_analise_plano = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+

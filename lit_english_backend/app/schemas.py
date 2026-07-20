@@ -405,3 +405,54 @@ class ReadingHeartbeatIn(BaseModel):
 class ReadingHeartbeatOut(BaseModel):
     total_seconds: int
     points_awarded: int
+
+# ---------- Teste de Nivelamento (leads) ----------
+
+class LevelTestResultIn(BaseModel):
+    """Enviado pelo app do teste (lit_english_teste_ingles) ao final da correção."""
+    nome: str
+    whatsapp: Optional[str] = ""
+    acertos: int = 0
+    erros: int = 0
+    total_questoes: int = 0
+    porcentagem: int = 0
+    pontos: int = 0
+    pontuacao_maxima: int = 0
+    desempenho_a1: int = 0
+    desempenho_a2: int = 0
+    desempenho_b1: int = 0
+    nivel_estimado: str = ""
+    trilha_recomendada: str = ""
+    quer_aula_experimental: bool = False
+    quer_analise_plano: bool = False
+
+
+class LevelTestWhatsappIn(BaseModel):
+    """Enviado quando o aluno deixa o WhatsApp na tela de resultado (depois
+    do teste já corrigido)."""
+    whatsapp: str
+    quer_aula_experimental: bool = False
+    quer_analise_plano: bool = False
+
+
+class LevelTestResultOut(BaseModel):
+    id: int
+    nome: str
+    whatsapp: Optional[str] = ""
+    acertos: int
+    erros: int
+    total_questoes: int
+    porcentagem: int
+    pontos: int
+    pontuacao_maxima: int
+    desempenho_a1: int
+    desempenho_a2: int
+    desempenho_b1: int
+    nivel_estimado: str
+    trilha_recomendada: str
+    quer_aula_experimental: bool
+    quer_analise_plano: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

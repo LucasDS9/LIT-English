@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine, run_migrations
-from app.routers import admin, auth, dashboard, exercises, flashcards, qa, texts, tts
+from app.routers import admin, auth, dashboard, exercises, flashcards, level_test, qa, texts, tts
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -40,6 +40,7 @@ app.include_router(exercises.router)
 app.include_router(qa.router)
 app.include_router(tts.router)
 app.include_router(dashboard.router)
+app.include_router(level_test.router)
 
 
 @app.get("/")

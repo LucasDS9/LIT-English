@@ -9,15 +9,18 @@ Inglês" na landing page (lit_english_frontend/index.html).
 Rotas de página:
   GET  /                     -> tela inicial (pede o nome do aluno)
   GET  /quiz                 -> tela do teste (uma questão por vez)
-  GET  /painel                -> painel simples do professor (easter egg lucas937)
 
 Rotas de API:
   GET  /api/questions        -> lista as questões (sem gabarito) para o aluno responder
-  POST /api/start            -> recebe o nome digitado; detecta o easter egg (lucas937)
+  POST /api/start            -> recebe o nome digitado e libera o início do teste
   POST /api/check            -> corrige uma questão por vez (feedback imediato)
   POST /api/submit           -> corrige todas as respostas, calcula nível e salva o resultado
   POST /api/whatsapp         -> salva o WhatsApp (e interesses) depois do resultado
-  GET  /api/painel           -> lista todos os resultados salvos (painel do professor)
+
+O painel do professor (com os leads que deixaram WhatsApp) fica no site
+principal (lit_english_frontend/professor.html, atrás de login) — os
+resultados são gravados direto no backend principal via storage.py, não
+existe mais um painel separado aqui.
 
 Como rodar (junto com o resto do projeto):
   cd lit_english_teste_ingles
@@ -31,12 +34,9 @@ from flask import Flask, jsonify, render_template, request
 from questions_data import QUESTIONS
 from grading import grade_all_answers, grade_single_answer
 from scoring import compute_score
-from storage import save_result, list_results, update_whatsapp
+from storage import save_result, update_whatsapp
 
 app = Flask(__name__)
-
-# Nome "secreto" que abre o painel do professor em vez do teste normal
-EASTER_EGG_USERNAME = "lucas937"
 
 
 # ==========================================================================
@@ -52,17 +52,6 @@ def home():
 def quiz_page():
     """Tela do teste: Fill in the Blank / Tradução / Listening, uma questão por vez."""
     return render_template("quiz.html")
-
-
-@app.get("/painel")
-def painel_page():
-    """Placeholder — o painel do professor (tabela de resultados) vem depois."""
-    return (
-        "<h1 style='font-family:sans-serif'>🚧 Painel do professor ainda não construído.</h1>"
-        "<p style='font-family:sans-serif'>Essa página vem em uma etapa futura. "
-        "Enquanto isso, os dados já estão disponíveis em "
-        "<a href='/api/painel'>/api/painel</a>.</p>"
-    )
 
 
 def _public_question(question: dict) -> dict:
@@ -97,17 +86,13 @@ def start_test():
     """
     Body JSON esperado: { "nome": "Lucas" }
 
-    Se o nome digitado for o easter egg, retorna redirect para o painel.
-    Caso contrário, libera o início do teste normal.
+    Libera o início do teste normal com o nome informado.
     """
     data = request.get_json(silent=True) or {}
     nome = (data.get("nome") or "").strip()
 
     if not nome:
         return jsonify({"error": "Informe seu nome para continuar."}), 400
-
-    if nome.lower() == EASTER_EGG_USERNAME:
-        return jsonify({"redirect": "painel"})
 
     return jsonify({"redirect": "quiz", "nome": nome})
 
@@ -217,12 +202,6 @@ def submit_whatsapp():
         return jsonify({"error": "Registro não encontrado."}), 404
 
     return jsonify({"registro_salvo": record})
-
-
-@app.get("/api/painel")
-def painel():
-    """Painel do professor: lista todos os resultados salvos."""
-    return jsonify({"results": list_results()})
 
 
 if __name__ == "__main__":
