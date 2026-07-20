@@ -365,3 +365,28 @@ class LevelTestResult(Base):
     quer_analise_plano = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+
+# ── Leads do site institucional (lit_english_frontend/index.html) ───────────
+# Captura os dois pontos de contato da landing page pública:
+#   - botão "Comece Agora"      -> modal "Agendar Aula Experimental"
+#   - seção "Entre em Contato"  -> formulário de contato
+# Ambos caem na mesma tabela (campo `source` diferencia a origem) e aparecem
+# juntos no painel do professor, em Alunos.
+
+class SiteLeadSource(str, enum.Enum):
+    comece_agora = "comece_agora"
+    contato = "contato"
+
+
+class SiteLead(Base):
+    __tablename__ = "site_leads"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source = Column(Enum(SiteLeadSource), nullable=False)
+    nome = Column(String, nullable=False)
+    whatsapp = Column(String, nullable=False, default="")
+    objetivo = Column(String, nullable=True)
+    nivel = Column(String, nullable=True)
+    mensagem = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+

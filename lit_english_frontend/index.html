@@ -39,7 +39,7 @@
       <div class="landing-hero-copy">
         <h1>Fale inglês<br />com confiança.</h1>
         <p>Método prático, aulas particulares e uma plataforma exclusiva para você aprender inglês de forma natural.</p>
-        <button type="button" class="btn-solid-primary" data-wip>Comece Agora</button>
+        <button type="button" class="btn-solid-primary" id="comece-agora-btn">Comece Agora</button>
       </div>
 
       <div class="landing-hero-visual">
@@ -392,7 +392,9 @@
           </div>
         </div>
 
-        <button type="button" class="btn-solid-primary contact-submit" data-wip>
+        <p class="modal-error" id="contact-error"></p>
+
+        <button type="button" class="btn-solid-primary contact-submit" id="contact-submit-btn">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M21 3 3 10.5l7.5 3M21 3 13.5 21l-3-7.5M21 3l-10.5 10.5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -404,12 +406,130 @@
 
   </div>
 
+  <!-- MODAL: Agendar Aula Experimental (aberto pelo botão "Comece Agora") -->
+  <div class="modal-overlay" id="comece-agora-modal">
+    <div class="modal-card">
+      <button type="button" class="modal-close" id="modal-close-btn" aria-label="Fechar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+
+      <div class="modal-heading">
+        <div class="modal-heading-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3.5" y="5" width="17" height="16" rx="2.5" stroke-width="1.8"/>
+            <path d="M8 3v4M16 3v4M3.5 10h17" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="8.3" cy="14.3" r="0.9"/>
+            <circle cx="12" cy="14.3" r="0.9"/>
+            <circle cx="15.7" cy="14.3" r="0.9"/>
+          </svg>
+        </div>
+        <h2>Agendar Aula Experimental</h2>
+        <p>Preencha seus dados e dê o primeiro passo rumo à fluência no inglês.</p>
+      </div>
+
+      <div class="modal-form">
+
+        <div class="contact-field">
+          <label for="modal-name">Nome completo</label>
+          <div class="contact-input">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="8" r="3.5" stroke-width="1.8"/>
+              <path d="M4.5 20c1.4-3.6 4.2-5.5 7.5-5.5s6.1 1.9 7.5 5.5" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            <input type="text" id="modal-name" placeholder="Digite seu nome completo" />
+          </div>
+        </div>
+
+        <div class="contact-field">
+          <label for="modal-whatsapp">WhatsApp</label>
+          <div class="contact-input">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3a9 9 0 0 0-7.8 13.4L3 21l4.8-1.2A9 9 0 1 0 12 3Z" stroke-width="1.8" stroke-linejoin="round"/>
+              <path d="M8.3 8.7c.2-.6.6-.6 1-.6h.4c.2 0 .5 0 .6.4.2.6.7 1.6.7 1.8 0 .1.1.3 0 .4-.1.2-.2.3-.3.4l-.4.5c-.1.2-.3.3-.1.6.2.4 1 1.5 2 2.3 1.3 1 1.6 1.1 1.8 1 .2-.1.5-.4.7-.6.2-.2.3-.2.5-.1l1.7.9c.2.1.4.2.4.4 0 .6-.2 1.2-.5 1.4-.6.5-1.7.8-2.5.6-.9-.2-3-.9-4.7-2.6-1.4-1.4-2.2-2.8-2.5-3.7-.3-.9-.1-1.8.2-2.4Z" stroke-width="1.4" stroke-linejoin="round"/>
+            </svg>
+            <input type="tel" id="modal-whatsapp" placeholder="(00) 00000-0000" />
+          </div>
+        </div>
+
+        <div class="contact-field">
+          <label for="modal-goal">Qual é o seu objetivo?</label>
+          <div class="contact-input">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="8" stroke-width="1.8"/>
+              <circle cx="12" cy="12" r="4.5" stroke-width="1.8"/>
+              <circle cx="12" cy="12" r="1.3"/>
+            </svg>
+            <select id="modal-goal">
+              <option value="" disabled selected>Selecione seu objetivo</option>
+              <option value="viagem">Viagem</option>
+              <option value="trabalho">Trabalho / Carreira</option>
+              <option value="estudos">Estudos / Intercâmbio</option>
+              <option value="conversacao">Conversação do dia a dia</option>
+              <option value="outro">Outro</option>
+            </select>
+            <svg class="contact-chevron" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 9l6 6 6-6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="contact-field">
+          <label>Qual o seu nível de inglês?</label>
+          <div class="modal-level-grid" id="modal-level-grid">
+            <button type="button" class="modal-level-option" data-level="nunca_estudei">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V17M10 20V13M16 20V9"/></svg>
+              <span>Nunca estudei</span>
+            </button>
+            <button type="button" class="modal-level-option" data-level="basico">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V15M10 20V10M16 20V6"/></svg>
+              <span>Básico</span>
+            </button>
+            <button type="button" class="modal-level-option" data-level="intermediario">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V13M10 20V7M16 20V4"/></svg>
+              <span>Intermediário</span>
+            </button>
+            <button type="button" class="modal-level-option" data-level="avancado">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V5M16 20V3"/></svg>
+              <span>Avançado</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-gift-box">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="9" width="18" height="12" rx="1.5" stroke-width="1.8"/>
+            <path d="M3 9h18v-.5A2.5 2.5 0 0 0 18.5 6h-13A2.5 2.5 0 0 0 3 8.5V9Z" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M12 6v15" stroke-width="1.8"/>
+            <path d="M12 6c0-1.7-1.3-3-3-3S6 4.5 6 6" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M12 6c0-1.7 1.3-3 3-3s3 1.5 3 3" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <div>
+            <strong>Aula experimental gratuita</strong>
+            <p>Você terá uma aula e receberá um plano de estudos personalizado.</p>
+          </div>
+        </div>
+
+        <p class="modal-error" id="modal-error"></p>
+
+        <button type="button" class="btn-solid-primary modal-submit" id="modal-submit-btn">Agendar Agora</button>
+
+        <p class="modal-footnote">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4.5" y="10.5" width="15" height="10" rx="1.5"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" stroke-linecap="round"/></svg>
+          Seus dados estão seguros conosco.
+        </p>
+
+      </div>
+    </div>
+  </div>
+
   <div class="wip-toast" id="wip-toast">🚧 Em construção — em breve por aqui!</div>
 
   <script>
-    // Ajuste esta URL para onde o app do Teste de Inglês estiver rodando.
-    // Em desenvolvimento local (python3 app.py, dentro de lit_english_teste_ingles) o padrão é:
+    // Ajuste estas URLs para onde o app do Teste de Inglês / o backend estiverem rodando.
+    // Em desenvolvimento local o padrão seria algo como http://localhost:8000 (backend)
+    // e python3 app.py dentro de lit_english_teste_ingles (teste).
     const TESTE_INGLES_URL = "https://testlit.up.railway.app/";
+    const API_BASE_URL = "https://litenglish.up.railway.app";
 
     document.getElementById('teste-ingles-link').addEventListener('click', (e) => {
       e.preventDefault();
@@ -424,6 +544,170 @@
         clearTimeout(hideTimer);
         hideTimer = setTimeout(() => toast.classList.remove('show'), 2200);
       });
+    });
+
+    // ---------------------------------------------------------------------
+    // Envio de leads (Comece Agora / Entre em Contato) para o backend —
+    // ambos aparecem no painel do professor, em Alunos.
+    // ---------------------------------------------------------------------
+    async function submitLead(payload) {
+      const response = await fetch(`${API_BASE_URL}/site-leads/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        let detail = 'Não foi possível enviar seus dados. Tente novamente.';
+        try {
+          const data = await response.json();
+          detail = (data && (data.detail || data.message)) || detail;
+        } catch (err) { /* resposta não era JSON */ }
+        throw new Error(detail);
+      }
+      return response.json();
+    }
+
+    // ---------- Modal "Agendar Aula Experimental" (Comece Agora) ----------
+    const modalOverlay = document.getElementById('comece-agora-modal');
+    const modalNameInput = document.getElementById('modal-name');
+    const modalWhatsappInput = document.getElementById('modal-whatsapp');
+    const modalGoalSelect = document.getElementById('modal-goal');
+    const modalLevelGrid = document.getElementById('modal-level-grid');
+    const modalError = document.getElementById('modal-error');
+    const modalSubmitBtn = document.getElementById('modal-submit-btn');
+    let modalSelectedLevel = '';
+
+    function openModal() {
+      modalOverlay.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+      modalOverlay.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+
+    document.getElementById('comece-agora-btn').addEventListener('click', openModal);
+    document.getElementById('modal-close-btn').addEventListener('click', closeModal);
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) closeModal();
+    });
+
+    modalLevelGrid.querySelectorAll('.modal-level-option').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        modalLevelGrid.querySelectorAll('.modal-level-option').forEach((b) => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        modalSelectedLevel = btn.dataset.level;
+      });
+    });
+
+    const LEVEL_LABELS = {
+      nunca_estudei: 'Nunca estudei',
+      basico: 'Básico',
+      intermediario: 'Intermediário',
+      avancado: 'Avançado',
+    };
+
+    modalSubmitBtn.addEventListener('click', async () => {
+      modalError.classList.remove('show');
+
+      const nome = modalNameInput.value.trim();
+      const whatsapp = modalWhatsappInput.value.trim();
+      const objetivo = modalGoalSelect.value;
+
+      if (!nome || !whatsapp || !objetivo || !modalSelectedLevel) {
+        modalError.textContent = 'Preencha nome, WhatsApp, objetivo e nível para agendar.';
+        modalError.classList.add('show');
+        return;
+      }
+
+      modalSubmitBtn.disabled = true;
+      modalSubmitBtn.textContent = 'Agendando...';
+
+      try {
+        await submitLead({
+          source: 'comece_agora',
+          nome,
+          whatsapp,
+          objetivo,
+          nivel: LEVEL_LABELS[modalSelectedLevel] || modalSelectedLevel,
+        });
+
+        closeModal();
+        modalNameInput.value = '';
+        modalWhatsappInput.value = '';
+        modalGoalSelect.value = '';
+        modalLevelGrid.querySelectorAll('.modal-level-option').forEach((b) => b.classList.remove('selected'));
+        modalSelectedLevel = '';
+
+        toast.textContent = '✅ Aula experimental agendada! Em breve entraremos em contato pelo WhatsApp.';
+        toast.classList.add('show');
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => toast.classList.remove('show'), 3200);
+      } catch (err) {
+        modalError.textContent = err.message;
+        modalError.classList.add('show');
+      } finally {
+        modalSubmitBtn.disabled = false;
+        modalSubmitBtn.textContent = 'Agendar Agora';
+      }
+    });
+
+    // ---------- Formulário "Entre em Contato" ----------
+    const contactNameInput = document.getElementById('contact-name');
+    const contactWhatsappInput = document.getElementById('contact-whatsapp');
+    const contactLevelSelect = document.getElementById('contact-level');
+    const contactGoalSelect = document.getElementById('contact-goal');
+    const contactMessageInput = document.getElementById('contact-message');
+    const contactError = document.getElementById('contact-error');
+    const contactSubmitBtn = document.getElementById('contact-submit-btn');
+
+    contactSubmitBtn.addEventListener('click', async () => {
+      contactError.classList.remove('show');
+
+      const nome = contactNameInput.value.trim();
+      const whatsapp = contactWhatsappInput.value.trim();
+      const nivel = contactLevelSelect.value;
+      const objetivo = contactGoalSelect.value;
+      const mensagem = contactMessageInput.value.trim();
+
+      if (!nome || !whatsapp || !nivel || !objetivo) {
+        contactError.textContent = 'Preencha nome, WhatsApp, nível e objetivo para enviar.';
+        contactError.classList.add('show');
+        return;
+      }
+
+      contactSubmitBtn.disabled = true;
+      const originalHTML = contactSubmitBtn.innerHTML;
+      contactSubmitBtn.innerHTML = 'Enviando...';
+
+      try {
+        await submitLead({
+          source: 'contato',
+          nome,
+          whatsapp,
+          objetivo,
+          nivel,
+          mensagem: mensagem || null,
+        });
+
+        contactNameInput.value = '';
+        contactWhatsappInput.value = '';
+        contactLevelSelect.value = '';
+        contactGoalSelect.value = '';
+        contactMessageInput.value = '';
+
+        toast.textContent = '✅ Mensagem enviada! Em breve entraremos em contato pelo WhatsApp.';
+        toast.classList.add('show');
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => toast.classList.remove('show'), 3200);
+      } catch (err) {
+        contactError.textContent = err.message;
+        contactError.classList.add('show');
+      } finally {
+        contactSubmitBtn.disabled = false;
+        contactSubmitBtn.innerHTML = originalHTML;
+      }
     });
   </script>
 

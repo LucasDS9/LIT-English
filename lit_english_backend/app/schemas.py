@@ -507,3 +507,31 @@ class LevelTestResultOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ---------- Leads do site institucional (Comece Agora / Entre em Contato) ----------
+
+class SiteLeadIn(BaseModel):
+    """Enviado pela landing page pública (index.html) — tanto pelo modal
+    "Agendar Aula Experimental" (source="comece_agora") quanto pelo
+    formulário "Entre em Contato" (source="contato")."""
+    source: str
+    nome: str
+    whatsapp: str
+    objetivo: Optional[str] = None
+    nivel: Optional[str] = None
+    mensagem: Optional[str] = None
+
+
+class SiteLeadOut(BaseModel):
+    id: int
+    source: str
+    nome: str
+    whatsapp: str
+    objetivo: Optional[str] = None
+    nivel: Optional[str] = None
+    mensagem: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
