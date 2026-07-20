@@ -180,8 +180,8 @@ async function renderConfiguracoes() {
   contentArea.innerHTML = "";
   contentArea.appendChild(
     renderSectionHeader({
-      title: "Configurações",
-      subtitle: "Gerencie as preferências e o acesso da sua conta.",
+      title: "Alunos",
+      subtitle: "Gerencie o acesso dos seus alunos e veja os leads do teste de nivelamento.",
     })
   );
 
@@ -297,6 +297,35 @@ async function renderConfiguracoes() {
 // ---------------------------------------------------------------------------
 
 async function renderLevelTestLeads(container) {
+  // ── Contagem total de testes feitos (todo mundo, não só quem deixou WhatsApp) ──
+  const countSubsection = document.createElement("div");
+  countSubsection.className = "settings-subsection";
+  const countHeader = document.createElement("div");
+  countHeader.className = "settings-subheader";
+  const countTitle = document.createElement("h2");
+  countTitle.textContent = "Testes de Nivelamento Realizados";
+  countHeader.appendChild(countTitle);
+  countSubsection.appendChild(countHeader);
+
+  const countBox = document.createElement("div");
+  countBox.className = "list-row";
+  const countNumber = document.createElement("p");
+  countNumber.className = "primary";
+  countNumber.style.fontSize = "28px";
+  countNumber.style.fontWeight = "800";
+  countNumber.textContent = "—";
+  countBox.appendChild(countNumber);
+  countSubsection.appendChild(countBox);
+  container.appendChild(countSubsection);
+
+  try {
+    const countData = await apiFetch("/level-test/count");
+    countNumber.textContent = countData.total;
+  } catch (err) {
+    countNumber.textContent = "—";
+  }
+
+  // ── Leads (quem deixou WhatsApp) ──
   const subsection = document.createElement("div");
   subsection.className = "settings-subsection";
 
@@ -380,12 +409,36 @@ async function renderLevelTestLeads(container) {
     date.textContent = formatDateTime(lead.created_at);
     meta.appendChild(date);
 
+    const deleteBtn = document.createElement("button");
+    deleteBtn.className = "btn btn-outline btn-sm";
+    deleteBtn.style.cssText = "color:#861E19;border-color:#861E19;";
+    deleteBtn.textContent = "Apagar";
+    deleteBtn.addEventListener("click", () => deleteLead(lead.id, lead.nome, container));
+    meta.appendChild(deleteBtn);
+
     row.appendChild(meta);
     list.appendChild(row);
   });
 
   subsection.appendChild(list);
   container.appendChild(subsection);
+}
+
+async function deleteLead(leadId, leadName, container) {
+  const ok = window.confirm(`Apagar o lead "${leadName}"? Essa ação não pode ser desfeita.`);
+  if (!ok) return;
+
+  try {
+    await apiFetch(`/level-test/${leadId}`, { method: "DELETE" });
+    showToast("Lead apagado.");
+    container.querySelectorAll(".settings-subsection").forEach((el, idx) => {
+      // Remove só as subseções de contagem/leads (as duas últimas), mantém "Alunos"
+      if (idx >= 1) el.remove();
+    });
+    await renderLevelTestLeads(container);
+  } catch (err) {
+    showToast(err.message || "Não foi possível apagar o lead.");
+  }
 }
 
 async function setStudentApproval(studentId, approve, btn) {
