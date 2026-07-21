@@ -406,7 +406,96 @@
 
   </div>
 
-  <!-- MODAL: Agendar Aula Experimental (aberto pelo botão "Comece Agora") -->
+  <!-- MODAL: Como deseja começar? (aberto pelo botão "Comece Agora") -->
+  <div class="modal-overlay" id="start-choice-modal">
+    <div class="modal-card start-modal-card">
+      <button type="button" class="modal-close" id="start-choice-close-btn" aria-label="Fechar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+
+      <div class="modal-heading">
+        <div class="modal-heading-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" stroke-width="1.8"/>
+            <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" stroke-width="1.8"/>
+            <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" stroke-width="1.8"/>
+            <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" stroke-width="1.8"/>
+          </svg>
+        </div>
+        <h2>Como deseja começar?</h2>
+        <p>Escolha a melhor opção para você e dê o primeiro passo rumo à fluência.</p>
+      </div>
+
+      <div class="start-modal-cards">
+
+        <div class="start-option-card recommended">
+          <div class="start-option-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3.5" y="5" width="17" height="16" rx="2.5" stroke-width="1.8"/>
+              <path d="M8 3v4M16 3v4M3.5 10h17" stroke-width="1.8"/>
+              <path d="m12 13.6 1.05 2.13 2.35.34-1.7 1.66.4 2.34-2.1-1.1-2.1 1.1.4-2.34-1.7-1.66 2.35-.34Z" stroke-width="1.4" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3>Aula Experimental</h3>
+          <span class="start-badge">Recomendado</span>
+          <ul class="start-option-list">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-width="1.8"/><path d="M8 12.5l2.5 2.5 5-5" stroke-width="1.8"/></svg>
+              Aula individual gratuita
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-width="1.8"/><path d="M8 12.5l2.5 2.5 5-5" stroke-width="1.8"/></svg>
+              Avaliação do seu nível
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-width="1.8"/><path d="M8 12.5l2.5 2.5 5-5" stroke-width="1.8"/></svg>
+              Conheça a metodologia
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-width="1.8"/><path d="M8 12.5l2.5 2.5 5-5" stroke-width="1.8"/></svg>
+              Tire todas as suas dúvidas
+            </li>
+          </ul>
+          <button type="button" class="btn-solid-primary start-option-cta" id="start-option-schedule-btn">Agendar Aula</button>
+          <p class="start-option-caption">Comece agora gratuitamente</p>
+        </div>
+
+        <div class="start-option-card">
+          <div class="start-option-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2.5 12.5 12.5 2.5H20a1.5 1.5 0 0 1 1.5 1.5v7.5L12.5 21.5a1.5 1.5 0 0 1-2.12 0l-8-8a1.5 1.5 0 0 1 .12-2.12Z" stroke-width="1.8" stroke-linejoin="round"/>
+              <circle cx="16.5" cy="7.5" r="1.5" stroke-width="1.8"/>
+            </svg>
+          </div>
+          <h3>Ver Planos e Preços</h3>
+          <span class="start-badge start-badge-ghost">&nbsp;</span>
+          <ul class="start-option-list">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-width="1.8"/><path d="M8 12.5l2.5 2.5 5-5" stroke-width="1.8"/></svg>
+              Opções para todos os perfis
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-width="1.8"/><path d="M8 12.5l2.5 2.5 5-5" stroke-width="1.8"/></svg>
+              Aulas individual, duplas e trios
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-width="1.8"/><path d="M8 12.5l2.5 2.5 5-5" stroke-width="1.8"/></svg>
+              Planos flexíveis
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-width="1.8"/><path d="M8 12.5l2.5 2.5 5-5" stroke-width="1.8"/></svg>
+              Ótimo custo-benefício
+            </li>
+          </ul>
+          <button type="button" class="btn-outline-primary start-option-cta" id="start-option-plans-btn">Ver Planos</button>
+          <p class="start-option-caption">Conheça nossas opções</p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Agendar Aula Experimental (aberto a partir do modal "Como deseja começar?") -->
   <div class="modal-overlay" id="comece-agora-modal">
     <div class="modal-card">
       <button type="button" class="modal-close" id="modal-close-btn" aria-label="Fechar">
@@ -522,6 +611,133 @@
     </div>
   </div>
 
+  <!-- MODAL: Ver Planos e Preços (aberto a partir do modal "Como deseja começar?") -->
+  <div class="modal-overlay" id="plans-modal">
+    <div class="modal-card plans-modal-card">
+      <button type="button" class="modal-close" id="plans-close-btn" aria-label="Fechar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+
+      <div class="modal-heading">
+        <div class="modal-heading-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2.5 12.5 12.5 2.5H20a1.5 1.5 0 0 1 1.5 1.5v7.5L12.5 21.5a1.5 1.5 0 0 1-2.12 0l-8-8a1.5 1.5 0 0 1 .12-2.12Z" stroke-width="1.8"/>
+            <circle cx="16.5" cy="7.5" r="1.5" stroke-width="1.8"/>
+          </svg>
+        </div>
+        <h2>Ver Planos e Preços</h2>
+        <p>Escolha o formato que melhor se encaixa na sua rotina.</p>
+      </div>
+
+      <div class="plans-banner">
+        <div class="plans-banner-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3.5" y="5" width="17" height="16" rx="2.5" stroke-width="1.8"/>
+            <path d="M8 3v4M16 3v4M3.5 10h17" stroke-width="1.8"/>
+            <circle cx="8.3" cy="14.3" r="0.9"/><circle cx="12" cy="14.3" r="0.9"/><circle cx="15.7" cy="14.3" r="0.9"/>
+          </svg>
+        </div>
+        <div>
+          <strong>Todos os planos incluem 12 encontros por mês</strong>
+          <p>3 encontros por semana · Aulas particulares · Material incluso</p>
+        </div>
+      </div>
+
+      <div class="plans-grid">
+
+        <div class="plan-card">
+          <div class="plan-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="8" r="3.5" stroke-width="1.8"/>
+              <path d="M4.5 20c1.4-3.6 4.2-5.5 7.5-5.5s6.1 1.9 7.5 5.5" stroke-width="1.8"/>
+            </svg>
+          </div>
+          <h3>Individual</h3>
+          <p class="plan-frequency">3x por semana</p>
+          <p class="plan-desc">Aulas 100% personalizadas para você evoluir no seu ritmo.</p>
+          <span class="plan-meetings-badge">12 encontros por mês</span>
+          <p class="plan-price-old">R$ 275</p>
+          <p class="plan-price-new"><span class="currency">R$</span><span class="amount">200</span></p>
+          <p class="plan-price-unit">por pessoa / mês</p>
+          <span class="plan-promo-badge">Promoção</span>
+          <button type="button" class="btn-solid-primary plan-cta" data-plan="Individual">Escolher Plano</button>
+        </div>
+
+        <div class="plan-card">
+          <div class="plan-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11.5" cy="7.5" r="3" stroke-width="1.7"/>
+              <path d="M7 20v-1.5a3.5 3.5 0 0 1 3.5-3.5h2A3.5 3.5 0 0 1 16 18.5V20" stroke-width="1.7"/>
+              <path d="M15 4.2a3 3 0 0 1 0 5.6" stroke-width="1.7"/>
+              <path d="M17.5 20v-1.5a3.5 3.5 0 0 0-2-3.16" stroke-width="1.7"/>
+            </svg>
+          </div>
+          <h3>Dupla</h3>
+          <p class="plan-frequency">3x por semana</p>
+          <p class="plan-desc">Aprenda com um colega e compartilhe a jornada.</p>
+          <span class="plan-meetings-badge">12 encontros por mês</span>
+          <p class="plan-price-old">R$ 200</p>
+          <p class="plan-price-new"><span class="currency">R$</span><span class="amount">160</span></p>
+          <p class="plan-price-unit">por pessoa / mês</p>
+          <span class="plan-promo-badge">Promoção</span>
+          <button type="button" class="btn-solid-primary plan-cta" data-plan="Dupla">Escolher Plano</button>
+        </div>
+
+        <div class="plan-card">
+          <div class="plan-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="7" cy="8" r="2.3" stroke-width="1.6"/>
+              <path d="M3 19c.8-2.6 2.2-4 4-4s3.2 1.4 4 4" stroke-width="1.6"/>
+              <circle cx="12" cy="6.5" r="2.5" stroke-width="1.6"/>
+              <path d="M7.7 19c.9-3 2.4-4.6 4.3-4.6s3.4 1.6 4.3 4.6" stroke-width="1.6"/>
+              <circle cx="17" cy="8" r="2.3" stroke-width="1.6"/>
+              <path d="M13 19c.8-2.6 2.2-4 4-4s3.2 1.4 4 4" stroke-width="1.6"/>
+            </svg>
+          </div>
+          <h3>Trio</h3>
+          <p class="plan-frequency">3x por semana</p>
+          <p class="plan-desc">Mais interação, mais prática e o melhor custo-benefício.</p>
+          <span class="plan-meetings-badge">12 encontros por mês</span>
+          <p class="plan-price-old">R$ 175</p>
+          <p class="plan-price-new"><span class="currency">R$</span><span class="amount">140</span></p>
+          <p class="plan-price-unit">por pessoa / mês</p>
+          <span class="plan-promo-badge">Promoção</span>
+          <button type="button" class="btn-solid-primary plan-cta" data-plan="Trio">Escolher Plano</button>
+        </div>
+
+      </div>
+
+      <div class="plans-features-strip">
+        <div class="plans-feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5" stroke-width="1.8"/><path d="M8 3v4M16 3v4M3.5 10h17" stroke-width="1.8"/></svg>
+          <span>12 encontros<br />por mês</span>
+        </div>
+        <div class="plans-feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5" stroke-width="1.8"/><path d="M4.5 20c1.4-3.6 4.2-5.5 7.5-5.5s6.1 1.9 7.5 5.5" stroke-width="1.8"/></svg>
+          <span>Aulas particulares<br />focadas em você</span>
+        </div>
+        <div class="plans-feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7c-1.5-1.3-4-2-7-2v13c3 0 5.5.7 7 2 1.5-1.3 4-2 7-2V5c-3 0-5.5.7-7 2Z" stroke-width="1.8"/><path d="M12 7v13" stroke-width="1.8"/></svg>
+          <span>Material incluso<br />e exclusivo</span>
+        </div>
+        <div class="plans-feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l5-5 4 4 7-7" stroke-width="1.8"/><path d="M16 8h4v4" stroke-width="1.8"/></svg>
+          <span>Evolução real<br />e constante</span>
+        </div>
+        <div class="plans-feature">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13v-1a8 8 0 0 1 16 0v1" stroke-width="1.8"/><rect x="2.5" y="13" width="4" height="6" rx="1.5" stroke-width="1.8"/><rect x="17.5" y="13" width="4" height="6" rx="1.5" stroke-width="1.8"/></svg>
+          <span>Suporte sempre<br />que precisar</span>
+        </div>
+      </div>
+
+      <p class="plans-footnote">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 3.5 5 6v5.5c0 5 3 8.3 7 9 4-.7 7-4 7-9V6Z"/></svg>
+        Pagamento seguro e flexível.
+      </p>
+
+    </div>
+  </div>
+
   <div class="wip-toast" id="wip-toast">🚧 Em construção — em breve por aqui!</div>
 
   <script>
@@ -567,7 +783,66 @@
       return response.json();
     }
 
-    // ---------- Modal "Agendar Aula Experimental" (Comece Agora) ----------
+    // ---------- Modal "Como deseja começar?" (aberto pelo botão "Comece Agora") ----------
+    const startChoiceOverlay = document.getElementById('start-choice-modal');
+
+    function openStartChoiceModal() {
+      startChoiceOverlay.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeStartChoiceModal() {
+      startChoiceOverlay.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+
+    document.getElementById('comece-agora-btn').addEventListener('click', openStartChoiceModal);
+    document.getElementById('start-choice-close-btn').addEventListener('click', closeStartChoiceModal);
+    startChoiceOverlay.addEventListener('click', (e) => {
+      if (e.target === startChoiceOverlay) closeStartChoiceModal();
+    });
+
+    document.getElementById('start-option-schedule-btn').addEventListener('click', () => {
+      closeStartChoiceModal();
+      openModal();
+    });
+
+    document.getElementById('start-option-plans-btn').addEventListener('click', () => {
+      closeStartChoiceModal();
+      openPlansModal();
+    });
+
+    // ---------- Modal "Ver Planos e Preços" ----------
+    const plansOverlay = document.getElementById('plans-modal');
+
+    function openPlansModal() {
+      plansOverlay.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closePlansModal() {
+      plansOverlay.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+
+    document.getElementById('plans-close-btn').addEventListener('click', closePlansModal);
+    plansOverlay.addEventListener('click', (e) => {
+      if (e.target === plansOverlay) closePlansModal();
+    });
+
+    plansOverlay.querySelectorAll('.plan-cta').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const plano = btn.dataset.plan;
+        closePlansModal();
+        openModal();
+        toast.textContent = `Plano ${plano} selecionado — agende sua aula para confirmar!`;
+        toast.classList.add('show');
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => toast.classList.remove('show'), 3200);
+      });
+    });
+
+    // ---------- Modal "Agendar Aula Experimental" ----------
     const modalOverlay = document.getElementById('comece-agora-modal');
     const modalNameInput = document.getElementById('modal-name');
     const modalWhatsappInput = document.getElementById('modal-whatsapp');
@@ -587,7 +862,6 @@
       document.body.style.overflow = '';
     }
 
-    document.getElementById('comece-agora-btn').addEventListener('click', openModal);
     document.getElementById('modal-close-btn').addEventListener('click', closeModal);
     modalOverlay.addEventListener('click', (e) => {
       if (e.target === modalOverlay) closeModal();
