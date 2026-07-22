@@ -16,7 +16,7 @@ import requests
 # estiver rodando.
 BACKEND_URL = os.environ.get("BACKEND_URL", "https://litenglish.up.railway.app")
 
-_TIMEOUT = 8  # segundos
+_TIMEOUT = 8 
 
 
 def save_result(nome: str, whatsapp: str, score: dict) -> dict:
