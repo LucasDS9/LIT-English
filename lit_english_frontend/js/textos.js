@@ -111,6 +111,7 @@ function renderStateBox(container, { icon, title, text, actionLabel, onAction })
 
 async function renderTextList() {
   stopReadingHeartbeat();
+  closeWordPopup();
   textsArea.innerHTML = '<div class="skeleton">Carregando textos...</div>';
 
   let texts;
@@ -174,6 +175,332 @@ async function renderTextList() {
   });
 
   textsArea.appendChild(grid);
+}
+
+// ---------------------------------------------------------------------------
+// Popup de vocabulário: clique em palavra do texto -> tradução + frase
+// contextualizada (POST /texts/word-lookup), pronúncia da palavra via TTS
+// e "Salvar frase nos flashcards" (POST /flashcards/self-add).
+// ---------------------------------------------------------------------------
+
+// Cache de áudio da pronúncia de palavras isoladas (separado do cache de
+// trechos do player principal, em player.blobUrls).
+const wordAudioBlobUrls = new Map();
+
+async function getWordAudioUrl(word) {
+  if (wordAudioBlobUrls.has(word)) return wordAudioBlobUrls.get(word);
+  const blob = await apiFetchBlob(ttsUrl(word));
+  const url = URL.createObjectURL(blob);
+  wordAudioBlobUrls.set(word, url);
+  return url;
+}
+
+async function playWordAudio(word, speakerBtn) {
+  if (speakerBtn.disabled) return;
+  speakerBtn.disabled = true;
+  speakerBtn.classList.add("is-loading");
+
+  try {
+    const url = await getWordAudioUrl(word);
+    const audio = new Audio(url);
+    await audio.play();
+    audio.addEventListener("ended", () => {
+      speakerBtn.disabled = false;
+      speakerBtn.classList.remove("is-loading");
+    });
+  } catch (err) {
+    speakerBtn.disabled = false;
+    speakerBtn.classList.remove("is-loading");
+    showToast(err.message || "Não foi possível tocar o áudio da palavra.");
+  }
+}
+
+let activeWordPopup = null; // { overlay, popup, wordSpan, escHandler }
+
+function escapeHtml(str) {
+  return (str || "").replace(/[&<>"]/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]
+  ));
+}
+
+// Envolve a ocorrência de `term` dentro de `sentence` em <b>, escapando o
+// resto do texto (o conteúdo vem da IA, não é HTML confiável).
+function highlightTerm(sentence, term) {
+  const safeSentence = escapeHtml(sentence);
+  const cleanTerm = (term || "").trim();
+  if (!cleanTerm) return safeSentence;
+
+  const escapedTerm = cleanTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(${escapedTerm})`, "i");
+  return re.test(safeSentence) ? safeSentence.replace(re, "<b>$1</b>") : safeSentence;
+}
+
+function closeWordPopup() {
+  if (!activeWordPopup) return;
+  const { overlay, wordSpan, escHandler } = activeWordPopup;
+  overlay.remove();
+  wordSpan.classList.remove("is-active");
+  document.removeEventListener("keydown", escHandler);
+  activeWordPopup = null;
+}
+
+function positionWordPopup(popup, anchorSpan) {
+  const margin = 12;
+  const rect = anchorSpan.getBoundingClientRect();
+  const popupRect = popup.getBoundingClientRect();
+  const width = popupRect.width || 320;
+  const height = popupRect.height || 160;
+
+  let left = rect.left;
+  left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+
+  let top = rect.bottom + 8;
+  if (top + height > window.innerHeight - margin) {
+    top = Math.max(margin, rect.top - height - 8);
+  }
+
+  popup.style.left = `${left}px`;
+  popup.style.top = `${top}px`;
+}
+
+function buildWordPopupShell(word) {
+  const overlay = document.createElement("div");
+  overlay.className = "word-popup-overlay";
+
+  const popup = document.createElement("div");
+  popup.className = "word-popup";
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "word-popup-close";
+  closeBtn.innerHTML = Icons.x;
+  closeBtn.setAttribute("aria-label", "Fechar");
+  closeBtn.addEventListener("click", closeWordPopup);
+  popup.appendChild(closeBtn);
+
+  const header = document.createElement("div");
+  header.className = "word-popup-header";
+
+  const title = document.createElement("h3");
+  title.className = "word-popup-title";
+  title.textContent = word.toLowerCase();
+  header.appendChild(title);
+
+  const speakerBtn = document.createElement("button");
+  speakerBtn.type = "button";
+  speakerBtn.className = "word-popup-speaker";
+  speakerBtn.innerHTML = Icons.volume;
+  speakerBtn.setAttribute("aria-label", "Ouvir pronúncia");
+  speakerBtn.addEventListener("click", () => {
+    playWordAudio(word, speakerBtn);
+  });
+  header.appendChild(speakerBtn);
+
+  popup.appendChild(header);
+
+  const body = document.createElement("div");
+  body.className = "word-popup-body";
+  popup.appendChild(body);
+
+  overlay.appendChild(popup);
+  return { overlay, popup, body };
+}
+
+function renderWordPopupLoading(body) {
+  body.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.className = "word-popup-loading";
+  wrap.style.marginTop = "16px";
+  ["60%", "92%", "78%", "45%"].forEach((w) => {
+    const bar = document.createElement("div");
+    bar.className = "word-popup-skel";
+    bar.style.width = w;
+    wrap.appendChild(bar);
+  });
+  body.appendChild(wrap);
+}
+
+function renderWordPopupError(body, message, onRetry) {
+  body.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.className = "word-popup-section word-popup-error";
+
+  const p = document.createElement("p");
+  p.textContent = message || "Não foi possível consultar esta palavra agora.";
+  wrap.appendChild(p);
+
+  const retryBtn = document.createElement("button");
+  retryBtn.type = "button";
+  retryBtn.className = "btn btn-outline btn-sm";
+  retryBtn.innerHTML = `${Icons.refresh}<span>Tentar de novo</span>`;
+  retryBtn.addEventListener("click", onRetry);
+  wrap.appendChild(retryBtn);
+
+  body.appendChild(wrap);
+}
+
+function renderWordPopupContent(body, data) {
+  body.innerHTML = "";
+
+  const translationSection = document.createElement("div");
+  translationSection.className = "word-popup-section";
+  const translationLabel = document.createElement("p");
+  translationLabel.className = "word-popup-label";
+  translationLabel.innerHTML = `${Icons.translate}<span>Tradução</span>`;
+  translationSection.appendChild(translationLabel);
+  const translationText = document.createElement("p");
+  translationText.className = "word-popup-translation";
+  translationText.textContent = data.translation;
+  translationSection.appendChild(translationText);
+  body.appendChild(translationSection);
+
+  const exampleSection = document.createElement("div");
+  exampleSection.className = "word-popup-section";
+  const exampleLabel = document.createElement("p");
+  exampleLabel.className = "word-popup-label";
+  exampleLabel.innerHTML = `${Icons.quote}<span>Frase contextualizada</span>`;
+  exampleSection.appendChild(exampleLabel);
+
+  const enP = document.createElement("p");
+  enP.className = "word-popup-example";
+  enP.innerHTML = highlightTerm(data.example_en, data.word);
+  exampleSection.appendChild(enP);
+
+  const ptP = document.createElement("p");
+  ptP.className = "word-popup-example";
+  ptP.innerHTML = highlightTerm(data.example_pt, data.translation);
+  exampleSection.appendChild(ptP);
+
+  body.appendChild(exampleSection);
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "word-popup-save";
+  saveBtn.innerHTML = `${Icons.plus}<span>Salvar frase nos flashcards</span>`;
+  saveBtn.addEventListener("click", () => {
+    saveWordAsFlashcard(saveBtn, data.example_en, data.example_pt);
+  });
+  body.appendChild(saveBtn);
+}
+
+function saveWordAsFlashcard(saveBtn, front, back) {
+  if (saveBtn.disabled) return;
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = `${Icons.refresh}<span>Salvando...</span>`;
+
+  apiFetch("/flashcards/self-add", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ front, back }),
+  })
+    .then(() => {
+      saveBtn.innerHTML = `${Icons.checkSmall}<span>Salvo nos flashcards</span>`;
+      showToast("Frase salva nos seus flashcards!");
+    })
+    .catch((err) => {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = `${Icons.plus}<span>Salvar frase nos flashcards</span>`;
+      showToast(err.message || "Não foi possível salvar a frase agora.");
+    });
+}
+
+function openWordPopup(wordSpan, word, sentence, textId) {
+  closeWordPopup();
+  wordSpan.classList.add("is-active");
+
+  const { overlay, popup, body } = buildWordPopupShell(word);
+  document.body.appendChild(overlay);
+
+  const escHandler = (e) => {
+    if (e.key === "Escape") closeWordPopup();
+  };
+  document.addEventListener("keydown", escHandler);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closeWordPopup();
+  });
+
+  activeWordPopup = { overlay, popup, wordSpan, escHandler };
+
+  function fetchAndRender() {
+    renderWordPopupLoading(body);
+    positionWordPopup(popup, wordSpan);
+
+    apiFetch("/texts/word-lookup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ word, sentence, text_id: textId }),
+    })
+      .then((data) => {
+        if (!activeWordPopup || activeWordPopup.wordSpan !== wordSpan) return;
+        renderWordPopupContent(body, data);
+        positionWordPopup(popup, wordSpan);
+      })
+      .catch((err) => {
+        if (!activeWordPopup || activeWordPopup.wordSpan !== wordSpan) return;
+        renderWordPopupError(body, err.message, fetchAndRender);
+        positionWordPopup(popup, wordSpan);
+      });
+  }
+
+  positionWordPopup(popup, wordSpan);
+  fetchAndRender();
+}
+
+// Divide o conteúdo do texto em tokens de palavra / não-palavra e monta o
+// corpo do leitor com cada palavra dentro de um <span class="word">
+// clicável, guardando a frase (sentença) de cada uma para servir de
+// contexto no popup de vocabulário.
+function renderClickableBody(container, rawText, textId) {
+  container.innerHTML = "";
+
+  const tokenRe = /[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’-][A-Za-zÀ-ÖØ-öø-ÿ]+)*|[^A-Za-zÀ-ÖØ-öø-ÿ]+/g;
+  const tokens = rawText.match(tokenRe) || [];
+
+  const sentences = [];
+  let buffer = "";
+  let pendingSpans = [];
+
+  tokens.forEach((token) => {
+    const isWord = /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(token[0]);
+    buffer += token;
+
+    if (isWord) {
+      const span = document.createElement("span");
+      span.className = "word";
+      span.textContent = token;
+      container.appendChild(span);
+      pendingSpans.push(span);
+      return;
+    }
+
+    container.appendChild(document.createTextNode(token));
+    if (/[.!?]/.test(token)) {
+      const idx = sentences.length;
+      sentences.push(buffer.trim());
+      pendingSpans.forEach((span) => {
+        span.dataset.sentenceIdx = String(idx);
+      });
+      pendingSpans = [];
+      buffer = "";
+    }
+  });
+
+  if (buffer.trim()) {
+    const idx = sentences.length;
+    sentences.push(buffer.trim());
+    pendingSpans.forEach((span) => {
+      span.dataset.sentenceIdx = String(idx);
+    });
+  }
+
+  container.addEventListener("click", (e) => {
+    const span = e.target.closest(".word");
+    if (!span || !container.contains(span)) return;
+    const word = span.textContent;
+    const sentence = sentences[Number(span.dataset.sentenceIdx)] || word;
+    openWordPopup(span, word, sentence, textId);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -276,6 +603,7 @@ function renderReader(text) {
   backLink.addEventListener("click", () => {
     stopReadingHeartbeat();
     resetPlayer();
+    closeWordPopup();
     renderTextList();
   });
   textsArea.appendChild(backLink);
@@ -327,7 +655,7 @@ function renderReader(text) {
 
   const body = document.createElement("p");
   body.className = "reader-body";
-  body.textContent = text.content;
+  renderClickableBody(body, text.content, text.id);
   card.appendChild(body);
 
   const toggleWrap = document.createElement("div");
