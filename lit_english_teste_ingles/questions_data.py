@@ -8,7 +8,7 @@ Tipos de questão:
 - "listening"   -> múltipla escolha, o áudio é a própria frase em inglês
                     (o front-end vai usar SpeechSynthesis para "falar" question_en)
 
-Cada questão tem:
+Cada questão tem :
 - id: identificador único (int) -> usado como chave nas respostas do aluno
 - number: posição de exibição (1..12)
 - type: fill | translation | listening
