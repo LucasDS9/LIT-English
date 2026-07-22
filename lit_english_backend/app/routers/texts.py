@@ -3,26 +3,15 @@ Rotas de Read and Listen:
 - Professor: criar, listar, editar e excluir textos (com atribuição por aluno)
 - Aluno (aprovado): listar apenas textos atribuídos a ele e ler
 """
-import logging
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
 from app.models import ReadingText, TextAssignment, User, UserRole
-from app.schemas import (
-    ReadingTextCreate,
-    ReadingTextOut,
-    ReadingTextUpdate,
-    WordLookupOut,
-    WordLookupRequest,
-)
-from app.vocab_lookup import VocabLookupUnavailable, lookup_word
+from app.schemas import ReadingTextCreate, ReadingTextOut, ReadingTextUpdate
 
 router = APIRouter(prefix="/texts", tags=["Read and Listen"])
-
-logger = logging.getLogger(__name__)
 
 
 def _sync_assignments(db: Session, text: ReadingText, student_ids: list[int]):
@@ -151,52 +140,3 @@ def get_text(
             raise HTTPException(status_code=403, detail="Texto não disponível para você.")
 
     return text
-
-
-# ============================================================
-# DICIONÁRIO CONTEXTUAL: clique em palavra dentro do texto
-# ============================================================
-
-@router.post("/word-lookup", response_model=WordLookupOut)
-def word_lookup(
-    data: WordLookupRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_approved_user),
-):
-    """
-    Aluno clicou numa palavra do texto: devolve a tradução contextual da
-    palavra, mais uma frase de exemplo em inglês (nova, gerada pela IA) e sua
-    tradução. Alimenta o popup de vocabulário e, futuramente, o botão
-    "Salvar frase nos flashcards".
-
-    Se `text_id` for informado e quem está chamando for aluno, confere que
-    ele tem acesso ao texto (mesma regra de `get_text`), pra não permitir
-    usar o endpoint como tradutor genérico sem vínculo com um texto
-    atribuído.
-    """
-    if data.text_id is not None and current_user.role == UserRole.aluno:
-        assigned = (
-            db.query(TextAssignment)
-            .filter(
-                TextAssignment.text_id == data.text_id,
-                TextAssignment.student_id == current_user.id,
-            )
-            .first()
-        )
-        if not assigned:
-            raise HTTPException(status_code=403, detail="Texto não disponível para você.")
-
-    word = data.word.strip()
-    if not word:
-        raise HTTPException(status_code=422, detail="Palavra vazia.")
-
-    try:
-        result = lookup_word(word, data.sentence)
-    except VocabLookupUnavailable as e:
-        logger.warning("Lookup de vocabulário indisponível: %s", e)
-        raise HTTPException(
-            status_code=503,
-            detail="Não foi possível consultar a palavra agora. Tente novamente em alguns segundos.",
-        )
-
-    return result

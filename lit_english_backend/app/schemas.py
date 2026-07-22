@@ -75,12 +75,6 @@ class FlashcardOut(BaseModel):
         from_attributes = True
 
 
-class FlashcardSelfAdd(BaseModel):
-    """Aluno salvando uma frase (do popup de vocabulário) direto como flashcard."""
-    front: str
-    back: str
-
-
 # ---------- Revisão ----------
 
 class ReviewCardOut(BaseModel):
@@ -205,21 +199,6 @@ class ReadingTextOut(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class WordLookupRequest(BaseModel):
-    """Payload enviado quando o aluno clica numa palavra dentro de um texto."""
-    word: str
-    sentence: str
-    text_id: Optional[int] = None
-
-
-class WordLookupOut(BaseModel):
-    """Conteúdo do popup de vocabulário: tradução contextual + frase de exemplo."""
-    word: str
-    translation: str
-    example_en: str
-    example_pt: str
 
 
 # ---------- Exercícios ----------
