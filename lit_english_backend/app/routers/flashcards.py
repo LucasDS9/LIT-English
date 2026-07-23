@@ -35,6 +35,7 @@ from app.schemas import (
     FlashcardCreate,
     FlashcardOut,
     FlashcardResendPayload,
+    FlashcardSelfAdd,
     FlashcardUpdate,
     ReviewCardOut,
     ReviewQueueOut,
@@ -360,6 +361,39 @@ def resend_flashcard_batch(
 
     db.commit()
     return {"assigned": total}
+
+
+# ============================================================
+# ALUNO: salvar frase do popup de vocabulário direto como flashcard
+# ============================================================
+
+@router.post("/self-add", response_model=FlashcardOut, status_code=status.HTTP_201_CREATED)
+def self_add_flashcard(
+    data: FlashcardSelfAdd,
+    db: Session = Depends(get_db),
+    student: User = Depends(get_current_approved_user),
+):
+    """
+    Aluno clicou em "Salvar frase nos flashcards" no popup de vocabulário
+    (Read and Listen). Cria um flashcard já atribuído a ele mesmo — sem
+    depender do professor —, pra aparecer na fila de revisão (SM-2) igual
+    a qualquer outro flashcard.
+    """
+    if student.role != UserRole.aluno:
+        raise HTTPException(status_code=403, detail="Apenas alunos podem salvar flashcards por conta própria.")
+
+    front = data.front.strip()
+    back = data.back.strip()
+    if not front or not back:
+        raise HTTPException(status_code=422, detail="Frase (frente e verso) não pode ser vazia.")
+
+    card = Flashcard(front=front, back=back)
+    db.add(card)
+    db.flush()
+    db.add(FlashcardAssignment(flashcard_id=card.id, student_id=student.id))
+    db.commit()
+    db.refresh(card)
+    return card
 
 
 # ============================================================
