@@ -658,26 +658,6 @@ function renderReader(text) {
   renderClickableBody(body, text.content, text.id);
   card.appendChild(body);
 
-  const toggleWrap = document.createElement("div");
-  toggleWrap.className = "reader-translation-toggle";
-  const toggleBtn = document.createElement("button");
-  toggleBtn.type = "button";
-  toggleBtn.className = "btn btn-outline btn-sm";
-  toggleBtn.textContent = "Ver tradução";
-  toggleWrap.appendChild(toggleBtn);
-  card.appendChild(toggleWrap);
-
-  const translation = document.createElement("p");
-  translation.className = "reader-translation";
-  translation.textContent = text.translation;
-  translation.hidden = true;
-  card.appendChild(translation);
-
-  toggleBtn.addEventListener("click", () => {
-    translation.hidden = !translation.hidden;
-    toggleBtn.textContent = translation.hidden ? "Ver tradução" : "Ocultar tradução";
-  });
-
   textsArea.appendChild(card);
 
   function updateProgress() {
@@ -730,7 +710,7 @@ function renderReader(text) {
 
     const audio = new Audio(url);
     player.audio = audio;
-    status.textContent = `Tocando trecho ${idx + 1} de ${player.chunks.length}`;
+    status.textContent = "Tocando áudio...";
 
     audio.addEventListener("ended", () => {
       if (!player.isPlaying) return; // foi pausado
@@ -759,7 +739,6 @@ function renderReader(text) {
       player.isPlaying = false;
       if (player.audio) player.audio.pause();
       setPlayIcon();
-      status.textContent = "Pausado";
       return;
     }
 
@@ -768,7 +747,7 @@ function renderReader(text) {
     setPlayIcon();
 
     if (player.audio && !player.audio.ended && player.audio.currentTime > 0) {
-      status.textContent = `Tocando trecho ${player.index + 1} de ${player.chunks.length}`;
+      status.textContent = "Tocando áudio...";
       player.audio.play().catch(() => {
         player.isPlaying = false;
         setPlayIcon();

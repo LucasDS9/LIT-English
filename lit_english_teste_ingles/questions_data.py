@@ -45,7 +45,6 @@ acrescentando "Correto!" na frente quando for a opção certa.
 """
 
 QUESTIONS = [
-    # ---------------- FILL IN THE BLANK ----------------
     {
         "id": 1,
         "number": 1,
