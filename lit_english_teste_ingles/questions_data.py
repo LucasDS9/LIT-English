@@ -12,7 +12,7 @@ Cada questão tem:
 - id: identificador único (int) -> usado como chave nas respostas do aluno
 - number: posição de exibição (1..12)
 - type: fill | translation | listening
-- level: A1 | A2 | B1  (usado no sistema de pontos e nivelamento)
+- level: A1 | A2 | B1 | B2  (usado no sistema de pontos e nivelamento)
 - subject: assunto gramatical (mostrado como "ASSUNTO" na tela)
 - question_en: frase em inglês (com "____" quando for lacuna)
 - translation_pt: tradução mostrada como apoio (quando aplicável)
@@ -45,6 +45,7 @@ acrescentando "Correto!" na frente quando for a opção certa.
 """
 
 QUESTIONS = [
+    # ---------------- FILL IN THE BLANK ----------------
     {
         "id": 1,
         "number": 1,
@@ -203,6 +204,8 @@ QUESTIONS = [
             "eu nao iria gostar disso",
             "eu nao gostaria disto",
             "eu nao iria gostar disto",
+            "eu nao gostaria daquilo",
+            "eu nao iria gostar daquilo",
         ],
         "grammar_note": "Wouldn't (would not) indica uma situa\u00e7\u00e3o hipot\u00e9tica, por isso a tradu\u00e7\u00e3o usa o condicional \u201cgostaria\u201d.",
         "tip": "Would é muito usado para falar de situações hipotéticas ou fazer pedidos educados.",
@@ -358,9 +361,31 @@ QUESTIONS = [
         "grammar_note": "Na voz passiva, o sujeito (a janela) recebe a a\u00e7\u00e3o em vez de pratic\u00e1-la: was + particípio (broken), e by introduz quem praticou a a\u00e7\u00e3o (pelo vento).",
         "tip": "Voz passiva = was/were + particípio. Quem pratica a ação vem depois de by.",
     },
+
+    # ---------------- TRANSLATION EN -> PT (B2) ----------------
+    {
+        "id": 16,
+        "number": 16,
+        "type": "translation",
+        "direction": "en_pt",
+        "level": "B2",
+        "subject": "Reported Speech",
+        "question_en": "She said she would call me the next day.",
+        "reference_answer": "Ela disse que me ligaria no dia seguinte.",
+        "accepted_answers": [
+            "ela disse que me ligaria no dia seguinte",
+            "ela disse que ela me ligaria no dia seguinte",
+            "ela disse que ligaria para mim no dia seguinte",
+            "ela disse que ligaria pra mim no dia seguinte",
+            "ela disse que iria me ligar no dia seguinte",
+            "ela disse que ela iria me ligar no dia seguinte",
+        ],
+        "grammar_note": "Em reported speech, o tempo verbal recua um passo (backshift): will vira would, porque a fala original (\u201cI will call you\u201d) est\u00e1 sendo relatada no passado.",
+        "tip": "Reported speech: will \u2192 would, can \u2192 could, is/am \u2192 was. O tempo verbal sempre recua um passo.",
+    },
 ]
 
 # Índice rápido por id
 QUESTIONS_BY_ID = {q["id"]: q for q in QUESTIONS}
 
-TOTAL_QUESTIONS = len(QUESTIONS)  # 15
+TOTAL_QUESTIONS = len(QUESTIONS)  # 16

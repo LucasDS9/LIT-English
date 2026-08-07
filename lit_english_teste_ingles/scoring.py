@@ -2,24 +2,26 @@
 """
 Sistema de nivelamento - LIT English
 
-Baseado nas 15 questões cadastradas em questions_data.py:
+Baseado nas 16 questões cadastradas em questions_data.py:
   A1 -> Q1, Q3, Q11, Q13, Q14   (5 questões, peso 1 cada)
   A2 -> Q2, Q4, Q5, Q6, Q8, Q9, Q12  (7 questões, peso 2 cada)
   B1 -> Q7, Q10, Q15   (3 questões, peso 3 cada)
+  B2 -> Q16   (1 questão, peso 4)
 """
 from questions_data import QUESTIONS_BY_ID, TOTAL_QUESTIONS
 
-WEIGHTS = {"A1": 1, "A2": 2, "B1": 3}
+WEIGHTS = {"A1": 1, "A2": 2, "B1": 3, "B2": 4}
 
 LEVEL_IDS = {
     "A1": [1, 3, 11, 13, 14],
     "A2": [2, 4, 5, 6, 8, 9, 12],
     "B1": [7, 10, 15],
+    "B2": [16],
 }
 
 MAX_POINTS = sum(
     WEIGHTS[level] * len(ids) for level, ids in LEVEL_IDS.items()
-)  # 3*1 + 7*2 + 2*3 = 23
+)  # 5*1 + 7*2 + 3*3 + 1*4 = 32
 
 LEVEL_INFO = {
     "STARTER": {
@@ -49,28 +51,44 @@ LEVEL_INFO = {
         ),
         "trilha": "MASTER",
     },
+    "EXPERT": {
+        "code": "B2",
+        "label": "EXPERT",
+        "description": (
+            "Você demonstrou domínio de estruturas avançadas do inglês, como "
+            "reported speech, e está pronto para desafios de nível avançado."
+        ),
+        "trilha": "EXPERT",
+    },
 }
 
 
-def _classify(pct_a1: float, pct_a2: float, pct_b1: float, pct_geral: float) -> str:
+def _classify(
+    correct_a1: int, total_a1: int,
+    correct_a2: int, total_a2: int,
+    correct_b1: int, total_b1: int,
+    correct_b2: int, total_b2: int,
+) -> str:
     """
-    Critério rebalanceado (v2):
+    Critério em gates (v4):
 
-    O desempenho GERAL passa a ser o principal fator, com o desempenho por
-    nível funcionando como um "gate" mais leve (garante que o aluno tem
-    familiaridade mínima com aquele patamar, sem exigir domínio quase total
-    dele antes de subir de nível).
-
-    - MASTER (B1): bom desempenho geral (>=75%) e já mostra alguma
-      familiaridade com A1 (>=60%) e com B1 (pelo menos 1 das 3 questões).
-    - EXPLORER (A2): já saiu do "só sei o básico" — desempenho geral
-      razoável (>=45%) com o mínimo de base em A1 (>=40%).
-    - STARTER (A1): reservado para quem ainda está apoiado só no básico
-      (desempenho geral baixo ou pouca base mesmo em A1).
+    - EXPLORER (A2): A1 perfeito (5/5) + pelo menos 4 das 7 de A2.
+    - MASTER (B1): A1 perfeito (5/5) + pelo menos 5 das 7 de A2 +
+      pelo menos 2 das 3 de B1.
+    - EXPERT (B2): tudo do MASTER acima + acerta a única questão de B2.
+    - STARTER: quem não bate nem o requisito de EXPLORER.
     """
-    if pct_geral >= 75 and pct_a1 >= 60 and pct_b1 >= 33:
+    passed_a1 = correct_a1 >= total_a1
+
+    passed_a2 = passed_a1 and correct_a2 >= 4
+    passed_b1 = passed_a1 and correct_a2 >= 5 and correct_b1 >= 2
+    passed_b2 = passed_b1 and correct_b2 >= total_b2
+
+    if passed_b2:
+        return "EXPERT"
+    if passed_b1:
         return "MASTER"
-    if pct_geral >= 45 and pct_a1 >= 40:
+    if passed_a2:
         return "EXPLORER"
     return "STARTER"
 
@@ -86,7 +104,7 @@ def compute_score(graded_answers: list) -> dict:
     wrong_count = len(graded_answers) - correct_count
 
     points = 0
-    correct_by_level = {"A1": 0, "A2": 0, "B1": 0}
+    correct_by_level = {"A1": 0, "A2": 0, "B1": 0, "B2": 0}
 
     for r in graded_answers:
         level = r["level"]
@@ -96,11 +114,22 @@ def compute_score(graded_answers: list) -> dict:
 
     pct_geral = round((correct_count / TOTAL_QUESTIONS) * 100)
 
-    pct_a1 = round((correct_by_level["A1"] / len(LEVEL_IDS["A1"])) * 100)
-    pct_a2 = round((correct_by_level["A2"] / len(LEVEL_IDS["A2"])) * 100)
-    pct_b1 = round((correct_by_level["B1"] / len(LEVEL_IDS["B1"])) * 100)
+    total_a1 = len(LEVEL_IDS["A1"])
+    total_a2 = len(LEVEL_IDS["A2"])
+    total_b1 = len(LEVEL_IDS["B1"])
+    total_b2 = len(LEVEL_IDS["B2"])
 
-    nivel = _classify(pct_a1, pct_a2, pct_b1, pct_geral)
+    pct_a1 = round((correct_by_level["A1"] / total_a1) * 100)
+    pct_a2 = round((correct_by_level["A2"] / total_a2) * 100)
+    pct_b1 = round((correct_by_level["B1"] / total_b1) * 100)
+    pct_b2 = round((correct_by_level["B2"] / total_b2) * 100)
+
+    nivel = _classify(
+        correct_by_level["A1"], total_a1,
+        correct_by_level["A2"], total_a2,
+        correct_by_level["B1"], total_b1,
+        correct_by_level["B2"], total_b2,
+    )
     info = LEVEL_INFO[nivel]
 
     return {
@@ -113,14 +142,17 @@ def compute_score(graded_answers: list) -> dict:
         "percent_a1": pct_a1,
         "percent_a2": pct_a2,
         "percent_b1": pct_b1,
+        "percent_b2": pct_b2,
         "correct_a1": correct_by_level["A1"],
         "correct_a2": correct_by_level["A2"],
         "correct_b1": correct_by_level["B1"],
-        "total_a1": len(LEVEL_IDS["A1"]),
-        "total_a2": len(LEVEL_IDS["A2"]),
-        "total_b1": len(LEVEL_IDS["B1"]),
-        "nivel_estimado": nivel,          # STARTER | EXPLORER | MASTER
-        "nivel_codigo": info["code"],     # A1 | A2 | B1
+        "correct_b2": correct_by_level["B2"],
+        "total_a1": total_a1,
+        "total_a2": total_a2,
+        "total_b1": total_b1,
+        "total_b2": total_b2,
+        "nivel_estimado": nivel,          # STARTER | EXPLORER | MASTER | EXPERT
+        "nivel_codigo": info["code"],     # A1 | A2 | B1 | B2
         "nivel_descricao": info["description"],
         "trilha_recomendada": info["trilha"],
     }

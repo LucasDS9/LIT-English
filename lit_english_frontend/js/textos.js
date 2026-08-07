@@ -728,6 +728,13 @@ function renderReader(text) {
       player.isPlaying = false;
       setPlayIcon();
       status.textContent = "Não foi possível tocar o áudio.";
+      return;
+    }
+
+    // Prefetch: já dispara a busca do próximo trecho em paralelo, enquanto
+    // o atual está tocando, para eliminar a pausa entre trechos.
+    if (idx + 1 < player.chunks.length) {
+      getChunkAudioUrl(player.chunks[idx + 1]).catch(() => {});
     }
   }
 

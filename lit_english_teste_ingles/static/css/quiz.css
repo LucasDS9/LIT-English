@@ -865,18 +865,6 @@
   text-align: center;
 }
 
-.quiz-disclaimer {
-  background: var(--color-primary-tint);
-  border: 1.5px dashed var(--color-primary);
-  color: var(--color-primary);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
-  font-size: 13px;
-  line-height: 1.4;
-  margin-bottom: 16px;
-  text-align: center;
-}
-
 @media (max-width: 400px) {
   .quiz-question {
     font-size: 18px;

@@ -19,7 +19,6 @@
     index: 0,
     answers: {}, // { [id]: answer }
     selectedKey: null, // opção marcada na questão atual (antes de confirmar)
-    a2DisclaimerShown: false, // mostra o aviso "teste vai de A1 até B2" só uma vez
   };
 
   // -------------------------------------------------------------------
@@ -101,14 +100,6 @@
       `;
     }
 
-    let disclaimerHtml = "";
-    if (q.level === "A2" && !state.a2DisclaimerShown) {
-      state.a2DisclaimerShown = true;
-      disclaimerHtml = `
-        <p class="quiz-disclaimer">Este teste avalia do nível A1 até o B2 — as próximas questões vão ficando mais avançadas.</p>
-      `;
-    }
-
     renderShell(`
       <div class="quiz-card" id="quiz-card">
         <div class="quiz-topbar">
@@ -120,7 +111,6 @@
         </div>
         <p class="quiz-subject-label">Assunto</p>
         <p class="quiz-subject">${escapeHtml(q.subject)}</p>
-        ${disclaimerHtml}
         ${body}
         <p class="quiz-hint">Revise sua resposta e continue.</p>
         <button class="btn-primary" id="confirm-btn" disabled>
