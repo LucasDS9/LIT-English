@@ -19,6 +19,7 @@
     index: 0,
     answers: {}, // { [id]: answer }
     selectedKey: null, // opção marcada na questão atual (antes de confirmar)
+    a2DisclaimerShown: false, // mostra o aviso "teste vai de A1 até B2" só uma vez
   };
 
   // -------------------------------------------------------------------
@@ -100,6 +101,14 @@
       `;
     }
 
+    let disclaimerHtml = "";
+    if (q.level === "A2" && !state.a2DisclaimerShown) {
+      state.a2DisclaimerShown = true;
+      disclaimerHtml = `
+        <p class="quiz-disclaimer">Este teste avalia do nível A1 até o B2 — as próximas questões vão ficando mais avançadas.</p>
+      `;
+    }
+
     renderShell(`
       <div class="quiz-card" id="quiz-card">
         <div class="quiz-topbar">
@@ -111,6 +120,7 @@
         </div>
         <p class="quiz-subject-label">Assunto</p>
         <p class="quiz-subject">${escapeHtml(q.subject)}</p>
+        ${disclaimerHtml}
         ${body}
         <p class="quiz-hint">Revise sua resposta e continue.</p>
         <button class="btn-primary" id="confirm-btn" disabled>
@@ -322,11 +332,106 @@
 
     document.getElementById("next-btn").addEventListener("click", () => {
       if (isLast) {
-        submitAndShowResult();
+        renderUnlockGate();
       } else {
         state.index += 1;
         renderQuestion();
       }
+    });
+  }
+
+  // -------------------------------------------------------------------
+  // Gate do Instagram: aparece depois da última questão, antes de calcular
+  // o resultado. O botão "Já segui, desbloquear teste" começa travado e só
+  // libera 10s depois de o aluno clicar em "Siga no Instagram".
+  // -------------------------------------------------------------------
+  const INSTAGRAM_URL = "https://www.instagram.com/litenglish.br/";
+  const UNLOCK_WAIT_SECONDS = 10;
+
+  function renderUnlockGate() {
+    renderShell(`
+      <div class="unlock-card">
+        <div class="unlock-lock-wrap">
+          <svg class="unlock-lock-icon" viewBox="0 0 48 56" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="6" y="24" width="36" height="26" rx="7" stroke="currentColor" stroke-width="4"/>
+            <path d="M14 24v-8a10 10 0 0 1 20 0v8" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+            <circle cx="24" cy="35" r="2.6" fill="currentColor"/>
+            <line x1="24" y1="38" x2="24" y2="43" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <p class="unlock-wordmark">LIT ENGLISH</p>
+        <p class="unlock-tagline">· Don't Get Lost In Translation ·</p>
+
+        <h2 class="unlock-heading">
+          <span class="unlock-heading-accent">Desbloqueie</span> seu teste de nível
+          <svg class="unlock-heading-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="4" y="11" width="16" height="10" rx="2.5" stroke="currentColor" stroke-width="2"/>
+            <path d="M7.5 11V7.5a4.5 4.5 0 0 1 9 0V11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </h2>
+        <p class="unlock-subtext">Siga nosso Instagram para liberar o acesso ao teste e descobrir seu nível de inglês.</p>
+
+        <a class="unlock-ig-btn" id="unlock-ig-btn" href="${INSTAGRAM_URL}" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" stroke-width="2"/>
+            <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/>
+            <circle cx="17.2" cy="6.8" r="1.1" fill="currentColor"/>
+          </svg>
+          <span>Siga no Instagram</span>
+        </a>
+
+        <div class="unlock-divider"><span>depois de seguir</span></div>
+
+        <button type="button" class="unlock-confirm-btn" id="unlock-confirm-btn" disabled>
+          <svg class="unlock-confirm-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect x="5" y="10.5" width="14" height="9" rx="2.5" stroke="currentColor" stroke-width="2"/>
+            <path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span id="unlock-confirm-label">Já segui, desbloquear teste</span>
+        </button>
+
+        <p class="unlock-footnote">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+          Seu teste será liberado em instantes.<br/>É rápido, gratuito e sem compromisso.
+        </p>
+      </div>
+    `);
+
+    wireUnlockGateEvents();
+  }
+
+  function wireUnlockGateEvents() {
+    const igBtn = document.getElementById("unlock-ig-btn");
+    const confirmBtn = document.getElementById("unlock-confirm-btn");
+    const confirmLabel = document.getElementById("unlock-confirm-label");
+
+    let timerStarted = false;
+
+    igBtn.addEventListener("click", () => {
+      if (timerStarted) return; // já clicou antes, não reinicia a contagem
+      timerStarted = true;
+
+      let remaining = UNLOCK_WAIT_SECONDS;
+      confirmLabel.textContent = `Aguarde ${remaining}s...`;
+
+      const interval = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          clearInterval(interval);
+          confirmLabel.textContent = "Já segui, desbloquear teste";
+          confirmBtn.disabled = false;
+          confirmBtn.classList.add("is-unlocked");
+        } else {
+          confirmLabel.textContent = `Aguarde ${remaining}s...`;
+        }
+      }, 1000);
+    });
+
+    confirmBtn.addEventListener("click", () => {
+      if (confirmBtn.disabled) return;
+      submitAndShowResult();
     });
   }
 

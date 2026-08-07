@@ -865,8 +865,209 @@
   text-align: center;
 }
 
+.quiz-disclaimer {
+  background: var(--color-primary-tint);
+  border: 1.5px dashed var(--color-primary);
+  color: var(--color-primary);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
 @media (max-width: 400px) {
   .quiz-question {
     font-size: 18px;
   }
+}
+
+/* ==========================================================================
+   Gate do Instagram (antes de calcular o resultado)
+   ========================================================================== */
+.unlock-card {
+  width: 100%;
+  background: var(--color-card);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 40px 24px 36px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: card-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@media (min-width: 641px) {
+  .unlock-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    padding: 48px 48px 44px;
+  }
+}
+
+.unlock-lock-wrap {
+  margin-bottom: 6px;
+}
+
+.unlock-lock-icon {
+  width: 40px;
+  height: 46px;
+  color: var(--color-primary);
+}
+
+.unlock-wordmark {
+  font-family: var(--font-display);
+  font-size: 26px;
+  letter-spacing: 1px;
+  color: var(--color-primary);
+  margin: 8px 0 4px;
+  line-height: 1;
+}
+
+.unlock-tagline {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  margin: 0 0 26px;
+}
+
+.unlock-heading {
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--color-ink);
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.unlock-heading-accent {
+  color: var(--color-primary);
+  font-weight: 800;
+}
+
+.unlock-heading-icon {
+  width: 19px;
+  height: 19px;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.unlock-subtext {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-muted);
+  margin: 0 0 26px;
+}
+
+.unlock-ig-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 16px 20px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #f5a623 0%, #e0336e 45%, #7c3fd4 100%);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 12px 26px -10px rgba(190, 40, 110, 0.55);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.unlock-ig-btn svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.unlock-ig-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 30px -10px rgba(190, 40, 110, 0.6);
+}
+
+.unlock-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.unlock-divider::before,
+.unlock-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.unlock-confirm-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 15px 20px;
+  border-radius: var(--radius-md);
+  background: #fff;
+  cursor: not-allowed;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 700;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+
+  /* Estado inicial: travado/cinza, até o aluno seguir e esperar. */
+  border: 1.5px solid var(--color-border);
+  color: var(--color-muted);
+}
+
+.unlock-confirm-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.unlock-confirm-btn:disabled {
+  opacity: 0.85;
+}
+
+/* Estado liberado, depois dos 10s: borda e texto vermelhos, clicável. */
+.unlock-confirm-btn.is-unlocked {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.unlock-confirm-btn.is-unlocked:hover {
+  background: var(--color-primary-tint);
+}
+
+.unlock-footnote {
+  margin: 22px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--color-muted);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+}
+
+.unlock-footnote svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--color-muted);
 }

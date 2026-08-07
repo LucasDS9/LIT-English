@@ -60,6 +60,7 @@ def _public_question(question: dict) -> dict:
         "id": question["id"],
         "number": question["number"],
         "type": question["type"],
+        "level": question["level"],
         "subject": question["subject"],
         "question_en": question.get("question_en"),
         "question_pt": question.get("question_pt"),
@@ -75,9 +76,10 @@ def _public_question(question: dict) -> dict:
 
 @app.get("/api/questions")
 def get_questions():
+    ordered = sorted(QUESTIONS, key=lambda q: q["number"])
     return jsonify({
         "total": len(QUESTIONS),
-        "questions": [_public_question(q) for q in QUESTIONS],
+        "questions": [_public_question(q) for q in ordered],
     })
 
 
