@@ -3,20 +3,20 @@
 Sistema de nivelamento - LIT English
 
 Baseado nas 16 questões cadastradas em questions_data.py:
-  A1 -> Q1, Q3, Q11, Q13, Q14   (5 questões, peso 1 cada)
-  A2 -> Q2, Q4, Q5, Q6, Q8, Q9, Q12  (7 questões, peso 2 cada)
-  B1 -> Q7, Q10, Q15   (3 questões, peso 3 cada)
-  B2 -> Q16   (1 questão, peso 4)
+  A1 -> Q1, Q3, Q6, Q13, Q14   (5 questões, peso 1 cada)
+  A2 -> Q2, Q4, Q5, Q8, Q9, Q11, Q12  (7 questões, peso 2 cada)
+  B1 -> Q7, Q15, Q16   (3 questões, peso 3 cada)
+  B2 -> Q10   (1 questão, peso 4)
 """
 from questions_data import QUESTIONS_BY_ID, TOTAL_QUESTIONS
 
 WEIGHTS = {"A1": 1, "A2": 2, "B1": 3, "B2": 4}
 
 LEVEL_IDS = {
-    "A1": [1, 3, 11, 13, 14],
-    "A2": [2, 4, 5, 6, 8, 9, 12],
-    "B1": [7, 10, 15],
-    "B2": [16],
+    "A1": [1, 3, 6, 13, 14],
+    "A2": [2, 4, 5, 8, 9, 11, 12],
+    "B1": [7, 15, 16],
+    "B2": [10],
 }
 
 MAX_POINTS = sum(
@@ -68,14 +68,14 @@ def _classify(
     correct_a2: int, total_a2: int,
     correct_b1: int, total_b1: int,
     correct_b2: int, total_b2: int,
+    total_correct: int, total_questions: int,
 ) -> str:
     """
-    Critério em gates (v5):
+    Critério em gates (v6):
 
     - EXPLORER (A2): pelo menos 3 das 5 de A1 (tolera 2 erros) +
       pelo menos 4 das 7 de A2.
-    - MASTER (B1): pelo menos 4 das 5 de A1 (tolera 1 erro) +
-      pelo menos 5 das 7 de A2 + pelo menos 2 das 3 de B1.
+    - MASTER (B1): pelo menos 13 acertos no total (de 16 questões).
     - EXPERT (B2): tudo do MASTER acima + acerta a única questão de B2.
     - STARTER: quem não bate nem o requisito de EXPLORER.
     """
@@ -83,8 +83,9 @@ def _classify(
     passed_b1_gate = correct_a1 >= 4
 
     passed_a2 = passed_a2_gate and correct_a2 >= 4
-    passed_b1 = passed_b1_gate and correct_a2 >= 5 and correct_b1 >= 2
-    passed_b2 = passed_b1 and correct_b2 >= total_b2
+    passed_b1_by_group = passed_b1_gate and correct_a2 >= 5 and correct_b1 >= 2
+    passed_b1 = passed_b1_by_group or total_correct >= 13
+    passed_b2 = passed_b1_by_group and correct_b2 >= total_b2
 
     if passed_b2:
         return "EXPERT"
@@ -131,6 +132,7 @@ def compute_score(graded_answers: list) -> dict:
         correct_by_level["A2"], total_a2,
         correct_by_level["B1"], total_b1,
         correct_by_level["B2"], total_b2,
+        correct_count, TOTAL_QUESTIONS,
     )
     info = LEVEL_INFO[nivel]
 

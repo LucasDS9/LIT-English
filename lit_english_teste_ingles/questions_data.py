@@ -10,7 +10,7 @@ Tipos de questão:
 
 Cada questão tem:
 - id: identificador único (int) -> usado como chave nas respostas do aluno
-- number: posição de exibição (1..12)
+- number: posição de exibição (1..16)
 - type: fill | translation | listening
 - level: A1 | A2 | B1 | B2  (usado no sistema de pontos e nivelamento)
 - subject: assunto gramatical (mostrado como "ASSUNTO" na tela)
@@ -72,7 +72,7 @@ QUESTIONS = [
     },
     {
         "id": 2,
-        "number": 2,
+        "number": 8,
         "type": "fill",
         "level": "A2",
         "subject": "Past Simple",
@@ -123,7 +123,7 @@ QUESTIONS = [
     },
     {
         "id": 4,
-        "number": 4,
+        "number": 6,
         "type": "fill",
         "level": "A2",
         "subject": "First Conditional",
@@ -147,7 +147,7 @@ QUESTIONS = [
     },
     {
         "id": 5,
-        "number": 5,
+        "number": 7,
         "type": "fill",
         "level": "A2",
         "subject": "Past Continuous",
@@ -176,10 +176,10 @@ QUESTIONS = [
     #   "pt_en" -> mostra a frase em português (question_pt), aluno traduz para o inglês
     {
         "id": 6,
-        "number": 6,
+        "number": 2,
         "type": "translation",
         "direction": "en_pt",
-        "level": "A2",
+        "level": "A1",
         "subject": "Past Continuous",
         "question_en": "I was studying.",
         "reference_answer": "Eu estava estudando.",
@@ -192,7 +192,7 @@ QUESTIONS = [
     },
     {
         "id": 7,
-        "number": 7,
+        "number": 13,
         "type": "translation",
         "direction": "en_pt",
         "level": "B1",
@@ -212,7 +212,7 @@ QUESTIONS = [
     },
     {
         "id": 8,
-        "number": 8,
+        "number": 9,
         "type": "translation",
         "direction": "en_pt",
         "level": "A2",
@@ -229,7 +229,7 @@ QUESTIONS = [
     },
     {
         "id": 9,
-        "number": 9,
+        "number": 10,
         "type": "translation",
         "direction": "en_pt",
         "level": "A2",
@@ -247,10 +247,10 @@ QUESTIONS = [
     },
     {
         "id": 10,
-        "number": 10,
+        "number": 16,
         "type": "translation",
         "direction": "en_pt",
-        "level": "B1",
+        "level": "B2",
         "subject": "Concession Clauses",
         "question_en": "Although he was tired, he decided to finish the project.",
         "reference_answer": "Embora ele estivesse cansado, decidiu terminar o projeto.",
@@ -258,6 +258,10 @@ QUESTIONS = [
             "embora ele estivesse cansado decidiu terminar o projeto",
             "embora estivesse cansado ele decidiu terminar o projeto",
             "embora ele estivesse cansado ele decidiu terminar o projeto",
+            "embora ele estivesse cansado ele decidiu finalizar o projeto",
+            "embora estivesse cansado decidiu finalizar o projeto",
+            "embora ele estivesse cansado decidiu finalizar o projeto",
+            "embora estivesse cansado ele decidiu finalizar o projeto",
         ],
         "grammar_note": "Although liga duas ideias opostas (estar cansado x decidir terminar o projeto), por isso usamos \u201cembora\u201d na tradu\u00e7\u00e3o.",
         "tip": "Although significa embora e liga duas ideias opostas.",
@@ -266,7 +270,7 @@ QUESTIONS = [
     # ---------------- TRANSLATION PT -> EN (frases simples e simpáticas, A1) ----------------
     {
         "id": 13,
-        "number": 13,
+        "number": 4,
         "type": "translation",
         "direction": "pt_en",
         "level": "A1",
@@ -286,7 +290,7 @@ QUESTIONS = [
     },
     {
         "id": 14,
-        "number": 14,
+        "number": 5,
         "type": "translation",
         "direction": "pt_en",
         "level": "A1",
@@ -307,7 +311,7 @@ QUESTIONS = [
         "id": 11,
         "number": 11,
         "type": "listening",
-        "level": "A1",
+        "level": "A2",
         "subject": "Listening",
         "question_en": "My sister usually walks to school because she lives nearby.",
         "options": [
@@ -347,7 +351,7 @@ QUESTIONS = [
     # ---------------- TRANSLATION EN -> PT (B1) ----------------
     {
         "id": 15,
-        "number": 15,
+        "number": 14,
         "type": "translation",
         "direction": "en_pt",
         "level": "B1",
@@ -365,10 +369,10 @@ QUESTIONS = [
     # ---------------- TRANSLATION EN -> PT (B2) ----------------
     {
         "id": 16,
-        "number": 16,
+        "number": 15,
         "type": "translation",
         "direction": "en_pt",
-        "level": "B2",
+        "level": "B1",
         "subject": "Reported Speech",
         "question_en": "She said she would call me the next day.",
         "reference_answer": "Ela disse que me ligaria no dia seguinte.",
