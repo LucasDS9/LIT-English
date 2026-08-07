@@ -483,6 +483,7 @@ function openLevelTestDetailsModal(lead) {
   modal.appendChild(subtitle);
 
   const body = document.createElement("div");
+  body.className = "modal-scroll-body";
 
   const detalhes = lead.respostas_detalhadas || [];
   if (detalhes.length === 0) {

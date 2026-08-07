@@ -1179,8 +1179,19 @@ svg {
   flex-direction: column;
 }
 
-.modal-xl > div:last-of-type:not(.modal-actions) {
+.modal-xl .modal-header,
+.modal-xl > .secondary {
+  flex-shrink: 0;
+}
+
+.modal-xl .modal-actions {
+  flex-shrink: 0;
+}
+
+.modal-xl .modal-scroll-body {
   overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .level-test-questions {
