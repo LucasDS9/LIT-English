@@ -411,6 +411,12 @@ async function renderLevelTestLeads(container) {
     date.textContent = formatDateTime(lead.created_at);
     meta.appendChild(date);
 
+    const detailsBtn = document.createElement("button");
+    detailsBtn.className = "btn btn-outline btn-sm";
+    detailsBtn.textContent = "Ver mais";
+    detailsBtn.addEventListener("click", () => openLevelTestDetailsModal(lead));
+    meta.appendChild(detailsBtn);
+
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "btn btn-outline btn-sm";
     deleteBtn.style.cssText = "color:#861E19;border-color:#861E19;";
@@ -442,6 +448,136 @@ async function deleteLead(leadId, leadName, container) {
   } catch (err) {
     showToast(err.message || "Não foi possível apagar o lead.");
   }
+}
+
+// ── Modal "Ver mais": questão a questão do teste de nivelamento ─────────────
+// Mostra, para cada uma das questões, o nível, o assunto, o enunciado, se o
+// aluno acertou ou errou e o que ele escolheu/digitou (comparado com a
+// resposta correta).
+
+function openLevelTestDetailsModal(lead) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+
+  const modal = document.createElement("div");
+  modal.className = "modal modal-xl";
+
+  const mHeader = document.createElement("div");
+  mHeader.className = "modal-header";
+  const mTitle = document.createElement("h2");
+  mTitle.textContent = lead.nome;
+  mHeader.appendChild(mTitle);
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "icon-btn";
+  closeBtn.innerHTML = Icons.x;
+  closeBtn.addEventListener("click", () => overlay.remove());
+  mHeader.appendChild(closeBtn);
+  modal.appendChild(mHeader);
+
+  const subtitle = document.createElement("p");
+  subtitle.className = "secondary";
+  subtitle.style.cssText = "margin:-10px 0 16px;";
+  subtitle.textContent =
+    `${lead.nivel_estimado} · ${lead.acertos}/${lead.total_questoes} acertos (${lead.porcentagem}%) · ${formatDateTime(lead.created_at)}`;
+  modal.appendChild(subtitle);
+
+  const body = document.createElement("div");
+
+  const detalhes = lead.respostas_detalhadas || [];
+  if (detalhes.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "secondary";
+    empty.textContent = "Esse resultado não tem o detalhe questão a questão salvo (teste feito antes desse recurso).";
+    body.appendChild(empty);
+  } else {
+    const list = document.createElement("div");
+    list.className = "level-test-questions";
+
+    detalhes.forEach((q) => {
+      const card = document.createElement("div");
+      card.className = `level-test-question ${q.is_correct ? "is-correct" : "is-wrong"}`;
+
+      const head = document.createElement("div");
+      head.className = "q-head";
+
+      const number = document.createElement("span");
+      number.className = "q-number";
+      number.textContent = `Q${q.number ?? q.id} · ${q.level || ""}`;
+      head.appendChild(number);
+
+      if (q.subject) {
+        const subject = document.createElement("span");
+        subject.className = "q-subject";
+        subject.textContent = q.subject;
+        head.appendChild(subject);
+      }
+
+      const result = document.createElement("span");
+      result.className = "q-result";
+      result.innerHTML = q.is_correct
+        ? `${Icons.checkSmall} Acertou`
+        : `${Icons.banSmall} Errou`;
+      result.style.cssText = "display:inline-flex;align-items:center;gap:4px;";
+      result.querySelector("svg").style.cssText = "width:14px;height:14px;";
+      head.appendChild(result);
+
+      card.appendChild(head);
+
+      const text = document.createElement("p");
+      text.className = "q-text";
+      text.textContent = q.question_en || q.question_pt || "";
+      card.appendChild(text);
+
+      const answers = document.createElement("div");
+      answers.className = "q-answers";
+
+      const givenAnswer =
+        q.chosen_text || (q.student_answer != null && q.student_answer !== "" ? q.student_answer : "(em branco)");
+      const rightAnswer = q.correct_text || q.reference_answer || "—";
+
+      const givenCol = document.createElement("div");
+      const givenLabel = document.createElement("p");
+      givenLabel.className = "q-answer-label";
+      givenLabel.textContent = "O que o aluno respondeu";
+      const givenValue = document.createElement("p");
+      givenValue.className = "q-answer-value";
+      givenValue.textContent = givenAnswer;
+      givenCol.appendChild(givenLabel);
+      givenCol.appendChild(givenValue);
+      answers.appendChild(givenCol);
+
+      const correctCol = document.createElement("div");
+      const correctLabel = document.createElement("p");
+      correctLabel.className = "q-answer-label";
+      correctLabel.textContent = "Resposta correta";
+      const correctValue = document.createElement("p");
+      correctValue.className = "q-answer-value";
+      correctValue.textContent = rightAnswer;
+      correctCol.appendChild(correctLabel);
+      correctCol.appendChild(correctValue);
+      answers.appendChild(correctCol);
+
+      card.appendChild(answers);
+      list.appendChild(card);
+    });
+
+    body.appendChild(list);
+  }
+
+  modal.appendChild(body);
+
+  const actions = document.createElement("div");
+  actions.className = "modal-actions";
+  const closeActionBtn = document.createElement("button");
+  closeActionBtn.className = "btn btn-outline";
+  closeActionBtn.textContent = "Fechar";
+  closeActionBtn.addEventListener("click", () => overlay.remove());
+  actions.appendChild(closeActionBtn);
+  modal.appendChild(actions);
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
 }
 
 // ---------------------------------------------------------------------------

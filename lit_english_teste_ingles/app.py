@@ -161,7 +161,7 @@ def submit_test():
         return jsonify({"error": str(e)}), 400
 
     score = compute_score(graded)
-    record = save_result(nome, whatsapp, score)
+    record = save_result(nome, whatsapp, score, graded)
 
     return jsonify({
         "resultado": score,

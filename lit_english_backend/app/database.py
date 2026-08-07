@@ -217,6 +217,29 @@ def run_migrations():
     """
     if engine.dialect.name == "postgresql":
         with engine.connect() as conn:
+            # Teste de Nivelamento: colunas novas (desempenho_b2 e o
+            # detalhe questão a questão) em bancos que já tinham a tabela
+            # level_test_results criada antes dessas colunas existirem.
+            if _table_exists(conn, "level_test_results"):
+                try:
+                    if not _col_exists(conn, "level_test_results", "desempenho_b2"):
+                        conn.execute(text(
+                            "ALTER TABLE level_test_results "
+                            "ADD COLUMN desempenho_b2 INTEGER NOT NULL DEFAULT 0"
+                        ))
+                        conn.commit()
+                    if not _col_exists(conn, "level_test_results", "respostas_detalhadas"):
+                        conn.execute(text(
+                            "ALTER TABLE level_test_results "
+                            "ADD COLUMN respostas_detalhadas JSON"
+                        ))
+                        conn.commit()
+                except Exception:
+                    logger.exception(
+                        "Falha ao adicionar colunas novas em level_test_results (ignorando)."
+                    )
+                    conn.rollback()
+
             for enum_name, value in _ENUM_VALUE_FIXES:
                 try:
                     _add_enum_value(conn, enum_name, value)

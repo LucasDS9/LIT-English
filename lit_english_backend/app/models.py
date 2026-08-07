@@ -12,6 +12,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -359,10 +360,15 @@ class LevelTestResult(Base):
     desempenho_a1 = Column(Integer, nullable=False, default=0)
     desempenho_a2 = Column(Integer, nullable=False, default=0)
     desempenho_b1 = Column(Integer, nullable=False, default=0)
+    desempenho_b2 = Column(Integer, nullable=False, default=0)
     nivel_estimado = Column(String, nullable=False, default="")
     trilha_recomendada = Column(String, nullable=False, default="")
     quer_aula_experimental = Column(Boolean, nullable=False, default=False)
     quer_analise_plano = Column(Boolean, nullable=False, default=False)
+    # Detalhe questão a questão (o que o aluno escolheu/digitou, se acertou
+    # ou errou, resposta correta, etc.) — usado no painel do professor
+    # ("Ver mais" em cada lead). Lista de dicts, serializada como JSON.
+    respostas_detalhadas = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 

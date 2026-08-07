@@ -2,7 +2,7 @@
 Schemas Pydantic.
 """
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -480,6 +480,24 @@ class ReadingHeartbeatOut(BaseModel):
 
 # ---------- Teste de Nivelamento (leads) ----------
 
+class LevelTestQuestionDetail(BaseModel):
+    """Detalhe de UMA questão do teste de nivelamento: o que o aluno
+    escolheu/digitou, a resposta correta e se acertou. Usado no painel do
+    professor (botão "Ver mais" em cada lead)."""
+    id: int
+    number: Optional[int] = None
+    type: Optional[str] = None
+    level: Optional[str] = None
+    subject: Optional[str] = None
+    question_en: Optional[str] = None
+    question_pt: Optional[str] = None
+    is_correct: bool = False
+    student_answer: Optional[Any] = None
+    chosen_text: Optional[str] = None
+    correct_text: Optional[str] = None
+    reference_answer: Optional[str] = None
+
+
 class LevelTestResultIn(BaseModel):
     """Enviado pelo app do teste (lit_english_teste_ingles) ao final da correção."""
     nome: str
@@ -493,10 +511,12 @@ class LevelTestResultIn(BaseModel):
     desempenho_a1: int = 0
     desempenho_a2: int = 0
     desempenho_b1: int = 0
+    desempenho_b2: int = 0
     nivel_estimado: str = ""
     trilha_recomendada: str = ""
     quer_aula_experimental: bool = False
     quer_analise_plano: bool = False
+    respostas_detalhadas: Optional[List[LevelTestQuestionDetail]] = None
 
 
 class LevelTestWhatsappIn(BaseModel):
@@ -520,10 +540,12 @@ class LevelTestResultOut(BaseModel):
     desempenho_a1: int
     desempenho_a2: int
     desempenho_b1: int
+    desempenho_b2: int = 0
     nivel_estimado: str
     trilha_recomendada: str
     quer_aula_experimental: bool
     quer_analise_plano: bool
+    respostas_detalhadas: Optional[List[LevelTestQuestionDetail]] = None
     created_at: datetime
 
     class Config:

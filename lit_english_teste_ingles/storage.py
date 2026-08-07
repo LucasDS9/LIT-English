@@ -19,11 +19,35 @@ BACKEND_URL = os.environ.get("BACKEND_URL", "https://litenglish.up.railway.app")
 _TIMEOUT = 8  # segundos
 
 
-def save_result(nome: str, whatsapp: str, score: dict) -> dict:
+def _trim_question_detail(r: dict) -> dict:
+    """Mantém só os campos que interessam ao painel do professor (o "Ver
+    mais" de cada lead) — descarta summary/explanation/correct_key, que são
+    só para a tela do aluno."""
+    return {
+        "id": r["id"],
+        "number": r.get("number"),
+        "type": r.get("type"),
+        "level": r.get("level"),
+        "subject": r.get("subject"),
+        "question_en": r.get("question_en"),
+        "question_pt": r.get("question_pt"),
+        "is_correct": r.get("is_correct", False),
+        "student_answer": r.get("student_answer"),
+        "chosen_text": r.get("chosen_text"),
+        "correct_text": r.get("correct_text"),
+        "reference_answer": r.get("reference_answer"),
+    }
+
+
+def save_result(nome: str, whatsapp: str, score: dict, graded_answers: list = None) -> dict:
     """
     Salva um resultado de teste no backend principal e retorna o registro
     salvo (com id). Se o backend estiver fora do ar, não derruba o teste do
     aluno — apenas não fica com WhatsApp/histórico registrado dessa vez.
+
+    graded_answers: saída de grading.grade_all_answers() — enviada junto
+    para que o professor veja, questão a questão, o que o aluno acertou/
+    errou e o que escolheu/digitou (botão "Ver mais" nos leads do teste).
     """
     payload = {
         "nome": (nome or "Aluno").strip(),
@@ -37,10 +61,12 @@ def save_result(nome: str, whatsapp: str, score: dict) -> dict:
         "desempenho_a1": score["percent_a1"],
         "desempenho_a2": score["percent_a2"],
         "desempenho_b1": score["percent_b1"],
+        "desempenho_b2": score["percent_b2"],
         "nivel_estimado": score["nivel_estimado"],
         "trilha_recomendada": score["trilha_recomendada"],
         "quer_aula_experimental": False,
         "quer_analise_plano": False,
+        "respostas_detalhadas": [_trim_question_detail(r) for r in (graded_answers or [])],
     }
     try:
         resp = requests.post(f"{BACKEND_URL}/level-test/submit", json=payload, timeout=_TIMEOUT)

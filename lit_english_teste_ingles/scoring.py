@@ -70,18 +70,20 @@ def _classify(
     correct_b2: int, total_b2: int,
 ) -> str:
     """
-    Critério em gates (v4):
+    Critério em gates (v5):
 
-    - EXPLORER (A2): A1 perfeito (5/5) + pelo menos 4 das 7 de A2.
-    - MASTER (B1): A1 perfeito (5/5) + pelo menos 5 das 7 de A2 +
-      pelo menos 2 das 3 de B1.
+    - EXPLORER (A2): pelo menos 3 das 5 de A1 (tolera 2 erros) +
+      pelo menos 4 das 7 de A2.
+    - MASTER (B1): pelo menos 4 das 5 de A1 (tolera 1 erro) +
+      pelo menos 5 das 7 de A2 + pelo menos 2 das 3 de B1.
     - EXPERT (B2): tudo do MASTER acima + acerta a única questão de B2.
     - STARTER: quem não bate nem o requisito de EXPLORER.
     """
-    passed_a1 = correct_a1 >= total_a1
+    passed_a2_gate = correct_a1 >= 3
+    passed_b1_gate = correct_a1 >= 4
 
-    passed_a2 = passed_a1 and correct_a2 >= 4
-    passed_b1 = passed_a1 and correct_a2 >= 5 and correct_b1 >= 2
+    passed_a2 = passed_a2_gate and correct_a2 >= 4
+    passed_b1 = passed_b1_gate and correct_a2 >= 5 and correct_b1 >= 2
     passed_b2 = passed_b1 and correct_b2 >= total_b2
 
     if passed_b2:
