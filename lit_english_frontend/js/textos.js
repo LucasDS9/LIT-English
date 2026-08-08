@@ -6,8 +6,14 @@
      GET /tts/speak     (áudio, via proxy do backend)
 
    O TTS do backend corta o texto em ~200 caracteres por chamada, então
-   textos longos são divididos em frases e tocados em sequência, um áudio
-   após o outro, dando a sensação de um único player contínuo.
+   textos longos são divididos em frases. Antes de iniciar a reprodução,
+   TODOS os trechos são buscados e decodificados (Web Audio API) e depois
+   concatenados em um único AudioBuffer contínuo — a "faixa" toca de uma vez
+   só, sem pausas entre frases. Isso também permite marcar com uma sombra
+   vermelha a palavra correspondente ao instante exato da fala (estimando o
+   tempo de cada palavra pela duração real de cada trecho, distribuída
+   proporcionalmente ao tamanho de cada palavra). Pausar para o áudio de
+   verdade (stop do source node) e retomar continua de onde parou.
    ========================================================================== */
 
 const textsArea = document.getElementById("texts-area");
@@ -183,8 +189,8 @@ async function renderTextList() {
 // e "Salvar frase nos flashcards" (POST /flashcards/self-add).
 // ---------------------------------------------------------------------------
 
-// Cache de áudio da pronúncia de palavras isoladas (separado do cache de
-// trechos do player principal, em player.blobUrls).
+// Cache de áudio da pronúncia de palavras isoladas (independente da faixa
+// contínua do player principal).
 const wordAudioBlobUrls = new Map();
 
 async function getWordAudioUrl(word) {
@@ -507,13 +513,33 @@ function renderClickableBody(container, rawText, textId) {
 // Leitura de um texto: conteúdo + player (play/pause)
 // ---------------------------------------------------------------------------
 
+// Regex de palavra (idêntica à usada em renderClickableBody) — garante que a
+// contagem de palavras por trecho bate exatamente com os <span class="word">
+// já renderizados no corpo do texto, na mesma ordem.
+const WORD_ONLY_RE = /[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’-][A-Za-zÀ-ÖØ-öø-ÿ]+)*/g;
+
+let sharedAudioCtx = null;
+function getAudioCtx() {
+  if (!sharedAudioCtx) {
+    sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return sharedAudioCtx;
+}
+
 const player = {
   chunks: [],
-  index: 0,
   isPlaying: false,
   isLoading: false,
-  audio: null,
-  blobUrls: new Map(), // chunk -> object URL já buscado
+  isReady: false, // true depois que a faixa única (concatenada) terminou de carregar
+  buffer: null, // AudioBuffer único e contínuo com o texto inteiro
+  wordTimings: [], // [{ span, start, end }] em segundos, dentro da faixa única
+  sourceNode: null,
+  manualStop: false, // diferencia pause() (manual) de fim natural da faixa
+  startCtxTime: 0, // audioCtx.currentTime no instante em que a reprodução (re)começou
+  startOffset: 0, // posição (s) da faixa no instante em que a reprodução (re)começou
+  pausedOffset: 0, // posição (s) guardada ao pausar
+  rafId: null,
+  activeWordSpan: null,
 };
 
 // Contabiliza tempo ativo de leitura/escuta para a métrica "Tempo de Texto"
@@ -550,28 +576,132 @@ function startReadingHeartbeat(textId) {
   reading.timer = setInterval(sendReadingHeartbeat, HEARTBEAT_SECONDS * 1000);
 }
 
-function resetPlayer() {
-  if (player.audio) {
-    player.audio.pause();
-    player.audio.src = "";
+function stopWordHighlight() {
+  if (player.activeWordSpan) {
+    player.activeWordSpan.classList.remove("is-reading");
+    player.activeWordSpan = null;
   }
+}
+
+function resetPlayer() {
+  if (player.rafId) {
+    cancelAnimationFrame(player.rafId);
+    player.rafId = null;
+  }
+  if (player.sourceNode) {
+    player.manualStop = true;
+    try {
+      player.sourceNode.stop();
+    } catch (err) {
+      // já parado
+    }
+    player.sourceNode = null;
+  }
+  stopWordHighlight();
   player.chunks = [];
-  player.index = 0;
   player.isPlaying = false;
   player.isLoading = false;
-  player.audio = null;
+  player.isReady = false;
+  player.buffer = null;
+  player.wordTimings = [];
+  player.startCtxTime = 0;
+  player.startOffset = 0;
+  player.pausedOffset = 0;
 }
 
 function ttsUrl(text) {
   return `/tts/speak?text=${encodeURIComponent(text)}`;
 }
 
-async function getChunkAudioUrl(text) {
-  if (player.blobUrls.has(text)) return player.blobUrls.get(text);
-  const blob = await apiFetchBlob(ttsUrl(text));
-  const url = URL.createObjectURL(blob);
-  player.blobUrls.set(text, url);
-  return url;
+// Concatena vários AudioBuffers (um por trecho do TTS) em um único buffer
+// contínuo, para que a reprodução seja uma faixa só, sem cortes entre frases.
+function concatAudioBuffers(ctx, buffers) {
+  const numberOfChannels = buffers[0].numberOfChannels;
+  const sampleRate = buffers[0].sampleRate;
+  const totalLength = buffers.reduce((sum, b) => sum + b.length, 0);
+  const output = ctx.createBuffer(numberOfChannels, totalLength, sampleRate);
+
+  let offset = 0;
+  buffers.forEach((buffer) => {
+    for (let ch = 0; ch < numberOfChannels; ch++) {
+      const inChannel = Math.min(ch, buffer.numberOfChannels - 1);
+      output.getChannelData(ch).set(buffer.getChannelData(inChannel), offset);
+    }
+    offset += buffer.length;
+  });
+
+  return output;
+}
+
+// Agrupa as palavras de cada trecho (mesma ordem/tokenização dos <span
+// class="word"> já renderizados) para depois distribuir a duração real de
+// cada trecho proporcionalmente ao tamanho de cada palavra.
+function groupWordsByChunk(chunks, wordSpans) {
+  let wordCursor = 0;
+  return chunks.map((chunkText) => {
+    const words = chunkText.match(WORD_ONLY_RE) || [];
+    const group = [];
+    words.forEach((w) => {
+      const span = wordSpans[wordCursor];
+      wordCursor += 1;
+      if (span) group.push({ span, weight: w.length + 1 });
+    });
+    return group;
+  });
+}
+
+function computeWordTimings(chunkWordGroups, chunkDurations) {
+  const timings = [];
+  let cursor = 0;
+  chunkWordGroups.forEach((group, i) => {
+    const duration = chunkDurations[i] || 0;
+    const totalWeight = group.reduce((sum, w) => sum + w.weight, 0) || 1;
+    let localCursor = 0;
+    group.forEach(({ span, weight }) => {
+      const wordDuration = (weight / totalWeight) * duration;
+      const start = cursor + localCursor;
+      const end = start + wordDuration;
+      timings.push({ span, start, end });
+      localCursor += wordDuration;
+    });
+    cursor += duration;
+  });
+  return timings;
+}
+
+// Busca e decodifica TODOS os trechos do texto antes de tocar, para formar
+// uma faixa de áudio única e contínua (em vez de carregar/tocar trecho a
+// trecho). onProgress(loaded, total) permite atualizar o status na tela.
+async function loadFullTrack(wordSpans, onProgress) {
+  const ctx = getAudioCtx();
+  const total = player.chunks.length;
+  const buffers = new Array(total);
+
+  let loaded = 0;
+  const CONCURRENCY = 3;
+  let nextIdx = 0;
+
+  async function worker() {
+    while (nextIdx < total) {
+      const idx = nextIdx;
+      nextIdx += 1;
+      const blob = await apiFetchBlob(ttsUrl(player.chunks[idx]));
+      const arrayBuffer = await blob.arrayBuffer();
+      buffers[idx] = await ctx.decodeAudioData(arrayBuffer);
+      loaded += 1;
+      if (onProgress) onProgress(loaded, total);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(CONCURRENCY, total) }, worker);
+  await Promise.all(workers);
+
+  const fullBuffer = concatAudioBuffers(ctx, buffers);
+  const chunkDurations = buffers.map((b) => b.duration);
+  const chunkWordGroups = groupWordsByChunk(player.chunks, wordSpans);
+  const wordTimings = computeWordTimings(chunkWordGroups, chunkDurations);
+
+  return { fullBuffer, wordTimings };
 }
 
 async function openText(textId) {
@@ -660,9 +790,11 @@ function renderReader(text) {
 
   textsArea.appendChild(card);
 
-  function updateProgress() {
-    const total = player.chunks.length || 1;
-    const pct = Math.min(100, (player.index / total) * 100);
+  const wordSpans = Array.from(body.querySelectorAll(".word"));
+
+  function updateProgressByTime(elapsed) {
+    const duration = (player.buffer && player.buffer.duration) || 1;
+    const pct = Math.min(100, Math.max(0, (elapsed / duration) * 100));
     progressFill.style.width = `${pct}%`;
   }
 
@@ -671,97 +803,149 @@ function renderReader(text) {
     playBtn.innerHTML = player.isPlaying ? Icons.pause : Icons.play;
   }
 
-  function setLoading(on) {
+  function setLoading(on, label) {
     player.isLoading = on;
     playBtn.disabled = on;
     playBtn.classList.toggle("is-loading", on);
-    if (on) status.textContent = "Carregando áudio...";
+    if (on) status.textContent = label || "Carregando áudio...";
   }
 
-  async function playFromIndex(idx) {
-    if (idx >= player.chunks.length) {
-      // Fim do texto
-      player.isPlaying = false;
-      player.index = 0;
-      setPlayIcon();
-      status.textContent = "Pronto para tocar";
-      progressFill.style.width = "0%";
+  // Encontra e marca com a sombra vermelha a palavra correspondente ao
+  // instante atual da faixa (busca sequencial simples, robusta o bastante
+  // para textos deste tamanho, e evita reprocessar quando a palavra não mudou).
+  function updateWordHighlight(elapsed) {
+    const timings = player.wordTimings;
+    if (!timings.length) return;
+
+    let current = null;
+    for (let i = 0; i < timings.length; i++) {
+      if (elapsed >= timings[i].start && elapsed < timings[i].end) {
+        current = timings[i];
+        break;
+      }
+    }
+
+    if (current && current.span === player.activeWordSpan) return;
+
+    if (player.activeWordSpan) {
+      player.activeWordSpan.classList.remove("is-reading");
+    }
+    if (current) {
+      current.span.classList.add("is-reading");
+      player.activeWordSpan = current.span;
+    } else {
+      player.activeWordSpan = null;
+    }
+  }
+
+  function finishPlayback() {
+    player.isPlaying = false;
+    player.startOffset = 0;
+    player.pausedOffset = 0;
+    setPlayIcon();
+    status.textContent = "Pronto para tocar";
+    progressFill.style.width = "0%";
+    stopWordHighlight();
+  }
+
+  function tick() {
+    if (!player.isPlaying) return;
+    const ctx = getAudioCtx();
+    const elapsed = ctx.currentTime - player.startCtxTime + player.startOffset;
+
+    if (elapsed >= player.buffer.duration) {
+      updateProgressByTime(player.buffer.duration);
+      return; // o "ended" do sourceNode cuida do estado final
+    }
+
+    updateProgressByTime(elapsed);
+    updateWordHighlight(elapsed);
+    player.rafId = requestAnimationFrame(tick);
+  }
+
+  function startSourceFrom(offsetSeconds) {
+    const ctx = getAudioCtx();
+    if (ctx.state === "suspended") ctx.resume();
+
+    const source = ctx.createBufferSource();
+    source.buffer = player.buffer;
+    source.connect(ctx.destination);
+
+    source.onended = () => {
+      if (player.manualStop) {
+        player.manualStop = false;
+        return; // pausa manual: não é o fim natural da faixa
+      }
+      finishPlayback();
+    };
+
+    player.sourceNode = source;
+    player.startCtxTime = ctx.currentTime;
+    player.startOffset = offsetSeconds;
+    source.start(0, offsetSeconds);
+
+    player.isPlaying = true;
+    setPlayIcon();
+    status.textContent = "Tocando áudio...";
+    if (player.rafId) cancelAnimationFrame(player.rafId);
+    player.rafId = requestAnimationFrame(tick);
+  }
+
+  function pausePlayback() {
+    const ctx = getAudioCtx();
+    const elapsed = ctx.currentTime - player.startCtxTime + player.startOffset;
+    player.pausedOffset = Math.min(elapsed, player.buffer ? player.buffer.duration : elapsed);
+
+    player.isPlaying = false;
+    if (player.rafId) {
+      cancelAnimationFrame(player.rafId);
+      player.rafId = null;
+    }
+    if (player.sourceNode) {
+      player.manualStop = true;
+      try {
+        player.sourceNode.stop();
+      } catch (err) {
+        // já parado
+      }
+      player.sourceNode = null;
+    }
+    setPlayIcon();
+    status.textContent = "Pausado";
+    // O áudio permanece parado até o usuário apertar em tocar novamente.
+  }
+
+  playBtn.addEventListener("click", async () => {
+    if (player.chunks.length === 0 || player.isLoading) return;
+
+    if (player.isPlaying) {
+      pausePlayback();
       return;
     }
 
-    player.index = idx;
-    updateProgress();
+    // Já carregado: apenas retoma de onde pausou.
+    if (player.isReady && player.buffer) {
+      startSourceFrom(player.pausedOffset || 0);
+      return;
+    }
 
-    setLoading(true);
-    let url;
+    // Primeira vez: carrega a faixa inteira (contínua) antes de tocar.
+    setLoading(true, "Carregando áudio...");
     try {
-      url = await getChunkAudioUrl(player.chunks[idx]);
+      const { fullBuffer, wordTimings } = await loadFullTrack(wordSpans, (loaded, total) => {
+        status.textContent = `Carregando áudio... (${loaded}/${total})`;
+      });
+      player.buffer = fullBuffer;
+      player.wordTimings = wordTimings;
+      player.isReady = true;
     } catch (err) {
       setLoading(false);
-      player.isPlaying = false;
-      setPlayIcon();
       status.textContent = "Não foi possível tocar o áudio. Tente novamente.";
-      showToast(err.message || "Não foi possível tocar o áudio.");
+      showToast(err.message || "Não foi possível carregar o áudio.");
       return;
     }
     setLoading(false);
-
-    if (!player.isPlaying) return; // usuário pausou enquanto carregava
-
-    const audio = new Audio(url);
-    player.audio = audio;
-    status.textContent = "Tocando áudio...";
-
-    audio.addEventListener("ended", () => {
-      if (!player.isPlaying) return; // foi pausado
-      playFromIndex(idx + 1);
-    });
-    audio.addEventListener("error", () => {
-      player.isPlaying = false;
-      setPlayIcon();
-      status.textContent = "Não foi possível tocar o áudio. Tente novamente.";
-    });
-
-    try {
-      await audio.play();
-    } catch (err) {
-      player.isPlaying = false;
-      setPlayIcon();
-      status.textContent = "Não foi possível tocar o áudio.";
-      return;
-    }
-
-    // Prefetch: já dispara a busca do próximo trecho em paralelo, enquanto
-    // o atual está tocando, para eliminar a pausa entre trechos.
-    if (idx + 1 < player.chunks.length) {
-      getChunkAudioUrl(player.chunks[idx + 1]).catch(() => {});
-    }
-  }
-
-  playBtn.addEventListener("click", () => {
-    if (player.chunks.length === 0) return;
-
-    if (player.isPlaying) {
-      // Pausar
-      player.isPlaying = false;
-      if (player.audio) player.audio.pause();
-      setPlayIcon();
-      return;
-    }
-
-    // Tocar (ou retomar)
-    player.isPlaying = true;
-    setPlayIcon();
-
-    if (player.audio && !player.audio.ended && player.audio.currentTime > 0) {
-      status.textContent = "Tocando áudio...";
-      player.audio.play().catch(() => {
-        player.isPlaying = false;
-        setPlayIcon();
-      });
-    } else {
-      playFromIndex(player.index);
-    }
+    startSourceFrom(0);
   });
 
   if (player.chunks.length === 0) {

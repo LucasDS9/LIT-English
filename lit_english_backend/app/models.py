@@ -305,6 +305,79 @@ class ExerciseProgress(Base):
     exercise = relationship("Exercise")
 
 
+# ── "Aprender": treino de vocabulário por reconhecimento (múltipla escolha) ─
+# Diferente do Flashcard usado em "Revisar" (frase inteira, frente/verso,
+# autoavaliação livre 0-5), aqui cada card é UMA palavra: mostra a palavra,
+# a classe gramatical e uma frase de exemplo (onde as outras palavras podem
+# ser clicadas para ver o significado, igual ao Read and Listen — MENOS a
+# própria palavra sendo aprendida, que fica de fora disso), e o aluno escolhe
+# a tradução certa entre 4 opções (a certa + 3 distratores cadastrados pelo
+# professor). O progresso usa o mesmo espírito do ExerciseProgress
+# (correct_streak -> next_review), com um status explícito pra alimentar os
+# indicadores "Nova / Em revisão / Aprendida" da tela.
+
+class VocabWordStatus(str, enum.Enum):
+    nova = "nova"
+    em_revisao = "em_revisao"
+    aprendida = "aprendida"
+
+
+class VocabWord(Base):
+    """Uma palavra de vocabulário da tela Aprender."""
+    __tablename__ = "vocab_words"
+
+    id = Column(Integer, primary_key=True, index=True)
+    word = Column(String, nullable=False)                 # ex.: "learn"
+    part_of_speech = Column(String, nullable=False)        # ex.: "verbo"
+    translation = Column(String, nullable=False)           # resposta certa, ex.: "aprender"
+    example_sentence = Column(Text, nullable=False)        # ex.: "I will learn English."
+    # Sempre exatamente 3 opções erradas, separadas por "|" (a tradução pode
+    # conter vírgula, então não usamos vírgula como separador). Junto com
+    # `translation`, formam as 4 opções sempre mostradas ao aluno.
+    distractors = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    assignments = relationship(
+        "VocabWordAssignment", cascade="all, delete-orphan", passive_deletes=True, backref="word"
+    )
+
+    @property
+    def students(self):
+        return [a.student for a in self.assignments]
+
+
+class VocabWordAssignment(Base):
+    """Define para qual(is) aluno(s) uma palavra de vocabulário é direcionada."""
+    __tablename__ = "vocab_word_assignments"
+    __table_args__ = (UniqueConstraint("word_id", "student_id", name="uq_vocabword_student"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    word_id = Column(Integer, ForeignKey("vocab_words.id", ondelete="CASCADE"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    assigned_at = Column(DateTime, default=datetime.utcnow)
+
+    student = relationship("User")
+
+
+class VocabWordProgress(Base):
+    """Progresso do aluno numa palavra: status (Nova / Em revisão / Aprendida)
+    + agendamento de repetição espaçada (mesma lógica de correct_streak ->
+    next_review já usada em ExerciseProgress)."""
+    __tablename__ = "vocab_word_progress"
+    __table_args__ = (UniqueConstraint("student_id", "word_id", name="uq_student_vocabword"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    word_id = Column(Integer, ForeignKey("vocab_words.id", ondelete="CASCADE"), nullable=False)
+    status = Column(Enum(VocabWordStatus), nullable=False, default=VocabWordStatus.nova)
+    correct_streak = Column(Integer, default=0, nullable=False)
+    next_review = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_reviewed = Column(DateTime, nullable=True)
+
+    student = relationship("User")
+    word = relationship("VocabWord")
+
+
 # ── Métricas da tela inicial do aluno (LIT Points / Tempo de Texto) ──────────
 
 class LitPointLog(Base):

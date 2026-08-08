@@ -6,7 +6,7 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
-from app.models import ExerciseType, ReadingLevel, UserRole
+from app.models import ExerciseType, ReadingLevel, UserRole, VocabWordStatus
 
 
 # ---------- Auth ----------
@@ -220,6 +220,79 @@ class WordLookupOut(BaseModel):
     translation: str
     example_en: str
     example_pt: str
+
+
+# ---------- Aprender (treino de vocabulário por múltipla escolha) ----------
+
+class VocabWordCreate(BaseModel):
+    word: str
+    part_of_speech: str
+    translation: str
+    example_sentence: str
+    # Sempre exatamente 3 opções erradas — junto com `translation` formam as
+    # 4 opções fixas mostradas ao aluno.
+    distractors: List[str] = Field(min_length=3, max_length=3)
+    student_ids: List[int] = Field(min_length=1)
+
+
+class VocabWordUpdate(BaseModel):
+    word: Optional[str] = None
+    part_of_speech: Optional[str] = None
+    translation: Optional[str] = None
+    example_sentence: Optional[str] = None
+    distractors: Optional[List[str]] = Field(default=None, min_length=3, max_length=3)
+    student_ids: Optional[List[int]] = None
+
+
+class VocabWordOut(BaseModel):
+    id: int
+    word: str
+    part_of_speech: str
+    translation: str
+    example_sentence: str
+    distractors: List[str]
+    created_at: datetime
+    students: List[FlashcardStudentOut] = []
+
+
+class VocabLearnCardOut(BaseModel):
+    """Card mostrado na tela Aprender. NÃO inclui `translation` (a resposta
+    certa) e as 4 `options` vêm embaralhadas — o aluno não tem como saber
+    qual é a certa antes de responder. A tradução da própria palavra também
+    não aparece em nenhum outro campo (ex.: se o aluno clicar nela na frase
+    de exemplo, o frontend não deve chamar o lookup contextual pra ela)."""
+    word_id: int
+    word: str
+    part_of_speech: str
+    example_sentence: str
+    options: List[str]  # sempre 4, em ordem embaralhada
+    status: VocabWordStatus
+
+
+class VocabLearnQueueOut(BaseModel):
+    cards: List[VocabLearnCardOut]
+    total_assigned: int
+    total_learned: int
+
+
+class VocabLearnSubmit(BaseModel):
+    selected_option: str = Field(min_length=1)
+
+
+class VocabLearnResult(BaseModel):
+    correct: bool
+    correct_answer: str
+    status: VocabWordStatus
+
+
+class VocabWordProgressOut(BaseModel):
+    """Vocabulário (Aprender) de um aluno específico, visão do professor."""
+    word_id: int
+    word: str
+    part_of_speech: str
+    translation: str
+    status: VocabWordStatus
+    next_review: datetime
 
 
 # ---------- Exercícios ----------

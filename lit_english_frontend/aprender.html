@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Read and Listen — LIT English</title>
+  <title>Aprender — LIT English</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -40,11 +40,11 @@
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
           <span>Exercícios</span>
         </a>
-        <a href="textos.html" class="nav-item active">
+        <a href="textos.html" class="nav-item">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7c-1.5-1.3-4-2-7-2v13c3 0 5.5.7 7 2 1.5-1.3 4-2 7-2V5c-3 0-5.5.7-7 2Z"/><path d="M12 7v13"/></svg>
           <span>Read and Listen</span>
         </a>
-        <a href="aprender.html" class="nav-item">
+        <a href="aprender.html" class="nav-item active">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.6" fill="currentColor" stroke="none"/><path d="M17 3.5 20.5 3.5 20.5 7 14 13.5"/></svg>
           <span>Aprender</span>
         </a>
@@ -58,13 +58,28 @@
       </nav>
     </aside>
 
-    <main class="main">
+    <main class="main main-review">
       <header class="page-header">
-        <h1>Read and Listen</h1>
-        <p>Escolha um texto para ler e ouvir a pronúncia em inglês.</p>
+        <h1>Aprender</h1>
+        <p>Aprenda palavras novas e expanda seu vocabulário.</p>
       </header>
 
-      <section id="texts-area">
+      <div class="vocab-status-legend" id="vocab-status-legend">
+        <div class="vocab-status-item">
+          <span class="vocab-status-dot is-nova"></span>
+          <span>Nova</span>
+        </div>
+        <div class="vocab-status-item">
+          <span class="vocab-status-dot is-em-revisao"></span>
+          <span>Em revisão</span>
+        </div>
+        <div class="vocab-status-item">
+          <span class="vocab-status-dot is-aprendida"></span>
+          <span>Aprendida</span>
+        </div>
+      </div>
+
+      <section id="learn-area" class="review-area-centered">
         <div class="skeleton">Carregando...</div>
       </section>
     </main>
@@ -75,6 +90,6 @@
 
   <script src="js/api.js"></script>
   <script src="js/icons.js"></script>
-  <script src="js/textos.js"></script>
+  <script src="js/aprender.js"></script>
 </body>
 </html>

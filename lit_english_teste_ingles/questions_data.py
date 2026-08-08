@@ -383,15 +383,6 @@ QUESTIONS = [
             "ela disse que ligaria pra mim no dia seguinte",
             "ela disse que iria me ligar no dia seguinte",
             "ela disse que ela iria me ligar no dia seguinte",
-            # "no próximo dia" é uma tradução igualmente válida de
-            # "the next day" neste contexto — não deve ser marcada como
-            # errada só por não ser a variante usada no gabarito.
-            "ela disse que me ligaria no proximo dia",
-            "ela disse que ela me ligaria no proximo dia",
-            "ela disse que ligaria para mim no proximo dia",
-            "ela disse que ligaria pra mim no proximo dia",
-            "ela disse que iria me ligar no proximo dia",
-            "ela disse que ela iria me ligar no proximo dia",
         ],
         "grammar_note": "Em reported speech, o tempo verbal recua um passo (backshift): will vira would, porque a fala original (\u201cI will call you\u201d) est\u00e1 sendo relatada no passado.",
         "tip": "Reported speech: will \u2192 would, can \u2192 could, is/am \u2192 was. O tempo verbal sempre recua um passo.",

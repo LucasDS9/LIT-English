@@ -19,48 +19,7 @@
     index: 0,
     answers: {}, // { [id]: answer }
     selectedKey: null, // opção marcada na questão atual (antes de confirmar)
-    atGate: false, // true quando já respondeu tudo e está na tela de desbloqueio
   };
-
-  // -------------------------------------------------------------------
-  // Progresso salvo (sessionStorage): sobrevive a um reload da página.
-  // Isso é essencial porque, dentro do navegador embutido do Instagram,
-  // tocar em "Siga no Instagram" às vezes recarrega a página do zero ao
-  // voltar — sem isso o aluno perdia o teste inteiro e via a tela
-  // reiniciar do começo, parecendo "travado"/"não vai".
-  // -------------------------------------------------------------------
-  const PROGRESS_KEY = "lit_quiz_progress_v1";
-
-  function saveProgress() {
-    try {
-      sessionStorage.setItem(
-        PROGRESS_KEY,
-        JSON.stringify({
-          nome: state.nome,
-          index: state.index,
-          answers: state.answers,
-          atGate: state.atGate,
-        })
-      );
-    } catch (e) {}
-  }
-
-  function loadProgress() {
-    try {
-      const raw = sessionStorage.getItem(PROGRESS_KEY);
-      if (!raw) return null;
-      const saved = JSON.parse(raw);
-      if (saved && saved.nome === state.nome) return saved;
-    } catch (e) {}
-    return null;
-  }
-
-  function clearProgress() {
-    try {
-      sessionStorage.removeItem(PROGRESS_KEY);
-      sessionStorage.removeItem(UNLOCK_STORAGE_KEY);
-    } catch (e) {}
-  }
 
   // -------------------------------------------------------------------
   // Utils
@@ -95,19 +54,6 @@
         renderShell(`<div class="error-banner">Não foi possível carregar as questões.</div>`);
         return;
       }
-
-      // Retoma de onde parou, se houver progresso salvo (ex.: página
-      // recarregada depois de ir pro Instagram e voltar).
-      const saved = loadProgress();
-      if (saved) {
-        state.answers = saved.answers || {};
-        state.index = Math.min(saved.index || 0, state.questions.length - 1);
-        if (saved.atGate) {
-          renderUnlockGate();
-          return;
-        }
-      }
-
       renderQuestion();
     } catch (err) {
       renderShell(`<div class="error-banner">Erro de conexão com o servidor. Verifique se o backend está rodando.</div>`);
@@ -191,70 +137,17 @@
 
     if (q.type === "listening") {
       const playBtn = document.getElementById("play-audio");
-      const hintEl = document.querySelector(".quiz-audio-hint");
-      let fallbackShown = false;
-
-      const showAudioFallback = () => {
-        if (fallbackShown) return;
-        fallbackShown = true;
-        const inApp = window.LIT_INAPP && window.LIT_INAPP.isInApp;
-        const msg = inApp
-          ? "O áudio não tocou aqui porque você está no navegador do Instagram. Abra este teste no Chrome ou Safari para ouvir a frase."
-          : "Não conseguimos tocar o áudio neste navegador. Tente novamente ou abra o teste no Chrome/Safari.";
-        const note = document.createElement("p");
-        note.className = "audio-fallback-note";
-        note.textContent = msg;
-        (hintEl || playBtn).insertAdjacentElement("afterend", note);
-      };
-
       const speak = () => {
-        if (!("speechSynthesis" in window) || !window.SpeechSynthesisUtterance) {
-          showAudioFallback();
-          return;
-        }
+        if (!("speechSynthesis" in window)) return;
         window.speechSynthesis.cancel();
         const utter = new SpeechSynthesisUtterance(q.question_en);
         utter.lang = "en-US";
-        utter.rate = 1.05; // levemente mais rápido para carregar/soar mais ágil
-        const voices = window.speechSynthesis.getVoices();
-        const enVoice = voices.find((v) => /en[-_]US/i.test(v.lang)) || voices.find((v) => /^en/i.test(v.lang));
-        if (enVoice) utter.voice = enVoice;
-
-        utter.onerror = showAudioFallback;
+        utter.rate = 0.95;
         window.speechSynthesis.speak(utter);
-
-        // Alguns navegadores embutidos (Instagram/Facebook) aceitam a
-        // chamada sem erro, mas nunca tocam nada. Se depois de meio
-        // segundo o synth não estiver de fato falando, avisamos o aluno
-        // em vez de deixar ele achar que está tudo travado.
-        setTimeout(() => {
-          if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
-            showAudioFallback();
-          }
-        }, 600);
       };
-
       playBtn.addEventListener("click", speak);
-
-      // A lista de vozes carrega de forma assíncrona em vários
-      // navegadores (principalmente no primeiro acesso); se tocarmos
-      // antes dela existir, o áudio sai mudo. Esperamos o evento
-      // "voiceschanged" (com um teto de segurança) antes do autoplay.
-      const voicesAlreadyLoaded = "speechSynthesis" in window && window.speechSynthesis.getVoices().length > 0;
-      if (voicesAlreadyLoaded) {
-        setTimeout(speak, 150);
-      } else if ("speechSynthesis" in window) {
-        let played = false;
-        const playOnce = () => {
-          if (played) return;
-          played = true;
-          speak();
-        };
-        window.speechSynthesis.onvoiceschanged = playOnce;
-        setTimeout(playOnce, 800); // teto de segurança se o evento nunca disparar
-      } else {
-        showAudioFallback();
-      }
+      // toca automaticamente ao abrir a questão
+      setTimeout(speak, 350);
     }
 
     if (q.type === "fill" || q.type === "listening") {
@@ -309,7 +202,6 @@
       }
 
       state.answers[q.id] = answer;
-      saveProgress();
       renderFeedback(q, result);
     } catch (err) {
       renderShell(`<div class="error-banner">Erro de conexão com o servidor.</div>`);
@@ -430,12 +322,9 @@
 
     document.getElementById("next-btn").addEventListener("click", () => {
       if (isLast) {
-        state.atGate = true;
-        saveProgress();
         renderUnlockGate();
       } else {
         state.index += 1;
-        saveProgress();
         renderQuestion();
       }
     });
@@ -448,29 +337,6 @@
   // -------------------------------------------------------------------
   const INSTAGRAM_URL = "https://www.instagram.com/litenglish.br/";
   const UNLOCK_WAIT_SECONDS = 10;
-  const UNLOCK_STORAGE_KEY = "lit_unlock_started_at_v1";
-
-  // Marca (timestamp real) de quando o aluno clicou em "Siga no
-  // Instagram". Usamos tempo real (Date.now()) em vez de só contar
-  // segundos num setInterval, porque o setInterval é pausado/perdido
-  // quando o navegador do Instagram tira o foco da página (ou a
-  // recarrega) — com timestamp, ao voltar calculamos quanto tempo já
-  // passou de verdade e liberamos na hora certa, mesmo que o contador
-  // visual tenha sido interrompido.
-  function getUnlockStartedAt() {
-    try {
-      const raw = sessionStorage.getItem(UNLOCK_STORAGE_KEY);
-      return raw ? parseInt(raw, 10) : null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function setUnlockStartedAt(ts) {
-    try {
-      sessionStorage.setItem(UNLOCK_STORAGE_KEY, String(ts));
-    } catch (e) {}
-  }
 
   function renderUnlockGate() {
     renderShell(`
@@ -531,42 +397,26 @@
     const confirmBtn = document.getElementById("unlock-confirm-btn");
     const confirmLabel = document.getElementById("unlock-confirm-label");
 
-    let interval = null;
-
-    function tick() {
-      const startedAt = getUnlockStartedAt();
-      if (!startedAt) return;
-      const elapsedSec = (Date.now() - startedAt) / 1000;
-      const remaining = Math.max(0, Math.ceil(UNLOCK_WAIT_SECONDS - elapsedSec));
-
-      if (remaining <= 0) {
-        if (interval) clearInterval(interval);
-        confirmLabel.textContent = "Já segui, desbloquear teste";
-        confirmBtn.disabled = false;
-        confirmBtn.classList.add("is-unlocked");
-      } else {
-        confirmLabel.textContent = `Aguarde ${remaining}s...`;
-      }
-    }
-
-    function startCountingFrom(startedAt) {
-      setUnlockStartedAt(startedAt);
-      if (interval) clearInterval(interval);
-      tick();
-      interval = setInterval(tick, 250);
-    }
-
-    // Se o aluno já tinha clicado antes (e a página recarregou ao voltar
-    // do Instagram), retoma a contagem a partir do tempo real decorrido,
-    // em vez de travar para sempre esperando um clique que já aconteceu.
-    const existingStart = getUnlockStartedAt();
-    if (existingStart) {
-      startCountingFrom(existingStart);
-    }
+    let timerStarted = false;
 
     igBtn.addEventListener("click", () => {
-      if (getUnlockStartedAt()) return; // já clicou antes, não reinicia a contagem
-      startCountingFrom(Date.now());
+      if (timerStarted) return; // já clicou antes, não reinicia a contagem
+      timerStarted = true;
+
+      let remaining = UNLOCK_WAIT_SECONDS;
+      confirmLabel.textContent = `Aguarde ${remaining}s...`;
+
+      const interval = setInterval(() => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          clearInterval(interval);
+          confirmLabel.textContent = "Já segui, desbloquear teste";
+          confirmBtn.disabled = false;
+          confirmBtn.classList.add("is-unlocked");
+        } else {
+          confirmLabel.textContent = `Aguarde ${remaining}s...`;
+        }
+      }, 1000);
     });
 
     confirmBtn.addEventListener("click", () => {
@@ -603,7 +453,6 @@
         return;
       }
 
-      clearProgress();
       renderResult(data.resultado, data.registro_salvo);
     } catch (err) {
       renderShell(`<div class="error-banner">Erro de conexão com o servidor.</div>`);
@@ -735,7 +584,6 @@
 
     document.getElementById("finish-btn").addEventListener("click", () => {
       sessionStorage.removeItem("lit_english_nome");
-      clearProgress();
       window.location.href = window.SITE_PRINCIPAL_URL || "/";
     });
   }

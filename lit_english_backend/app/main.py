@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine, run_migrations
-from app.routers import admin, auth, dashboard, exercises, flashcards, level_test, qa, site_leads, texts, tts
+from app.routers import admin, auth, dashboard, exercises, flashcards, level_test, qa, site_leads, texts, tts, vocab_words
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,6 +35,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(flashcards.router)
+app.include_router(vocab_words.router)
 app.include_router(texts.router)
 app.include_router(exercises.router)
 app.include_router(qa.router)
