@@ -18,11 +18,23 @@ window.LIT_INAPP = (function () {
   const isIOS = /iPhone|iPad|iPod/i.test(ua);
 
   function androidIntentUrl() {
-    // Reabre a URL atual como um "intent" normal do Android, o que faz o
-    // sistema oferecer o navegador padrão (Chrome, etc.) em vez do
-    // WebView do Instagram/Facebook.
-    const url = window.location.href.replace(/^https?:\/\//, "");
-    return `intent://${url}#Intent;scheme=https;action=android.intent.action.VIEW;end`;
+    // Reabre a URL atual como um "intent" do Android forçando o Chrome
+    // especificamente (package=com.android.chrome) — em aparelhos Xiaomi
+    // (MIUI) o intent genérico sem "package" costuma cair no navegador
+    // próprio da Xiaomi (Mi Browser) em vez do Chrome, porque a MIUI o
+    // define como padrão. S.browser_fallback_url garante que, se o
+    // aparelho não tiver Chrome instalado, ele volte pra própria página
+    // em vez de não fazer nada.
+    const bare = window.location.href.replace(/^https?:\/\//, "");
+    const fallback = encodeURIComponent(window.location.href);
+    return `intent://${bare}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${fallback};end`;
+  }
+
+  function genericIntentUrl() {
+    // Fallback sem forçar um app específico — deixa o Android oferecer
+    // o navegador padrão do aparelho (usado se o Chrome não existir).
+    const bare = window.location.href.replace(/^https?:\/\//, "");
+    return `intent://${bare}#Intent;scheme=https;action=android.intent.action.VIEW;end`;
   }
 
   function dismiss(banner) {
@@ -52,7 +64,7 @@ window.LIT_INAPP = (function () {
     banner.innerHTML = `
       <span class="inapp-banner-icon" aria-hidden="true">🔊⚠️</span>
       <span class="inapp-banner-text">${text}</span>
-      ${isAndroid ? '<button type="button" class="inapp-banner-btn" id="inapp-open-btn">Abrir no navegador</button>' : ""}
+      ${isAndroid ? '<button type="button" class="inapp-banner-btn" id="inapp-open-btn">Abrir no Chrome</button>' : ""}
       <button type="button" class="inapp-banner-close" id="inapp-close-btn" aria-label="Fechar aviso">✕</button>
     `;
 
@@ -66,6 +78,11 @@ window.LIT_INAPP = (function () {
       const openBtn = banner.querySelector("#inapp-open-btn");
       openBtn.addEventListener("click", () => {
         window.location.href = androidIntentUrl();
+        // Se por algum motivo o Chrome não abrir (ex.: não instalado),
+        // tenta de novo sem forçar um app específico logo em seguida.
+        setTimeout(() => {
+          window.location.href = genericIntentUrl();
+        }, 700);
       });
     }
   }

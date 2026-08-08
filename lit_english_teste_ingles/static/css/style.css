@@ -2,6 +2,7 @@
    LIT English — Design tokens
    ========================================================================== */
 :root {
+  color-scheme: light;
   --color-bg: #faf9f7;
   --color-card: #ffffff;
   --color-border: #eee2e1;
