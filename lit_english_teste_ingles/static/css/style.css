@@ -455,3 +455,94 @@ body {
 .back-to-site-link:hover {
   color: var(--color-primary);
 }
+
+/* ------------------------------------------------------------------ */
+/* Aviso de navegador in-app (Instagram/Facebook) — áudio pode falhar */
+/* ------------------------------------------------------------------ */
+.inapp-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--color-primary);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  line-height: 1.35;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.inapp-banner.is-dismissed {
+  opacity: 0;
+  transform: translateY(-100%);
+}
+
+.inapp-banner-icon {
+  flex: 0 0 auto;
+  font-size: 15px;
+}
+
+.inapp-banner-text {
+  flex: 1 1 auto;
+}
+
+.inapp-banner-text strong {
+  font-weight: 700;
+}
+
+.inapp-banner-btn {
+  flex: 0 0 auto;
+  background: #fff;
+  color: var(--color-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.inapp-banner-close {
+  flex: 0 0 auto;
+  background: transparent;
+  border: none;
+  color: #fff;
+  opacity: 0.8;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+body.has-inapp-banner {
+  padding-top: 54px;
+}
+
+@media (min-width: 480px) {
+  .inapp-banner {
+    font-size: 13.5px;
+    padding: 12px 20px;
+  }
+  body.has-inapp-banner {
+    padding-top: 48px;
+  }
+}
+
+/* Aviso de áudio indisponível (fallback quando TTS falha silenciosamente) */
+.audio-fallback-note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-tint);
+  color: var(--color-primary-dark);
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-align: left;
+}
