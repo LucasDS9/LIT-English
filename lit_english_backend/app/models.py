@@ -330,7 +330,13 @@ class VocabWord(Base):
     word = Column(String, nullable=False)                 # ex.: "learn"
     part_of_speech = Column(String, nullable=False)        # ex.: "verbo"
     translation = Column(String, nullable=False)           # resposta certa, ex.: "aprender"
-    example_sentence = Column(Text, nullable=False)        # ex.: "I will learn English."
+    # Nem toda palavra tem uma frase de exemplo (ex.: saudações, que usam
+    # `tip` no lugar) — por isso é opcional.
+    example_sentence = Column(Text, nullable=True)         # ex.: "I will learn English."
+    # Dica curta sobre o uso da palavra (ex.: "Saudação informal e muito
+    # comum."), mostrada abaixo da palavra principal no card. Usada
+    # principalmente pelas saudações, que não têm frase de exemplo.
+    tip = Column(Text, nullable=True)
     # Sempre exatamente 3 opções erradas, separadas por "|" (a tradução pode
     # conter vírgula, então não usamos vírgula como separador). Junto com
     # `translation`, formam as 4 opções sempre mostradas ao aluno.

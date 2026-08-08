@@ -228,11 +228,18 @@ class VocabWordCreate(BaseModel):
     word: str
     part_of_speech: str
     translation: str
-    example_sentence: str
+    # Ao menos um dos dois precisa vir preenchido: `example_sentence` (a
+    # maioria das palavras) ou `tip` (ex.: saudações, sem frase de exemplo).
+    example_sentence: Optional[str] = None
+    tip: Optional[str] = None
     # Sempre exatamente 3 opções erradas — junto com `translation` formam as
     # 4 opções fixas mostradas ao aluno.
     distractors: List[str] = Field(min_length=3, max_length=3)
-    student_ids: List[int] = Field(min_length=1)
+    # Se omitido (ou vazio), a palavra é atribuída automaticamente a TODOS
+    # os alunos aprovados no momento — e também a qualquer aluno aprovado
+    # depois (ver approve_student em admin.py), ficando nativa pra tela
+    # Aprender de todo mundo sem precisar selecionar aluno por aluno.
+    student_ids: Optional[List[int]] = None
 
 
 class VocabWordUpdate(BaseModel):
@@ -240,6 +247,7 @@ class VocabWordUpdate(BaseModel):
     part_of_speech: Optional[str] = None
     translation: Optional[str] = None
     example_sentence: Optional[str] = None
+    tip: Optional[str] = None
     distractors: Optional[List[str]] = Field(default=None, min_length=3, max_length=3)
     student_ids: Optional[List[int]] = None
 
@@ -249,7 +257,8 @@ class VocabWordOut(BaseModel):
     word: str
     part_of_speech: str
     translation: str
-    example_sentence: str
+    example_sentence: Optional[str] = None
+    tip: Optional[str] = None
     distractors: List[str]
     created_at: datetime
     students: List[FlashcardStudentOut] = []
@@ -264,7 +273,8 @@ class VocabLearnCardOut(BaseModel):
     word_id: int
     word: str
     part_of_speech: str
-    example_sentence: str
+    example_sentence: Optional[str] = None
+    tip: Optional[str] = None
     options: List[str]  # sempre 4, em ordem embaralhada
     status: VocabWordStatus
 

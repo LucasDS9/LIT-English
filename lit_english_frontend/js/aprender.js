@@ -302,14 +302,25 @@ function renderCard() {
   pos.textContent = card.part_of_speech;
   body.appendChild(pos);
 
-  const divider = document.createElement("div");
-  divider.className = "learn-divider";
-  body.appendChild(divider);
+  // Dica de uso, mostrada logo abaixo da palavra principal (usada
+  // principalmente pelas saudações, que não têm frase de exemplo).
+  if (card.tip) {
+    const tip = document.createElement("p");
+    tip.className = "learn-tip";
+    tip.textContent = card.tip;
+    body.appendChild(tip);
+  }
 
-  const sentence = document.createElement("p");
-  sentence.className = "learn-sentence";
-  sentence.innerHTML = highlightWord(card.example_sentence, card.word);
-  body.appendChild(sentence);
+  if (card.example_sentence) {
+    const divider = document.createElement("div");
+    divider.className = "learn-divider";
+    body.appendChild(divider);
+
+    const sentence = document.createElement("p");
+    sentence.className = "learn-sentence";
+    sentence.innerHTML = highlightWord(card.example_sentence, card.word);
+    body.appendChild(sentence);
+  }
 
   const speakBtn = document.createElement("button");
   speakBtn.className = "speak-btn learn-speak-btn";

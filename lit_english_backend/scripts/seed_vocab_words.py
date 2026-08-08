@@ -1,6 +1,12 @@
 """
-Script de seed: cria a palavra de exemplo da tela "Aprender" (o card "learn"
-usado no mockup) via API, já atribuída aos alunos aprovados.
+Script de seed: cria palavras da tela "Aprender" via API. Como o campo
+`student_ids` agora é OPCIONAL (ver VocabWordCreate/create_vocab_word), não
+enviamos ele aqui de propósito — a API atribui a palavra automaticamente a
+todos os alunos aprovados no momento, e o backend garante que qualquer
+aluno aprovado depois (em admin.approve_student) também receba as mesmas
+palavras. Ou seja: a partir daqui, as palavras cadastradas aqui ficam
+nativas para todo aluno que cria conta e é aprovado, sem precisar
+selecionar aluno por aluno.
 
 Uso:
     cd lit_english_backend
@@ -10,9 +16,11 @@ Uso:
     PROFESSOR_PASSWORD="sua-senha" \
     python scripts/seed_vocab_words.py
 
-Mais palavras podem ser adicionadas depois — basta acrescentar itens na
-lista WORDS abaixo (ou criar um outro script), sem duplicar nada, já que o
-professor também pode cadastrar pelo painel quando essa tela existir lá.
+Este arquivo contém, por enquanto, só as 5 primeiras palavras (saudações)
+como TESTE. As demais (o restante das saudações + a tabela de expressões
+comuns como "Yes", "Thanks", "Sorry" etc.) podem ser acrescentadas depois
+na lista WORDS abaixo, seguindo o mesmo formato — sem duplicar nada, já
+que basta rodar o script de novo com os itens novos.
 """
 import os
 import sys
@@ -23,20 +31,51 @@ API_BASE_URL = os.environ.get("API_BASE_URL", "https://litenglish.up.railway.app
 PROFESSOR_EMAIL = os.environ.get("PROFESSOR_EMAIL")
 PROFESSOR_PASSWORD = os.environ.get("PROFESSOR_PASSWORD")
 
-# Se quiser restringir o envio a alunos específicos, liste os nomes exatos
-# (como aparecem em /admin/students) aqui. None = todos os alunos aprovados.
-TARGET_STUDENT_NAMES = None
-
 # ---------------------------------------------------------------------------
-# Palavra(s) de exemplo — mesma da tela mostrada no mockup do "Aprender"
+# TESTE: as 5 primeiras saudações da tabela. Estas usam `tip` (a coluna
+# "Quando usamos" da tabela) no lugar de `example_sentence`, já que
+# saudações não têm uma frase de exemplo — é assim que o card mostra a
+# dica logo abaixo da palavra principal.
+#
+# A tradução certa (`translation`) foi escolhida dentre as 4 alternativas
+# da tabela original (a que corresponde ao uso descrito); as outras 3
+# alternativas de cada linha viram `distractors`.
 # ---------------------------------------------------------------------------
 WORDS = [
     {
-        "word": "learn",
-        "part_of_speech": "verbo",
-        "translation": "aprender",
-        "example_sentence": "I will learn English.",
-        "distractors": ["melhorar", "falar", "praticar"],
+        "word": "Hi",
+        "part_of_speech": "saudação",
+        "tip": "Saudação informal e muito comum.",
+        "translation": "Olá",
+        "distractors": ["Até mais", "Boa noite", "Adeus"],
+    },
+    {
+        "word": "Hello",
+        "part_of_speech": "saudação",
+        "tip": "Saudação geral e neutra.",
+        "translation": "Olá",
+        "distractors": ["Tchau", "Até amanhã", "Se cuida"],
+    },
+    {
+        "word": "Good morning",
+        "part_of_speech": "saudação",
+        "tip": "Para cumprimentar alguém pela manhã.",
+        "translation": "Bom dia",
+        "distractors": ["Boa tarde", "Boa noite", "Até mais"],
+    },
+    {
+        "word": "Good afternoon",
+        "part_of_speech": "saudação",
+        "tip": "Para cumprimentar alguém à tarde.",
+        "translation": "Boa tarde",
+        "distractors": ["Boa noite", "Até mais", "Bom dia"],
+    },
+    {
+        "word": "Good evening",
+        "part_of_speech": "saudação",
+        "tip": "Para cumprimentar alguém à noite.",
+        "translation": "Boa noite",
+        "distractors": ["Boa tarde", "Bom dia", "Até mais"],
     },
 ]
 
@@ -55,29 +94,17 @@ def main():
     token = login_resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    print("Buscando alunos aprovados...")
-    students_resp = requests.get(f"{API_BASE_URL}/admin/students", headers=headers)
-    students_resp.raise_for_status()
-    students = students_resp.json()
-
-    if TARGET_STUDENT_NAMES:
-        students = [s for s in students if s["name"] in TARGET_STUDENT_NAMES]
-
-    student_ids = [s["id"] for s in students]
-    if not student_ids:
-        print("Nenhum aluno encontrado para atribuir as palavras. Abortando.")
-        sys.exit(1)
-
-    print(f"Atribuindo para {len(student_ids)} aluno(s): {[s['name'] for s in students]}")
-
     for item in WORDS:
-        payload = {**item, "student_ids": student_ids}
-        resp = requests.post(f"{API_BASE_URL}/vocab-words", json=payload, headers=headers)
+        # Sem `student_ids`: a API atribui automaticamente a todos os
+        # alunos aprovados agora (e aos aprovados depois).
+        resp = requests.post(f"{API_BASE_URL}/vocab-words", json=item, headers=headers)
         if resp.status_code >= 400:
             print(f"Falha ao criar '{item['word']}': {resp.status_code} {resp.text}")
             continue
         created = resp.json()
-        print(f"Criado: '{created['word']}' (id={created['id']}) -> {created['translation']}")
+        n_students = len(created.get("students", []))
+        print(f"Criado: '{created['word']}' (id={created['id']}) -> {created['translation']} "
+              f"[{n_students} aluno(s) aprovado(s) agora]")
 
     print("Concluído.")
 

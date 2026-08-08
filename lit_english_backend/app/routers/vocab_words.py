@@ -69,6 +69,33 @@ def _validate_student_ids(student_ids: list[int], db: Session) -> None:
         raise HTTPException(status_code=404, detail="Um ou mais alunos selecionados não foram encontrados.")
 
 
+def _all_approved_student_ids(db: Session) -> list[int]:
+    return [
+        row[0]
+        for row in db.query(User.id).filter(User.role == UserRole.aluno, User.is_approved.is_(True)).all()
+    ]
+
+
+def _resolve_student_ids(student_ids: list[int] | None, db: Session) -> list[int]:
+    """Sem `student_ids`, a palavra fica nativa: vai pra todos os alunos
+    aprovados agora (e os aprovados depois recebem via approve_student)."""
+    if not student_ids:
+        return _all_approved_student_ids(db)
+    _validate_student_ids(student_ids, db)
+    return student_ids
+
+
+def _validate_example_or_tip(example_sentence: str | None, tip: str | None) -> tuple[str | None, str | None]:
+    example_sentence = (example_sentence or "").strip() or None
+    tip = (tip or "").strip() or None
+    if not example_sentence and not tip:
+        raise HTTPException(
+            status_code=422,
+            detail="Informe uma frase de exemplo (example_sentence) ou uma dica (tip).",
+        )
+    return example_sentence, tip
+
+
 def _validate_distractors(distractors: list[str], translation: str) -> list[str]:
     cleaned = [d.strip() for d in distractors if d.strip()]
     if len(cleaned) != 3:
@@ -96,6 +123,7 @@ def _to_word_out(word: VocabWord) -> VocabWordOut:
         part_of_speech=word.part_of_speech,
         translation=word.translation,
         example_sentence=word.example_sentence,
+        tip=word.tip,
         distractors=_unpack_distractors(word.distractors),
         created_at=word.created_at,
         students=[{"id": s.id, "name": s.name} for s in word.students],
@@ -112,20 +140,24 @@ def create_vocab_word(
     db: Session = Depends(get_db),
     _professor: User = Depends(get_current_professor),
 ):
-    _validate_student_ids(data.student_ids, db)
+    student_ids = _resolve_student_ids(data.student_ids, db)
+    if not student_ids:
+        raise HTTPException(status_code=404, detail="Nenhum aluno aprovado encontrado para atribuir a palavra.")
     distractors = _validate_distractors(data.distractors, data.translation)
+    example_sentence, tip = _validate_example_or_tip(data.example_sentence, data.tip)
 
     word = VocabWord(
         word=data.word.strip(),
         part_of_speech=data.part_of_speech.strip(),
         translation=data.translation.strip(),
-        example_sentence=data.example_sentence.strip(),
+        example_sentence=example_sentence,
+        tip=tip,
         distractors=_pack_distractors(distractors),
     )
     db.add(word)
     db.flush()
 
-    for student_id in set(data.student_ids):
+    for student_id in set(student_ids):
         db.add(VocabWordAssignment(word_id=word.id, student_id=student_id))
 
     db.commit()
@@ -159,7 +191,14 @@ def update_vocab_word(
     if data.part_of_speech is not None:
         word.part_of_speech = data.part_of_speech.strip()
     if data.example_sentence is not None:
-        word.example_sentence = data.example_sentence.strip()
+        word.example_sentence = data.example_sentence.strip() or None
+    if data.tip is not None:
+        word.tip = data.tip.strip() or None
+    if not (word.example_sentence or word.tip):
+        raise HTTPException(
+            status_code=422,
+            detail="Informe uma frase de exemplo (example_sentence) ou uma dica (tip).",
+        )
 
     new_translation = data.translation.strip() if data.translation is not None else word.translation
     if data.distractors is not None:
@@ -271,6 +310,7 @@ def get_learn_queue(
             word=w.word,
             part_of_speech=w.part_of_speech,
             example_sentence=w.example_sentence,
+            tip=w.tip,
             options=_build_options(w),
             status=_status_label(progress_by_word.get(w.id)),
         )

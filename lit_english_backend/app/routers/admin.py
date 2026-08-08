@@ -24,6 +24,8 @@ from app.models import (
     TextAssignment,
     User,
     UserRole,
+    VocabWord,
+    VocabWordAssignment,
 )
 from app.routers.dashboard import build_dashboard_metrics
 from app.schemas import StudentDetailsOut, UserOut
@@ -70,9 +72,27 @@ def approve_student(
     db: Session = Depends(get_db),
     _professor: User = Depends(get_current_professor),
 ):
-    """Aprova o acesso de um aluno."""
+    """Aprova o acesso de um aluno.
+
+    Também atribui a ele, automaticamente, todas as palavras já cadastradas
+    na tela Aprender — assim o vocabulário fica "nativo": todo aluno que
+    cria conta e é aprovado já entra com as mesmas palavras, sem o
+    professor precisar selecioná-lo manualmente em cada uma.
+    """
     student = _get_student_or_404(student_id, db)
     student.is_approved = True
+
+    already_assigned = {
+        row[0]
+        for row in db.query(VocabWordAssignment.word_id)
+        .filter(VocabWordAssignment.student_id == student.id)
+        .all()
+    }
+    all_word_ids = [row[0] for row in db.query(VocabWord.id).all()]
+    for word_id in all_word_ids:
+        if word_id not in already_assigned:
+            db.add(VocabWordAssignment(word_id=word_id, student_id=student.id))
+
     db.commit()
     db.refresh(student)
     return student

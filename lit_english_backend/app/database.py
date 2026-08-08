@@ -240,6 +240,21 @@ def run_migrations():
                     )
                     conn.rollback()
 
+            # "Aprender": coluna `tip` (dica), nova, e `example_sentence`
+            # passou a ser opcional (saudações usam `tip` no lugar da frase).
+            if _table_exists(conn, "vocab_words"):
+                try:
+                    if not _col_exists(conn, "vocab_words", "tip"):
+                        conn.execute(text("ALTER TABLE vocab_words ADD COLUMN tip TEXT"))
+                        conn.commit()
+                    conn.execute(text("ALTER TABLE vocab_words ALTER COLUMN example_sentence DROP NOT NULL"))
+                    conn.commit()
+                except Exception:
+                    logger.exception(
+                        "Falha ao migrar vocab_words (coluna tip / example_sentence opcional), ignorando."
+                    )
+                    conn.rollback()
+
             for enum_name, value in _ENUM_VALUE_FIXES:
                 try:
                     _add_enum_value(conn, enum_name, value)

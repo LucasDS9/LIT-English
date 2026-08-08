@@ -958,6 +958,15 @@ svg {
   margin: 0;
 }
 
+.learn-tip {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 480px;
+  text-align: center;
+  font-style: italic;
+}
+
 .learn-divider {
   width: 100%;
   max-width: 420px;
