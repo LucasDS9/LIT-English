@@ -840,7 +840,10 @@ async function renderFlashcards() {
 
   let allStudents;
   try {
-    allStudents = await apiFetch("/admin/students");
+    // Só alunos do curso normal (access_type=padrao) — Flashcards ainda são
+    // só em inglês, então aluno de "Acesso Especial" (ex.: italiano) não
+    // pode aparecer nessa lista.
+    allStudents = await apiFetch("/admin/students?access_type=padrao");
   } catch (err) {
     showToast(err.message || "Não foi possível carregar os alunos.");
     return;
@@ -1949,9 +1952,10 @@ async function renderTextos() {
 
   let texts, allStudents;
   try {
+    // Só alunos do curso normal — mesmos motivos do renderFlashcards() acima.
     [texts, allStudents] = await Promise.all([
       apiFetch("/texts"),
-      apiFetch("/admin/students"),
+      apiFetch("/admin/students?access_type=padrao"),
     ]);
   } catch (err) {
     showToast(err.message || "Não foi possível carregar os textos.");

@@ -346,6 +346,12 @@ class VocabWord(Base):
     word = Column(String, nullable=False)                 # ex.: "learn"
     part_of_speech = Column(String, nullable=False)        # ex.: "verbo"
     translation = Column(String, nullable=False)           # resposta certa, ex.: "aprender"
+    # A que língua-alvo essa palavra pertence ("ingles", "italiano", ...).
+    # Usada pra "nativizar" a palavra só pros alunos daquela língua (ver
+    # _resolve_student_ids em vocab_words.py e approve_student em admin.py):
+    # aluno do curso normal (access_type=padrao) é sempre "ingles"; aluno de
+    # Acesso Especial usa o target_language escolhido no cadastro.
+    language = Column(String, nullable=False, default="ingles", server_default="ingles")
     # Nem toda palavra tem uma frase de exemplo (ex.: saudações, que usam
     # `tip` no lugar) — por isso é opcional.
     example_sentence = Column(Text, nullable=True)         # ex.: "I will learn English."

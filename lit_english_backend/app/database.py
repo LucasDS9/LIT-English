@@ -249,9 +249,18 @@ def run_migrations():
                         conn.commit()
                     conn.execute(text("ALTER TABLE vocab_words ALTER COLUMN example_sentence DROP NOT NULL"))
                     conn.commit()
+                    # Coluna `language` (Acesso Especial): palavras antigas,
+                    # todas em inglês, viram "ingles" — só entra conteúdo de
+                    # outra língua quando explicitamente marcado como tal.
+                    if not _col_exists(conn, "vocab_words", "language"):
+                        conn.execute(text(
+                            "ALTER TABLE vocab_words ADD COLUMN language VARCHAR "
+                            "NOT NULL DEFAULT 'ingles'"
+                        ))
+                        conn.commit()
                 except Exception:
                     logger.exception(
-                        "Falha ao migrar vocab_words (coluna tip / example_sentence opcional), ignorando."
+                        "Falha ao migrar vocab_words (coluna tip / example_sentence opcional / language), ignorando."
                     )
                     conn.rollback()
 

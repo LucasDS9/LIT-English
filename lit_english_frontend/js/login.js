@@ -47,19 +47,18 @@
   const regInfoBox      = document.getElementById("reg-form-info");
 
   // -------------------------------------------------------------------------
-  // Acesso Especial (?acesso=especial na URL): cadastro pede língua nativa e
-  // língua-alvo no lugar do WhatsApp. Ver acesso.html.
+  // Acesso Especial (?acesso=especial na URL): cadastro pede língua-alvo no
+  // lugar do WhatsApp, e tanto login quanto cadastro ficam isolados do
+  // sistema normal (ver access_type enviado ao backend). Ver acesso.html.
   // -------------------------------------------------------------------------
   const isAcessoEspecial = new URLSearchParams(window.location.search).get("acesso") === "especial";
   const specialFields    = document.getElementById("special-access-fields");
-  const regNativeLang    = document.getElementById("reg-native-language");
   const regTargetLang    = document.getElementById("reg-target-language");
 
   if (isAcessoEspecial) {
     specialFields.hidden = false;
     whatsappField.hidden = true;
     regWhatsInput.required = false;
-    regNativeLang.required = true;
   }
 
   // -------------------------------------------------------------------------
@@ -150,7 +149,7 @@
     submitBtn.textContent = "Entrando...";
 
     try {
-      await login(email, password);
+      await login(email, password, isAcessoEspecial ? "especial" : "padrao");
       const user = await fetchCurrentUser();
 
       if (user.role === "aluno" && !user.is_approved) {
@@ -191,7 +190,6 @@
     const password  = regPassInput.value;
     const confirm   = regPassConfirm.value;
 
-    const nativeLanguage = isAcessoEspecial ? regNativeLang.value.trim() : "";
     const targetLanguage = isAcessoEspecial ? regTargetLang.value : "";
 
     if (!name) { showRegError("Informe seu nome completo."); return; }
@@ -199,7 +197,6 @@
     if (!emailUser) { showRegError("Informe o nome de usuário do e-mail."); return; }
     if (!password)  { showRegError("Crie uma senha."); return; }
     if (password !== confirm) { showRegError("As senhas não coincidem."); return; }
-    if (isAcessoEspecial && !nativeLanguage) { showRegError("Informe sua língua nativa."); return; }
 
     const email = `${emailUser}@litstudent.com`;
     regEmailHidden.value = email;
@@ -207,7 +204,6 @@
     const payload = { name, email, password, role: "aluno" };
     if (isAcessoEspecial) {
       payload.access_type      = "especial";
-      payload.native_language  = nativeLanguage;
       payload.target_language  = targetLanguage;
     } else {
       payload.whatsapp = whatsapp;

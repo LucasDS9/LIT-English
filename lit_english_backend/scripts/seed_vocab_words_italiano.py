@@ -1,27 +1,24 @@
 """
-Script de seed: cria OU ATUALIZA as palavras da tela "Aprender" via API
-(upsert). Como o campo `student_ids` é OPCIONAL (ver
-VocabWordCreate/create_vocab_word), não enviamos ele aqui de propósito — a
-API atribui a palavra automaticamente a todos os alunos aprovados no
-momento **que tenham a mesma língua-alvo** (campo `language`, abaixo —
-"ingles" aqui), e o backend garante que qualquer aluno aprovado depois (em
-admin.approve_student) dessa mesma língua também receba as mesmas palavras.
-Ou seja: a partir daqui, as palavras cadastradas aqui ficam nativas para
-todo aluno de inglês (curso normal) que cria conta e é aprovado, sem
-precisar selecionar aluno por aluno — e nunca vão parar num aluno de Acesso
-Especial (ex.: italiano).
+Script de seed: cria OU ATUALIZA (upsert) as palavras da tela "Aprender"
+(saudações) em ITALIANO, via API. É a versão em italiano de
+`seed_vocab_words.py` (que cadastra as mesmas 5 saudações em inglês) —
+mesmo formato, mesmo fluxo, só troca a LANGUAGE e o conteúdo das palavras.
+
+Como o campo `student_ids` é OPCIONAL (ver VocabWordCreate/create_vocab_word),
+não enviamos ele aqui de propósito — a API atribui a palavra automaticamente
+a todos os alunos aprovados no momento **que tenham a mesma língua-alvo**
+(campo `language`, abaixo — "italiano" aqui, ou seja: alunos de Acesso
+Especial com target_language == "italiano"), e o backend garante que
+qualquer aluno aprovado depois (em admin.approve_student) dessa mesma
+língua também receba as mesmas palavras.
 
 COMPORTAMENTO DE UPSERT (criar ou atualizar, sem duplicar):
 Antes de enviar cada item de WORDS, o script busca em GET /vocab-words se
 já existe uma palavra com o mesmo texto (`word`, sem diferenciar
 maiúscula/minúscula) e a mesma LANGUAGE. Se existir, atualiza essa palavra
-via PUT /vocab-words/{id} (tradução, dica/frase, distratores etc.). Se não
-existir, cria via POST /vocab-words. Ou seja: o fluxo do dia a dia é editar
-a lista WORDS abaixo (mudar uma tradução, corrigir uma dica, adicionar uma
-palavra nova no final) e rodar o script de novo — nunca duplica nada.
-
-Pra um lote de outra língua (ex.: italiano), copie este script e troque
-LANGUAGE abaixo — o resto do fluxo (login, upsert em /vocab-words) é igual.
+via PUT /vocab-words/{id}. Se não existir, cria via POST /vocab-words. Ou
+seja: pra editar algo, é só mudar a lista WORDS abaixo e rodar o script de
+novo — nunca duplica nada.
 
 Uso:
     cd lit_english_backend
@@ -29,12 +26,12 @@ Uso:
     API_BASE_URL="https://litenglish.up.railway.app" \
     PROFESSOR_EMAIL="seu-email@exemplo.com" \
     PROFESSOR_PASSWORD="sua-senha" \
-    python scripts/seed_vocab_words.py
+    python scripts/seed_vocab_words_italiano.py
 
 Este arquivo contém, por enquanto, só as 5 primeiras palavras (saudações)
-como TESTE. As demais (o restante das saudações + a tabela de expressões
-comuns como "Yes", "Thanks", "Sorry" etc.) podem ser acrescentadas depois
-na lista WORDS abaixo, seguindo o mesmo formato.
+como TESTE — o mesmo recorte usado no lote de inglês. As demais (o restante
+das saudações + a tabela de expressões comuns) podem ser acrescentadas
+depois na lista WORDS abaixo, seguindo o mesmo formato.
 """
 import os
 import sys
@@ -45,52 +42,51 @@ API_BASE_URL = os.environ.get("API_BASE_URL", "https://litenglish.up.railway.app
 PROFESSOR_EMAIL = os.environ.get("PROFESSOR_EMAIL")
 PROFESSOR_PASSWORD = os.environ.get("PROFESSOR_PASSWORD")
 
-# Língua-alvo deste lote de palavras. Alunos do curso normal são sempre
-# "ingles"; alunos de Acesso Especial usam o target_language do cadastro
-# (ex.: "italiano").
-LANGUAGE = "ingles"
+# Língua-alvo deste lote de palavras. Alunos de Acesso Especial usam o
+# target_language escolhido no cadastro — hoje o único valor aceito além de
+# "ingles" é "italiano".
+LANGUAGE = "italiano"
 
 # ---------------------------------------------------------------------------
-# TESTE: as 5 primeiras saudações da tabela. Estas usam `tip` (a coluna
-# "Quando usamos" da tabela) no lugar de `example_sentence`, já que
-# saudações não têm uma frase de exemplo — é assim que o card mostra a
-# dica logo abaixo da palavra principal.
+# TESTE: as 5 primeiras saudações, em italiano — mesma estrutura do lote de
+# inglês (Hi/Hello/Good morning/Good afternoon/Good evening), usando `tip`
+# no lugar de `example_sentence` (saudações não têm frase de exemplo).
 #
-# A tradução certa (`translation`) foi escolhida dentre as 4 alternativas
-# da tabela original (a que corresponde ao uso descrito); as outras 3
-# alternativas de cada linha viram `distractors`.
+# "Ciao" (informal) equivale a "Hi"; "Salve" (neutro/levemente mais formal)
+# equivale a "Hello", já que o italiano não tem duas palavras tão separadas
+# quanto o inglês para esse par.
 # ---------------------------------------------------------------------------
 WORDS = [
     {
-        "word": "Hi",
+        "word": "Ciao",
         "part_of_speech": "saudação",
         "tip": "Saudação informal e muito comum.",
         "translation": "Oi",
         "distractors": ["Até mais", "Boa noite", "Adeus"],
     },
     {
-        "word": "Hello",
+        "word": "Salve",
         "part_of_speech": "saudação",
-        "tip": "Saudação geral e neutra.",
+        "tip": "Saudação neutra, um pouco mais formal que 'Ciao'.",
         "translation": "Olá",
         "distractors": ["Tchau", "Até amanhã", "Se cuida"],
     },
     {
-        "word": "Good morning",
+        "word": "Buongiorno",
         "part_of_speech": "saudação",
         "tip": "Para cumprimentar alguém pela manhã.",
         "translation": "Bom dia",
         "distractors": ["Boa tarde", "Boa noite", "Até mais"],
     },
     {
-        "word": "Good afternoon",
+        "word": "Buon pomeriggio",
         "part_of_speech": "saudação",
         "tip": "Para cumprimentar alguém à tarde.",
         "translation": "Boa tarde",
         "distractors": ["Boa noite", "Até mais", "Bom dia"],
     },
     {
-        "word": "Good evening",
+        "word": "Buonasera",
         "part_of_speech": "saudação",
         "tip": "Para cumprimentar alguém à noite.",
         "translation": "Boa noite",
@@ -137,9 +133,9 @@ def main():
 
         # Sem `student_ids`: na CRIAÇÃO, a API atribui automaticamente a
         # todos os alunos aprovados agora (e aos aprovados depois) que
-        # tenham a mesma língua-alvo (LANGUAGE, acima). Na ATUALIZAÇÃO, não
-        # reenviamos student_ids de propósito, pra não alterar quem já está
-        # atribuído à palavra.
+        # tenham a mesma língua-alvo (LANGUAGE, acima — "italiano"). Na
+        # ATUALIZAÇÃO, não reenviamos student_ids de propósito, pra não
+        # alterar quem já está atribuído à palavra.
         payload = {**item, "language": LANGUAGE}
 
         if existing:

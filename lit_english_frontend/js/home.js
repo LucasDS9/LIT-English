@@ -9,6 +9,26 @@ const studentNameEl = document.getElementById("student-name");
 const roleLabelEl = document.getElementById("role-label");
 const welcomeTitleEl = document.getElementById("welcome-title");
 const metricsRootEl = document.getElementById("home-metrics");
+const homeQuoteEl = document.getElementById("home-quote");
+const homeAuthorEl = document.getElementById("home-author");
+
+// Frase de destaque exibida na tela inicial. Por padrão (curso normal de
+// inglês) usa a frase do Benjamin Franklin, já fixa no HTML. Alunos de
+// Acesso Especial (target_language, ex.: "italiano") veem uma frase própria
+// para a língua-alvo deles.
+const HOME_QUOTES_BY_TARGET_LANGUAGE = {
+  italiano: {
+    quote: "La mente non è un vaso da riempire, ma un fuoco da accendere.",
+    author: "Plutarco",
+  },
+};
+
+function applyHomeQuote(targetLanguage) {
+  const entry = HOME_QUOTES_BY_TARGET_LANGUAGE[targetLanguage];
+  if (!entry || !homeQuoteEl || !homeAuthorEl) return;
+  homeQuoteEl.innerHTML = `&ldquo;${entry.quote}&rdquo;`;
+  homeAuthorEl.textContent = `— ${entry.author}`;
+}
 
 document.getElementById("logout-btn").addEventListener("click", () => {
   const ok = window.confirm("Deseja sair da sua conta?");
@@ -97,6 +117,7 @@ async function init() {
   studentNameEl.textContent = user.name;
   roleLabelEl.textContent = "ALUNO";
   welcomeTitleEl.textContent = `Bem-vindo, ${firstName}!`;
+  applyHomeQuote(user.target_language);
 
   renderMetricIcons();
 

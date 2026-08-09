@@ -129,10 +129,11 @@ async function apiFetchBlob(path) {
 /**
  * Login no padrão OAuth2 (form-urlencoded) exigido pelo backend.
  */
-async function login(email, password) {
+async function login(email, password, accessType) {
   const body = new URLSearchParams();
   body.set("username", email);
   body.set("password", password);
+  if (accessType) body.set("access_type", accessType);
 
   const data = await apiFetch("/auth/login", {
     method: "POST",

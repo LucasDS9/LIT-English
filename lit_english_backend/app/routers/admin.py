@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_professor
 from app.database import get_db
 from app.models import (
+    AccessType,
     CardProgress,
     ExerciseAssignment,
     ExerciseBatchStudent,
@@ -28,6 +29,7 @@ from app.models import (
     VocabWordAssignment,
 )
 from app.routers.dashboard import build_dashboard_metrics
+from app.routers.vocab_words import student_language
 from app.schemas import StudentDetailsOut, UserOut
 
 router = APIRouter(prefix="/admin", tags=["Admin (Professor)"])
@@ -46,11 +48,26 @@ def _get_student_or_404(student_id: int, db: Session) -> User:
 
 @router.get("/students", response_model=list[UserOut])
 def list_students(
+    access_type: str | None = None,
     db: Session = Depends(get_db),
     _professor: User = Depends(get_current_professor),
 ):
-    """Lista todos os alunos cadastrados (aprovados e pendentes)."""
-    return db.query(User).filter(User.role == UserRole.aluno).order_by(User.created_at.desc()).all()
+    """
+    Lista todos os alunos cadastrados (aprovados e pendentes).
+
+    `access_type` (opcional: "padrao" ou "especial") filtra pra só um dos
+    dois grupos — usado nas telas de envio de conteúdo (Flashcards, Read and
+    Listen) pra não misturar aluno de "Acesso Especial" (ex.: italiano) com
+    quem faz o curso normal (inglês), já que o conteúdo desses módulos ainda
+    não é separado por língua.
+    """
+    query = db.query(User).filter(User.role == UserRole.aluno)
+    if access_type:
+        try:
+            query = query.filter(User.access_type == AccessType(access_type))
+        except ValueError:
+            pass
+    return query.order_by(User.created_at.desc()).all()
 
 
 @router.get("/students/{student_id}/details", response_model=StudentDetailsOut)
@@ -75,21 +92,27 @@ def approve_student(
     """Aprova o acesso de um aluno.
 
     Também atribui a ele, automaticamente, todas as palavras já cadastradas
-    na tela Aprender — assim o vocabulário fica "nativo": todo aluno que
-    cria conta e é aprovado já entra com as mesmas palavras, sem o
-    professor precisar selecioná-lo manualmente em cada uma.
+    na tela Aprender **na língua dele** — curso normal (access_type=padrao)
+    recebe as palavras de "ingles"; aluno de Acesso Especial recebe as da
+    língua escolhida no cadastro (target_language, ex.: "italiano"). Assim
+    o vocabulário fica "nativo" sem misturar línguas, e sem o professor
+    precisar selecionar aluno por aluno.
     """
     student = _get_student_or_404(student_id, db)
     student.is_approved = True
 
+    language = student_language(student)
     already_assigned = {
         row[0]
         for row in db.query(VocabWordAssignment.word_id)
         .filter(VocabWordAssignment.student_id == student.id)
         .all()
     }
-    all_word_ids = [row[0] for row in db.query(VocabWord.id).all()]
-    for word_id in all_word_ids:
+    matching_word_ids = [
+        row[0]
+        for row in db.query(VocabWord.id).filter(VocabWord.language == language).all()
+    ]
+    for word_id in matching_word_ids:
         if word_id not in already_assigned:
             db.add(VocabWordAssignment(word_id=word_id, student_id=student.id))
 

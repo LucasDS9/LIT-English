@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
 from app.models import (
+    AccessType,
     User,
     UserRole,
     VocabWord,
@@ -69,18 +70,34 @@ def _validate_student_ids(student_ids: list[int], db: Session) -> None:
         raise HTTPException(status_code=404, detail="Um ou mais alunos selecionados não foram encontrados.")
 
 
-def _all_approved_student_ids(db: Session) -> list[int]:
-    return [
-        row[0]
-        for row in db.query(User.id).filter(User.role == UserRole.aluno, User.is_approved.is_(True)).all()
-    ]
+def student_language(student: User) -> str:
+    """
+    A que língua-alvo um aluno pertence, pra fins de conteúdo "nativo":
+    - Curso normal (access_type=padrao): sempre "ingles".
+    - Acesso Especial (access_type=especial): a língua escolhida no
+      cadastro (target_language) — ex.: "italiano".
+    """
+    if student.access_type == AccessType.especial and student.target_language:
+        return student.target_language.strip().lower()
+    return "ingles"
 
 
-def _resolve_student_ids(student_ids: list[int] | None, db: Session) -> list[int]:
+def _all_approved_student_ids_for_language(language: str, db: Session) -> list[int]:
+    language = (language or "ingles").strip().lower()
+    students = (
+        db.query(User)
+        .filter(User.role == UserRole.aluno, User.is_approved.is_(True))
+        .all()
+    )
+    return [s.id for s in students if student_language(s) == language]
+
+
+def _resolve_student_ids(student_ids: list[int] | None, language: str, db: Session) -> list[int]:
     """Sem `student_ids`, a palavra fica nativa: vai pra todos os alunos
-    aprovados agora (e os aprovados depois recebem via approve_student)."""
+    aprovados agora cuja língua bate com `language` (e os aprovados depois
+    recebem via approve_student)."""
     if not student_ids:
-        return _all_approved_student_ids(db)
+        return _all_approved_student_ids_for_language(language, db)
     _validate_student_ids(student_ids, db)
     return student_ids
 
@@ -125,6 +142,7 @@ def _to_word_out(word: VocabWord) -> VocabWordOut:
         example_sentence=word.example_sentence,
         tip=word.tip,
         distractors=_unpack_distractors(word.distractors),
+        language=word.language,
         created_at=word.created_at,
         students=[{"id": s.id, "name": s.name} for s in word.students],
     )
@@ -140,9 +158,13 @@ def create_vocab_word(
     db: Session = Depends(get_db),
     _professor: User = Depends(get_current_professor),
 ):
-    student_ids = _resolve_student_ids(data.student_ids, db)
+    language = (data.language or "ingles").strip().lower()
+    student_ids = _resolve_student_ids(data.student_ids, language, db)
     if not student_ids:
-        raise HTTPException(status_code=404, detail="Nenhum aluno aprovado encontrado para atribuir a palavra.")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Nenhum aluno aprovado encontrado para atribuir a palavra (língua: {language}).",
+        )
     distractors = _validate_distractors(data.distractors, data.translation)
     example_sentence, tip = _validate_example_or_tip(data.example_sentence, data.tip)
 
@@ -153,6 +175,7 @@ def create_vocab_word(
         example_sentence=example_sentence,
         tip=tip,
         distractors=_pack_distractors(distractors),
+        language=language,
     )
     db.add(word)
     db.flush()
@@ -210,6 +233,9 @@ def update_vocab_word(
         _validate_distractors(_unpack_distractors(word.distractors), new_translation)
     if data.translation is not None:
         word.translation = new_translation
+
+    if data.language is not None:
+        word.language = data.language.strip().lower()
 
     if data.student_ids is not None:
         if len(data.student_ids) == 0:

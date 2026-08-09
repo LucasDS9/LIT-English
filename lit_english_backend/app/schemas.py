@@ -246,10 +246,14 @@ class VocabWordCreate(BaseModel):
     # Sempre exatamente 3 opções erradas — junto com `translation` formam as
     # 4 opções fixas mostradas ao aluno.
     distractors: List[str] = Field(min_length=3, max_length=3)
+    # Língua-alvo da palavra ("ingles" por padrão, hoje o único conteúdo
+    # existente). Determina pra quem ela fica "nativa" — ver student_ids.
+    language: str = "ingles"
     # Se omitido (ou vazio), a palavra é atribuída automaticamente a TODOS
-    # os alunos aprovados no momento — e também a qualquer aluno aprovado
-    # depois (ver approve_student em admin.py), ficando nativa pra tela
-    # Aprender de todo mundo sem precisar selecionar aluno por aluno.
+    # os alunos aprovados no momento cuja língua bate com `language` — e
+    # também a qualquer aluno aprovado depois (ver approve_student em
+    # admin.py), ficando nativa pra tela Aprender de todos os alunos
+    # daquela língua, sem precisar selecionar aluno por aluno.
     student_ids: Optional[List[int]] = None
 
 
@@ -260,6 +264,7 @@ class VocabWordUpdate(BaseModel):
     example_sentence: Optional[str] = None
     tip: Optional[str] = None
     distractors: Optional[List[str]] = Field(default=None, min_length=3, max_length=3)
+    language: Optional[str] = None
     student_ids: Optional[List[int]] = None
 
 
@@ -271,6 +276,7 @@ class VocabWordOut(BaseModel):
     example_sentence: Optional[str] = None
     tip: Optional[str] = None
     distractors: List[str]
+    language: str
     created_at: datetime
     students: List[FlashcardStudentOut] = []
 
