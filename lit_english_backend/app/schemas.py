@@ -6,7 +6,12 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
-from app.models import ExerciseType, ReadingLevel, UserRole, VocabWordStatus
+from app.models import AccessType, ExerciseType, ReadingLevel, UserRole, VocabWordStatus
+
+# Línguas-alvo aceitas hoje no cadastro de Acesso Especial. Só existe estrutura
+# (campo salvo no usuário) — ainda sem conteúdo/curso montado para elas.
+# Pra liberar uma nova língua no futuro, basta adicionar aqui.
+ALLOWED_TARGET_LANGUAGES = {"italiano"}
 
 
 # ---------- Auth ----------
@@ -17,6 +22,9 @@ class UserCreate(BaseModel):
     whatsapp: Optional[str] = None
     password: str
     role: UserRole = UserRole.aluno
+    access_type: AccessType = AccessType.padrao
+    native_language: Optional[str] = None
+    target_language: Optional[str] = None
 
 
 class UserLogin(BaseModel):
@@ -31,6 +39,9 @@ class UserOut(BaseModel):
     whatsapp: Optional[str] = None
     role: UserRole
     is_approved: bool
+    access_type: AccessType
+    native_language: Optional[str] = None
+    target_language: Optional[str] = None
     created_at: datetime
 
     class Config:

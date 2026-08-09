@@ -258,6 +258,95 @@ svg {
   margin: 0;
 }
 
+/* ==========================================================================
+   Access choice page ("Como deseja acessar?")
+   ========================================================================== */
+
+.access-wrapper {
+  width: 100%;
+  max-width: 780px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+
+.access-heading {
+  text-align: center;
+}
+
+.access-heading h1 {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.access-heading .muted {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.choice-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.choice-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 32px 24px 28px;
+}
+
+.choice-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--primary-pale);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.choice-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke: var(--primary);
+}
+
+.choice-card h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 8px;
+}
+
+.choice-card p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 22px;
+  flex-grow: 1;
+}
+
+.choice-card .btn {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .choice-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .auth-link {
   color: #861E19;
   font-weight: 600;

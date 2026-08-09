@@ -27,6 +27,19 @@ class UserRole(str, enum.Enum):
     aluno = "aluno"
 
 
+class AccessType(str, enum.Enum):
+    """
+    Como o aluno entrou na plataforma:
+      - padrao: cadastro normal (tela "Entrar como aluno"), acesso completo
+        (inclui o menu de Exercícios).
+      - especial: cadastro pela tela "Acesso Especial", escolhe língua nativa
+        e língua-alvo; ainda sem conteúdo de exercícios, então esse menu fica
+        oculto pra esse tipo de aluno.
+    """
+    padrao = "padrao"
+    especial = "especial"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -37,6 +50,9 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     role = Column(Enum(UserRole), nullable=False, default=UserRole.aluno)
     is_approved = Column(Boolean, default=False, nullable=False)
+    access_type = Column(Enum(AccessType), nullable=False, default=AccessType.padrao)
+    native_language = Column(String, nullable=True)   # só preenchido quando access_type == especial
+    target_language = Column(String, nullable=True)   # idem — hoje só "italiano" é aceito
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

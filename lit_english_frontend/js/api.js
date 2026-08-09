@@ -147,5 +147,24 @@ async function login(email, password) {
 async function fetchCurrentUser() {
   const user = await apiFetch("/auth/me");
   Auth.setUser(user);
+  applyAccessRestrictions(user);
   return user;
+}
+
+/**
+ * Alunos que se cadastraram pelo "Acesso Especial" (access_type === "especial")
+ * ainda não têm conteúdo de exercícios — então o menu "Exercícios" fica
+ * escondido, e quem tentar acessar exercicios.html direto pela URL é
+ * redirecionado pra home. Não afeta professores nem alunos do cadastro padrão.
+ */
+function applyAccessRestrictions(user) {
+  if (!user || user.access_type !== "especial") return;
+
+  const navExercicios = document.getElementById("nav-exercicios");
+  if (navExercicios) navExercicios.style.display = "none";
+
+  const page = window.location.pathname.split("/").pop();
+  if (page === "exercicios.html") {
+    window.location.href = "home.html";
+  }
 }

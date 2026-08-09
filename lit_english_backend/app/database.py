@@ -255,6 +255,37 @@ def run_migrations():
                     )
                     conn.rollback()
 
+            # Acesso Especial: colunas novas em `users` (access_type,
+            # native_language, target_language) — cadastro pela tela
+            # "Acesso Especial" (Nome, e-mail @litstudent, senha, língua
+            # nativa, língua-alvo). Bancos antigos não têm essas colunas nem
+            # o tipo enum `accesstype` ainda.
+            if _table_exists(conn, "users"):
+                try:
+                    conn.execute(text(
+                        "DO $$ BEGIN "
+                        "CREATE TYPE accesstype AS ENUM ('padrao', 'especial'); "
+                        "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+                    ))
+                    conn.commit()
+                    if not _col_exists(conn, "users", "access_type"):
+                        conn.execute(text(
+                            "ALTER TABLE users ADD COLUMN access_type accesstype "
+                            "NOT NULL DEFAULT 'padrao'"
+                        ))
+                        conn.commit()
+                    if not _col_exists(conn, "users", "native_language"):
+                        conn.execute(text("ALTER TABLE users ADD COLUMN native_language VARCHAR"))
+                        conn.commit()
+                    if not _col_exists(conn, "users", "target_language"):
+                        conn.execute(text("ALTER TABLE users ADD COLUMN target_language VARCHAR"))
+                        conn.commit()
+                except Exception:
+                    logger.exception(
+                        "Falha ao migrar users (access_type/native_language/target_language), ignorando."
+                    )
+                    conn.rollback()
+
             for enum_name, value in _ENUM_VALUE_FIXES:
                 try:
                     _add_enum_value(conn, enum_name, value)
