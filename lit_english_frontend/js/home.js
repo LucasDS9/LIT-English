@@ -1,34 +1,15 @@
 /* ==========================================================================
    LIT English — home.js
-   Tela inicial do aluno: saudação + métricas (Taxa de Acerto, Eficiência,
-   LIT Points, Exercícios Feitos, Tempo de Texto, Flashcards), consumindo
-   GET /dashboard/metrics.
+   Tela inicial do aluno: saudação + cards de LIT Points e Streak,
+   consumindo GET /dashboard/metrics.
+   (Streak ainda não possui campo próprio no backend, então permanece em 0
+   até que essa métrica seja implementada na API.)
    ========================================================================== */
 
 const studentNameEl = document.getElementById("student-name");
 const roleLabelEl = document.getElementById("role-label");
 const welcomeTitleEl = document.getElementById("welcome-title");
 const metricsRootEl = document.getElementById("home-metrics");
-const homeQuoteEl = document.getElementById("home-quote");
-const homeAuthorEl = document.getElementById("home-author");
-
-// Frase de destaque exibida na tela inicial. Por padrão (curso normal de
-// inglês) usa a frase do Benjamin Franklin, já fixa no HTML. Alunos de
-// Acesso Especial (target_language, ex.: "italiano") veem uma frase própria
-// para a língua-alvo deles.
-const HOME_QUOTES_BY_TARGET_LANGUAGE = {
-  italiano: {
-    quote: "La mente non è un vaso da riempire, ma un fuoco da accendere.",
-    author: "Plutarco",
-  },
-};
-
-function applyHomeQuote(targetLanguage) {
-  const entry = HOME_QUOTES_BY_TARGET_LANGUAGE[targetLanguage];
-  if (!entry || !homeQuoteEl || !homeAuthorEl) return;
-  homeQuoteEl.innerHTML = `&ldquo;${entry.quote}&rdquo;`;
-  homeAuthorEl.textContent = `— ${entry.author}`;
-}
 
 document.getElementById("logout-btn").addEventListener("click", () => {
   const ok = window.confirm("Deseja sair da sua conta?");
@@ -37,10 +18,12 @@ document.getElementById("logout-btn").addEventListener("click", () => {
 
 // Injeta os ícones (SVG) de cada card de métrica.
 function renderMetricIcons() {
-  metricsRootEl.querySelectorAll("[data-icon]").forEach((el) => {
-    const name = el.getAttribute("data-icon");
-    if (Icons[name]) el.innerHTML = Icons[name];
-  });
+  const iconEls = metricsRootEl.querySelectorAll("[data-icon]");
+  for (let i = 0; i < iconEls.length; i++) {
+    const el = iconEls[i];
+    const iconName = el.getAttribute("data-icon");
+    if (Icons[iconName]) el.innerHTML = Icons[iconName];
+  }
 }
 
 function setField(cardId, field, value) {
@@ -51,30 +34,12 @@ function setField(cardId, field, value) {
 }
 
 function renderMetrics(metrics) {
-  // Taxa de acerto
-  setField("metric-accuracy", "value", metrics.accuracy_rate);
-
-  // Eficiência (performance) — exibida em porcentagem
-  const performancePercent = metrics.performance_max
-    ? Math.round((metrics.performance_points / metrics.performance_max) * 100)
-    : 0;
-  setField("metric-performance", "value", performancePercent);
-
   // LIT Points
   setField("metric-litpoints", "value", metrics.lit_points.toLocaleString("pt-BR"));
 
-  // Exercícios feitos
-  setField("metric-exercises", "today", metrics.exercises_today);
-  setField("metric-exercises", "target", metrics.exercises_today_target);
-  setField("metric-exercises", "total", metrics.exercises_total);
+  // Streak: sem campo próprio na API ainda — mantém "0" (ver nota no topo do arquivo).
 
-  // Tempo de texto
-  setField("metric-reading", "value", metrics.reading_minutes);
-
-  // Flashcards revisados
-  setField("metric-flashcards", "value", metrics.flashcards_reviewed);
-
-  metricsRootEl.querySelectorAll(".metric-card").forEach((card) => {
+  metricsRootEl.querySelectorAll(".stat-card").forEach((card) => {
     card.classList.remove("is-loading");
   });
 }
@@ -84,9 +49,9 @@ async function loadMetrics() {
     const metrics = await apiFetch("/dashboard/metrics");
     renderMetrics(metrics);
   } catch (err) {
-    // Mantém os cards visíveis com "—" em vez de quebrar a tela inicial;
+    // Mantém os cards visíveis com "0" em vez de quebrar a tela inicial;
     // o aluno ainda vê a saudação normalmente.
-    metricsRootEl.querySelectorAll(".metric-card").forEach((card) => {
+    metricsRootEl.querySelectorAll(".stat-card").forEach((card) => {
       card.classList.remove("is-loading");
     });
   }
@@ -117,14 +82,13 @@ async function init() {
   studentNameEl.textContent = user.name;
   roleLabelEl.textContent = "ALUNO";
   welcomeTitleEl.textContent = `Bem-vindo, ${firstName}!`;
-  applyHomeQuote(user.target_language);
 
   renderMetricIcons();
 
   if (!user.is_approved) {
     // Conta ainda não aprovada: sem atividades registradas, não há métricas
     // pra buscar — evita uma chamada 403 desnecessária.
-    metricsRootEl.querySelectorAll(".metric-card").forEach((card) => {
+    metricsRootEl.querySelectorAll(".stat-card").forEach((card) => {
       card.classList.remove("is-loading");
     });
     return;

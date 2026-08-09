@@ -69,4 +69,8 @@ const Icons = {
   cards: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6.3" y="4" width="12" height="16" rx="2.2" transform="rotate(-8 6.3 4)"/><rect x="6" y="4.6" width="12" height="16" rx="2.2" fill="var(--bg)"/><path d="M9.5 9.5h5M9.5 13h5M9.5 16.5h3"/></svg>`,
 
   quote: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M4.5 8.2c0-2.4 1.7-4.1 4-4.4l.4 1.6c-1.4.3-2.3 1.1-2.5 2.1a1.9 1.9 0 0 1 .6-.1 2.3 2.3 0 0 1 2.3 2.3 2.4 2.4 0 0 1-2.4 2.4A2.5 2.5 0 0 1 4.5 9.6v-1.4Z"/><path d="M13 8.2c0-2.4 1.7-4.1 4-4.4l.4 1.6c-1.4.3-2.3 1.1-2.5 2.1a1.9 1.9 0 0 1 .6-.1 2.3 2.3 0 0 1 2.3 2.3 2.4 2.4 0 0 1-2.4 2.4A2.5 2.5 0 0 1 13 9.6v-1.4Z"/></svg>`,
+
+  flame: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M12.963 2.286a.75.75 0 0 0-1.071-.136 9.742 9.742 0 0 0-3.539 6.176 7.547 7.547 0 0 1-1.705-1.715.75.75 0 0 0-1.152-.082A9 9 0 1 0 15.68 4.534a7.46 7.46 0 0 1-2.717-2.248ZM15.75 14.25a3.75 3.75 0 1 1-7.313-1.172c.628.465 1.35.81 2.133 1a5.99 5.99 0 0 1 1.925-3.545 3.75 3.75 0 0 1 3.255 3.717Z"/></svg>`,
+
+  trophyFilled: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M6 4h12v4.5a6 6 0 0 1-4.75 5.87V16h2.25a1 1 0 0 1 1 1v.5H9.5V17a1 1 0 0 1 1-1h2.25v-1.63A6 6 0 0 1 6 8.5V4Z"/><path d="M6 5.3H3.3a2.7 2.7 0 0 0 2.85 3.85 6 6 0 0 1-.15-1.15V5.3Z"/><path d="M18 5.3h2.7a2.7 2.7 0 0 1-2.85 3.85c.1-.37.15-.76.15-1.15V5.3Z"/><path d="M8.5 19h7l.6 2H7.9l.6-2Z"/></svg>`,
 };
