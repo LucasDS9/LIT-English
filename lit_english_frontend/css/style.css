@@ -2092,6 +2092,8 @@ svg {
   /* ---- Sidebar vira uma barra superior compacta (logo + aluno) ---- */
   .sidebar {
     width: 100%;
+    min-height: 0;
+    height: auto;
     flex-direction: row;
     align-items: center;
     justify-content: space-between;

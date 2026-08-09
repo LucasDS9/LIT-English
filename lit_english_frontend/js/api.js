@@ -37,9 +37,24 @@ const Auth = {
     localStorage.removeItem(USER_KEY);
   },
 
+  /**
+   * Descobre para qual tela de login o usuário deve voltar: alunos/professores
+   * do cadastro padrão voltam para "login.html", enquanto contas de Acesso
+   * Especial (access_type === "especial") voltam para "login.html?acesso=especial".
+   * Precisa ser chamado ANTES de Auth.clear(), enquanto os dados do usuário
+   * ainda estão salvos localmente.
+   */
+  loginRedirectUrl() {
+    const user = this.getUser();
+    return user && user.access_type === "especial"
+      ? "login.html?acesso=especial"
+      : "login.html";
+  },
+
   logout() {
+    const redirectUrl = this.loginRedirectUrl();
     this.clear();
-    window.location.href = "login.html";
+    window.location.href = redirectUrl;
   },
 };
 

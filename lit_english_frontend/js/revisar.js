@@ -404,7 +404,7 @@ async function loadQueue() {
 
 async function init() {
   if (!Auth.isLoggedIn()) {
-    window.location.href = "login.html";
+    window.location.href = Auth.loginRedirectUrl();
     return;
   }
 
@@ -412,8 +412,9 @@ async function init() {
   try {
     user = await fetchCurrentUser();
   } catch (err) {
+    const redirectUrl = Auth.loginRedirectUrl();
     Auth.clear();
-    window.location.href = "login.html";
+    window.location.href = redirectUrl;
     return;
   }
 
