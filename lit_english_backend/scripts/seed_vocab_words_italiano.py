@@ -12,13 +12,18 @@ Especial com target_language == "italiano"), e o backend garante que
 qualquer aluno aprovado depois (em admin.approve_student) dessa mesma
 língua também receba as mesmas palavras.
 
-COMPORTAMENTO DE UPSERT (criar ou atualizar, sem duplicar):
+COMPORTAMENTO DE UPSERT (criar, atualizar ou deixar como está):
 Antes de enviar cada item de WORDS, o script busca em GET /vocab-words se
 já existe uma palavra com o mesmo texto (`word`, sem diferenciar
-maiúscula/minúscula) e a mesma LANGUAGE. Se existir, atualiza essa palavra
-via PUT /vocab-words/{id}. Se não existir, cria via POST /vocab-words. Ou
-seja: pra editar algo, é só mudar a lista WORDS abaixo e rodar o script de
-novo — nunca duplica nada.
+maiúscula/minúscula) e a mesma LANGUAGE. A partir daí:
+- Não existe ainda            -> cria via POST /vocab-words ("Criado").
+- Existe e está diferente     -> atualiza via PUT /vocab-words/{id}
+                                  ("Atualizado").
+- Existe e já está idêntica   -> não faz nenhuma chamada de escrita
+                                  ("Inalterado").
+Ou seja: pra editar algo, é só mudar a lista WORDS abaixo e rodar o script
+de novo — nunca duplica nada, e só grava no banco o que de fato mudou. No
+final, o script imprime um resumo com a contagem de cada caso.
 
 Uso:
     cd lit_english_backend
@@ -110,6 +115,36 @@ def _fetch_existing_words(api_base_url: str, headers: dict) -> dict:
     return existing
 
 
+def _norm(value: str | None) -> str | None:
+    value = (value or "").strip()
+    return value or None
+
+
+def _needs_update(existing: dict, item: dict, language: str) -> bool:
+    """
+    Compara o que já está cadastrado com o que o item de WORDS quer enviar.
+    Só chamamos o PUT se algo realmente for diferente — assim uma palavra
+    que já está em dia não sofre uma escrita desnecessária no banco.
+    """
+    if existing["word"].strip() != item["word"].strip():
+        return True
+    if existing["part_of_speech"].strip() != item["part_of_speech"].strip():
+        return True
+    if existing["translation"].strip() != item["translation"].strip():
+        return True
+    if _norm(existing.get("example_sentence")) != _norm(item.get("example_sentence")):
+        return True
+    if _norm(existing.get("tip")) != _norm(item.get("tip")):
+        return True
+    existing_distractors = sorted(d.strip().lower() for d in existing["distractors"])
+    item_distractors = sorted(d.strip().lower() for d in item["distractors"])
+    if existing_distractors != item_distractors:
+        return True
+    if existing["language"].strip().lower() != language.strip().lower():
+        return True
+    return False
+
+
 def main():
     if not PROFESSOR_EMAIL or not PROFESSOR_PASSWORD:
         print("Defina PROFESSOR_EMAIL e PROFESSOR_PASSWORD nas variáveis de ambiente.")
@@ -127,6 +162,8 @@ def main():
     print("Verificando palavras já cadastradas...")
     existing_words = _fetch_existing_words(API_BASE_URL, headers)
 
+    summary = {"Criado": 0, "Atualizado": 0, "Inalterado": 0}
+
     for item in WORDS:
         key = (item["word"].strip().lower(), LANGUAGE.strip().lower())
         existing = existing_words.get(key)
@@ -137,6 +174,14 @@ def main():
         # ATUALIZAÇÃO, não reenviamos student_ids de propósito, pra não
         # alterar quem já está atribuído à palavra.
         payload = {**item, "language": LANGUAGE}
+
+        if existing and not _needs_update(existing, item, LANGUAGE):
+            # Já está tudo igual: não chama a API, só reporta.
+            n_students = len(existing.get("students", []))
+            print(f"Inalterado: '{existing['word']}' (id={existing['id']}) -> {existing['translation']} "
+                  f"[{n_students} aluno(s) atribuído(s)]")
+            summary["Inalterado"] += 1
+            continue
 
         if existing:
             word_id = existing["id"]
@@ -155,8 +200,13 @@ def main():
         n_students = len(result.get("students", []))
         print(f"{action}: '{result['word']}' (id={result['id']}) -> {result['translation']} "
               f"[{n_students} aluno(s) atribuído(s)]")
+        summary[action] += 1
 
-    print("Concluído.")
+    print(
+        f"Concluído. Criado: {summary['Criado']} | "
+        f"Atualizado: {summary['Atualizado']} | "
+        f"Inalterado: {summary['Inalterado']}"
+    )
 
 
 if __name__ == "__main__":
