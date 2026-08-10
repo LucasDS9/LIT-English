@@ -317,6 +317,7 @@ async function submitReview(flashcardId, quality, qualityRow) {
 }
 
 function renderFinished() {
+  SFX.play("finish");
   renderStateBox({
     icon: Icons.checkCircle,
     title: "Revisão concluída! 🎉",

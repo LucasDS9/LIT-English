@@ -217,6 +217,7 @@ function renderStateBox({ icon, title, text, actionLabel, onAction }) {
 }
 
 function renderFinished() {
+  SFX.play("finish");
   renderStateBox({
     icon: Icons.checkCircle,
     title: "Sessão concluída! 🎉",
@@ -361,6 +362,8 @@ async function selectOption(card, selectedOption, btn, optionsGrid) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ selected_option: selectedOption }),
     });
+
+    SFX.play(result.correct ? "correct" : "wrong");
 
     optionsGrid.querySelectorAll(".learn-option-btn").forEach((b) => {
       if (b.textContent === result.correct_answer) {

@@ -137,6 +137,7 @@ async function loadExercises() {
 }
 
 function renderFinished() {
+  SFX.play("finish");
   renderStateBox({
     icon: Icons.checkCircle,
     title: "Sessão concluída! 🎉",
@@ -238,6 +239,11 @@ function buildResultArea() {
 
 function showResult(resultArea, result) {
   resultArea.hidden = false;
+
+  if (!result.correct) {
+    SFX.play("wrong");
+  }
+
   const reasonHtml = result.reason
     ? `<div style="font-weight:400;font-size:0.9em;margin-top:4px;">${result.reason}</div>`
     : "";
