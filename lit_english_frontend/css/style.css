@@ -738,17 +738,38 @@ svg {
 
 @media (max-width: 640px) {
   .home-stats {
-    flex-direction: column;
+    gap: 10px;
+    margin: 28px auto 0;
+    padding: 0 4px;
+  }
+  .stat-card {
+    padding: 22px 10px;
+    gap: 10px;
+  }
+  .stat-icon,
+  .stat-icon svg {
+    width: 34px;
+    height: 34px;
+  }
+  .stat-label {
+    font-size: 11px;
+    letter-spacing: 0.4px;
+  }
+  .stat-value {
+    font-size: 26px;
+    gap: 5px;
+  }
+  .stat-unit {
+    font-size: 13px;
   }
   .stat-divider {
-    flex-direction: row;
-    width: auto;
-    padding: 4px 0;
+    width: 34px;
+    gap: 8px;
   }
-  .divider-line {
-    height: 1.5px;
-    width: auto;
-    flex: 1;
+  .stat-divider .stat-icon,
+  .stat-divider .stat-icon svg {
+    width: 20px;
+    height: 20px;
   }
 }
 
@@ -1050,6 +1071,18 @@ svg {
 
 .learn-card .card-body {
   gap: 18px;
+}
+
+.learn-card.status-nova {
+  background: var(--primary-pale);
+}
+
+.learn-card.status-em_revisao {
+  background: #ececec;
+}
+
+.learn-card.status-aprendida {
+  background: var(--bg);
 }
 
 .learn-card .front-text {
@@ -2162,8 +2195,7 @@ svg {
     gap: 2px;
     z-index: 50;
     box-shadow: 0 -4px 16px rgba(20, 20, 30, 0.06);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: visible;
   }
 
   .nav-spacer {
@@ -2173,19 +2205,29 @@ svg {
   .nav-item {
     width: auto;
     flex: 1 1 0;
-    min-width: 58px;
+    min-width: 0;
     flex-direction: column;
     justify-content: center;
     gap: 3px;
-    padding: 6px 2px;
+    padding: 7px 2px;
     border-radius: 10px;
     text-align: center;
+    color: var(--nav-inactive);
+  }
+
+  .nav-item svg {
+    stroke: currentColor;
+  }
+
+  .nav-item.active {
+    color: #FFFFFF;
   }
 
   .nav-item span {
     display: block;
-    font-size: 10px;
+    font-size: 9.5px;
     line-height: 1.15;
+    white-space: nowrap;
   }
 
   .nav-item svg {
