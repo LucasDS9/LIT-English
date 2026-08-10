@@ -9,9 +9,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import nullsfirst
 from sqlalchemy.orm import Session
 
+from app.ai_translate import TranslationUnavailable, translate_to_portuguese
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
 from app.lit_points import maybe_award_flashcard_daily_bonus
+from app.routers.vocab_words import student_language
 from app.models import (
     CardProgress,
     Flashcard,
@@ -374,18 +376,32 @@ def self_add_flashcard(
     student: User = Depends(get_current_approved_user),
 ):
     """
-    Aluno clicou em "Salvar frase nos flashcards" no popup de vocabulário
-    (Read and Listen). Cria um flashcard já atribuído a ele mesmo — sem
-    depender do professor —, pra aparecer na fila de revisão (SM-2) igual
-    a qualquer outro flashcard.
+    Aluno cria um flashcard próprio, sem depender do professor — seja
+    clicando em "Salvar frase nos flashcards" no popup de vocabulário (Read
+    and Listen, front+back sempre vêm preenchidos), seja pelo botão
+    "Adicionar flashcard" da tela de Flashcards (frente na língua-alvo do
+    aluno; verso opcional — se vier vazio, geramos a tradução
+    automaticamente pra português, na língua-alvo certa: inglês pro curso
+    normal, ou a língua do Acesso Especial, ex.: italiano).
+    Card já sai atribuído a ele mesmo, pra aparecer na fila de revisão
+    (SM-2) igual a qualquer outro flashcard.
     """
     if student.role != UserRole.aluno:
         raise HTTPException(status_code=403, detail="Apenas alunos podem salvar flashcards por conta própria.")
 
     front = data.front.strip()
-    back = data.back.strip()
-    if not front or not back:
-        raise HTTPException(status_code=422, detail="Frase (frente e verso) não pode ser vazia.")
+    if not front:
+        raise HTTPException(status_code=422, detail="Escreva o termo ou frase na língua-alvo.")
+
+    back = (data.back or "").strip()
+    if not back:
+        try:
+            back = translate_to_portuguese(front, student_language(student))
+        except (TranslationUnavailable, ValueError):
+            raise HTTPException(
+                status_code=502,
+                detail="Não foi possível gerar a tradução automaticamente agora. Preencha o verso e tente de novo.",
+            )
 
     card = Flashcard(front=front, back=back)
     db.add(card)

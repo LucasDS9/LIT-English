@@ -87,9 +87,14 @@ class FlashcardOut(BaseModel):
 
 
 class FlashcardSelfAdd(BaseModel):
-    """Aluno salvando uma frase (do popup de vocabulário) direto como flashcard."""
+    """
+    Aluno salvando um flashcard próprio — seja pelo popup de vocabulário
+    (Read and Listen, front+back sempre preenchidos) seja pelo botão
+    "Adicionar flashcard" da tela de Flashcards, onde `back` é opcional:
+    se vier vazio, o backend gera a tradução automaticamente.
+    """
     front: str
-    back: str
+    back: Optional[str] = None
 
 
 # ---------- Revisão ----------

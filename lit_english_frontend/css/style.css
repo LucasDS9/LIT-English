@@ -1061,26 +1061,19 @@ svg {
 }
 
 .vocab-status-dot.is-em-revisao {
-  background: #b7b7b7;
+  background: #D64F4F;
 }
 
 .vocab-status-dot.is-aprendida {
-  background: var(--bg);
-  border-color: var(--border);
+  background: #D18C8C;
 }
 
 .learn-card .card-body {
   gap: 18px;
 }
 
-.learn-card.status-nova {
-  background: var(--primary-pale);
-}
-
-.learn-card.status-em_revisao {
-  background: #ececec;
-}
-
+.learn-card.status-nova,
+.learn-card.status-em_revisao,
 .learn-card.status-aprendida {
   background: var(--bg);
 }
@@ -1102,6 +1095,30 @@ svg {
   height: 3px;
   border-radius: 2px;
   background: var(--primary);
+}
+
+.learn-card.status-nova .front-text {
+  color: var(--primary);
+}
+
+.learn-card.status-nova .front-text::after {
+  background: var(--primary);
+}
+
+.learn-card.status-em_revisao .front-text {
+  color: #D64F4F;
+}
+
+.learn-card.status-em_revisao .front-text::after {
+  background: #D64F4F;
+}
+
+.learn-card.status-aprendida .front-text {
+  color: #D18C8C;
+}
+
+.learn-card.status-aprendida .front-text::after {
+  background: #D18C8C;
 }
 
 .learn-pos {
@@ -1136,6 +1153,18 @@ svg {
 
 .learn-sentence b {
   color: var(--primary);
+}
+
+.learn-card.status-nova .learn-sentence b {
+  color: var(--primary);
+}
+
+.learn-card.status-em_revisao .learn-sentence b {
+  color: #D64F4F;
+}
+
+.learn-card.status-aprendida .learn-sentence b {
+  color: #D18C8C;
 }
 
 .learn-options {
@@ -1635,6 +1664,65 @@ svg {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(134, 30, 25, 0.12);
+}
+
+/* ---------- Cabeçalho de página com botão de ação (ex.: "+ Adicionar flashcard") ---------- */
+
+.page-header-with-action {
+  position: relative;
+}
+
+.page-header-action {
+  position: absolute;
+  top: 6px;
+  right: 0;
+}
+
+@media (max-width: 640px) {
+  .page-header-with-action {
+    padding-top: 44px;
+  }
+  .page-header-action {
+    top: 0;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+}
+
+/* ---------- Campo com dica curta abaixo do rótulo + contador de caracteres ---------- */
+
+.field-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: -2px 0 2px;
+}
+
+.field-char-count {
+  align-self: flex-end;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: -2px;
+}
+
+.field-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  background: var(--primary-pale);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin: 4px 0 16px;
+}
+
+.field-note svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  stroke: var(--primary);
+  margin-top: 1px;
 }
 
 /* ==========================================================================
