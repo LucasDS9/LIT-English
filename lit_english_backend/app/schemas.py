@@ -251,6 +251,9 @@ class VocabWordCreate(BaseModel):
     # Sempre exatamente 3 opções erradas — junto com `translation` formam as
     # 4 opções fixas mostradas ao aluno.
     distractors: List[str] = Field(min_length=3, max_length=3)
+    # Explicação curta, mostrada no verso do card só depois que o aluno
+    # responde (junto com a resposta certa) — nunca antes.
+    explanation: Optional[str] = None
     # Língua-alvo da palavra ("ingles" por padrão, hoje o único conteúdo
     # existente). Determina pra quem ela fica "nativa" — ver student_ids.
     language: str = "ingles"
@@ -269,6 +272,7 @@ class VocabWordUpdate(BaseModel):
     example_sentence: Optional[str] = None
     tip: Optional[str] = None
     distractors: Optional[List[str]] = Field(default=None, min_length=3, max_length=3)
+    explanation: Optional[str] = None
     language: Optional[str] = None
     student_ids: Optional[List[int]] = None
 
@@ -281,6 +285,7 @@ class VocabWordOut(BaseModel):
     example_sentence: Optional[str] = None
     tip: Optional[str] = None
     distractors: List[str]
+    explanation: Optional[str] = None
     language: str
     created_at: datetime
     students: List[FlashcardStudentOut] = []
@@ -312,8 +317,12 @@ class VocabLearnSubmit(BaseModel):
 
 
 class VocabLearnResult(BaseModel):
+    """Resultado devolvido depois que o aluno responde — é só aqui que a
+    resposta certa e a explicação podem aparecer, pra virar o verso do
+    card (nunca antes, em VocabLearnCardOut)."""
     correct: bool
     correct_answer: str
+    explanation: Optional[str] = None
     status: VocabWordStatus
 
 

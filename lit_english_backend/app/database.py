@@ -258,6 +258,12 @@ def run_migrations():
                             "NOT NULL DEFAULT 'ingles'"
                         ))
                         conn.commit()
+                    # Coluna `explanation` (nova): explicação mostrada no
+                    # verso do card, junto com a resposta certa, só depois
+                    # que o aluno responde — ver VocabLearnResult.
+                    if not _col_exists(conn, "vocab_words", "explanation"):
+                        conn.execute(text("ALTER TABLE vocab_words ADD COLUMN explanation TEXT"))
+                        conn.commit()
                 except Exception:
                     logger.exception(
                         "Falha ao migrar vocab_words (coluna tip / example_sentence opcional / language), ignorando."

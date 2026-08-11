@@ -363,6 +363,11 @@ class VocabWord(Base):
     # conter vírgula, então não usamos vírgula como separador). Junto com
     # `translation`, formam as 4 opções sempre mostradas ao aluno.
     distractors = Column(Text, nullable=False)
+    # Explicação curta mostrada no VERSO do card, só depois que o aluno
+    # responde (junto com a resposta certa) — nunca antes, pra não entregar
+    # a resposta da múltipla escolha. Opcional: nem toda palavra precisa de
+    # uma explicação além da tradução em si.
+    explanation = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     assignments = relationship(

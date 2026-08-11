@@ -142,6 +142,7 @@ def _to_word_out(word: VocabWord) -> VocabWordOut:
         example_sentence=word.example_sentence,
         tip=word.tip,
         distractors=_unpack_distractors(word.distractors),
+        explanation=word.explanation,
         language=word.language,
         created_at=word.created_at,
         students=[{"id": s.id, "name": s.name} for s in word.students],
@@ -175,6 +176,7 @@ def create_vocab_word(
         example_sentence=example_sentence,
         tip=tip,
         distractors=_pack_distractors(distractors),
+        explanation=(data.explanation or "").strip() or None,
         language=language,
     )
     db.add(word)
@@ -217,6 +219,8 @@ def update_vocab_word(
         word.example_sentence = data.example_sentence.strip() or None
     if data.tip is not None:
         word.tip = data.tip.strip() or None
+    if data.explanation is not None:
+        word.explanation = data.explanation.strip() or None
     if not (word.example_sentence or word.tip):
         raise HTTPException(
             status_code=422,
@@ -410,7 +414,12 @@ def submit_learn_answer(
     db.commit()
     db.refresh(progress)
 
-    return VocabLearnResult(correct=is_correct, correct_answer=word.translation, status=progress.status)
+    return VocabLearnResult(
+        correct=is_correct,
+        correct_answer=word.translation,
+        explanation=word.explanation,
+        status=progress.status,
+    )
 
 
 # ============================================================
