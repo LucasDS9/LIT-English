@@ -9,7 +9,44 @@
 const studentNameEl = document.getElementById("student-name");
 const roleLabelEl = document.getElementById("role-label");
 const welcomeTitleEl = document.getElementById("welcome-title");
+const homeQuoteEl = document.getElementById("home-quote");
+const homeQuoteAuthorEl = document.getElementById("home-quote-author");
 const metricsRootEl = document.getElementById("home-metrics");
+
+// Mesma regra do backend (ver student_language() em vocab_words.py): curso
+// normal (access_type "padrao") é sempre inglês; Acesso Especial usa a
+// target_language escolhida no cadastro (ex.: "italiano").
+function studentLanguage(user) {
+  if (user.access_type === "especial" && user.target_language) {
+    return user.target_language.trim().toLowerCase();
+  }
+  return "ingles";
+}
+
+// Saudação e frase de abertura da Home, no idioma que o aluno está
+// aprendendo (imersão) — cada idioma tem seu próprio texto de boas-vindas
+// e citação inspiradora.
+const HOME_CONTENT = {
+  ingles: {
+    welcome: (firstName) => `Welcome, ${firstName}!`,
+    quote: "An investment in knowledge pays the best interest.",
+    author: "Benjamin Franklin",
+  },
+  italiano: {
+    welcome: (firstName) => `Benvenuto, ${firstName}!`,
+    quote: "La mente non è un vaso da riempire, ma un fuoco da accendere.",
+    author: "Plutarco",
+  },
+};
+
+function applyHomeContent(user, firstName) {
+  const language = studentLanguage(user);
+  const content = HOME_CONTENT[language] || HOME_CONTENT.ingles;
+
+  welcomeTitleEl.textContent = content.welcome(firstName);
+  if (homeQuoteEl) homeQuoteEl.textContent = `\u201c${content.quote}\u201d`;
+  if (homeQuoteAuthorEl) homeQuoteAuthorEl.textContent = `\u2014 ${content.author}`;
+}
 
 document.getElementById("logout-btn").addEventListener("click", () => {
   const ok = window.confirm("Deseja sair da sua conta?");
@@ -82,7 +119,7 @@ async function init() {
 
   studentNameEl.textContent = user.name;
   roleLabelEl.textContent = "ALUNO";
-  welcomeTitleEl.textContent = `Bem-vindo, ${firstName}!`;
+  applyHomeContent(user, firstName);
 
   renderMetricIcons();
 

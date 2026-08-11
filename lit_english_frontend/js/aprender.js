@@ -349,6 +349,66 @@ function renderCard() {
   learnArea.appendChild(cardBox);
 }
 
+// Depois que o aluno responde, o card "vira": o corpo (palavra + opções)
+// dá lugar ao verso, com a frase, a resposta certa e a explicação (quando
+// houver). Só chega aqui DEPOIS da resposta — o verso nunca aparece antes
+// disso.
+function renderCardBack(cardBox, card, result) {
+  cardBox.innerHTML = "";
+
+  const back = document.createElement("div");
+  back.className = "learn-card-back";
+
+  const statusTag = document.createElement("span");
+  statusTag.className = `learn-back-status ${result.correct ? "is-correct" : "is-wrong"}`;
+  statusTag.textContent = result.correct ? "Você acertou!" : "Não foi dessa vez";
+  back.appendChild(statusTag);
+
+  // A frase (o que estava sendo perguntado): a palavra e, se houver, a
+  // frase de exemplo com a palavra destacada — repetida aqui porque o
+  // corpo da frente é substituído ao virar o card.
+  const phrase = document.createElement("p");
+  phrase.className = "learn-back-phrase";
+  phrase.textContent = card.word;
+  back.appendChild(phrase);
+
+  if (card.example_sentence) {
+    const sentence = document.createElement("p");
+    sentence.className = "learn-back-sentence";
+    sentence.innerHTML = highlightWord(card.example_sentence, card.word);
+    back.appendChild(sentence);
+  }
+
+  const answer = document.createElement("p");
+  answer.className = "learn-back-answer";
+  answer.textContent = result.correct_answer;
+  back.appendChild(answer);
+
+  if (result.explanation) {
+    const explanation = document.createElement("p");
+    explanation.className = "learn-back-explanation";
+    explanation.textContent = result.explanation;
+    back.appendChild(explanation);
+  }
+
+  const isLastCard = session.index + 1 >= session.cards.length;
+  const continueBtn = document.createElement("button");
+  continueBtn.className = "btn btn-primary learn-continue-btn";
+  continueBtn.type = "button";
+  continueBtn.innerHTML = `<span>${isLastCard ? "Concluir" : "Continuar"}</span>${Icons.arrowRight}`;
+  continueBtn.addEventListener("click", () => {
+    session.index += 1;
+    if (session.index >= session.cards.length) {
+      renderFinished();
+    } else {
+      renderCard();
+    }
+  });
+  back.appendChild(continueBtn);
+
+  cardBox.appendChild(back);
+}
+
 async function selectOption(card, selectedOption, btn, optionsGrid) {
   if (session.answered) return;
   session.answered = true;
@@ -373,14 +433,12 @@ async function selectOption(card, selectedOption, btn, optionsGrid) {
       }
     });
 
+    // Breve pausa pra o aluno ver qual opção marcou antes de virar o card
+    // e revelar a resposta certa + explicação no verso.
+    const cardBox = optionsGrid.closest(".learn-card");
     setTimeout(() => {
-      session.index += 1;
-      if (session.index >= session.cards.length) {
-        renderFinished();
-      } else {
-        renderCard();
-      }
-    }, 1100);
+      if (cardBox) renderCardBack(cardBox, card, result);
+    }, 900);
   } catch (err) {
     showToast(err.message || "Não foi possível salvar sua resposta. Tente novamente.");
     optionsGrid.querySelectorAll(".learn-option-btn").forEach((b) => (b.disabled = false));

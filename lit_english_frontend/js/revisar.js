@@ -379,7 +379,7 @@ function renderCard() {
 
   if (session.flipped) {
     const back = document.createElement("p");
-    back.className = "back-text";
+    back.className = "back-text card-flip-anim";
     back.textContent = card.back;
     body.appendChild(back);
   }
