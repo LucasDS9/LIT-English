@@ -220,9 +220,9 @@ function renderFinished() {
   SFX.play("finish");
   renderStateBox({
     icon: Icons.checkCircle,
-    title: "Sessão concluída! 🎉",
-    text: "Você passou por todas as palavras disponíveis por agora. Volte mais tarde para continuar aprendendo.",
-    actionLabel: "Verificar novamente",
+    title: "Você concluiu o ciclo diário! 🎉",
+    text: "Novas palavras, revisão das erradas e reforço das já aprendidas — tudo em dia. Quer continuar pro próximo ciclo?",
+    actionLabel: "Continuar aprendendo",
     onAction: loadQueue,
   });
 }

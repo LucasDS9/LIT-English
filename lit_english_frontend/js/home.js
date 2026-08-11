@@ -37,6 +37,11 @@ const HOME_CONTENT = {
     quote: "La mente non è un vaso da riempire, ma un fuoco da accendere.",
     author: "Plutarco",
   },
+  frances: {
+    welcome: (firstName) => `Bienvenue, ${firstName}!`,
+    quote: "Savoir étant sublime, apprendre sera doux.",
+    author: "Victor Hugo",
+  },
 };
 
 function applyHomeContent(user, firstName) {
