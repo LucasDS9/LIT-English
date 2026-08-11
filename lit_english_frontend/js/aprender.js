@@ -347,6 +347,11 @@ function renderCard() {
 
   cardBox.appendChild(optionsGrid);
   learnArea.appendChild(cardBox);
+
+  // Toca a pronúncia automaticamente assim que o card aparece — sem
+  // precisar clicar no botão de áudio. Falha silenciosamente se o
+  // navegador bloquear o autoplay (ex: antes de qualquer interação).
+  speakWord(card.word, speakBtn);
 }
 
 // Depois que o aluno responde, o card "vira": o corpo (palavra + opções)
@@ -359,25 +364,13 @@ function renderCardBack(cardBox, card, result) {
   const back = document.createElement("div");
   back.className = "learn-card-back";
 
-  const statusTag = document.createElement("span");
-  statusTag.className = `learn-back-status ${result.correct ? "is-correct" : "is-wrong"}`;
-  statusTag.textContent = result.correct ? "Você acertou!" : "Não foi dessa vez";
-  back.appendChild(statusTag);
-
-  // A frase (o que estava sendo perguntado): a palavra e, se houver, a
-  // frase de exemplo com a palavra destacada — repetida aqui porque o
-  // corpo da frente é substituído ao virar o card.
+  // A frase (a palavra sendo aprendida) — reaproveita a classe "front-text"
+  // de propósito: assim ela herda a cor e o sublinhado conforme o status da
+  // palavra (nova / em revisão / aprendida), igual na frente do card.
   const phrase = document.createElement("p");
-  phrase.className = "learn-back-phrase";
+  phrase.className = "front-text";
   phrase.textContent = card.word;
   back.appendChild(phrase);
-
-  if (card.example_sentence) {
-    const sentence = document.createElement("p");
-    sentence.className = "learn-back-sentence";
-    sentence.innerHTML = highlightWord(card.example_sentence, card.word);
-    back.appendChild(sentence);
-  }
 
   const answer = document.createElement("p");
   answer.className = "learn-back-answer";
@@ -385,17 +378,27 @@ function renderCardBack(cardBox, card, result) {
   back.appendChild(answer);
 
   if (result.explanation) {
+    const dot = document.createElement("span");
+    dot.className = "learn-back-dot";
+    back.appendChild(dot);
+
     const explanation = document.createElement("p");
     explanation.className = "learn-back-explanation";
     explanation.textContent = result.explanation;
     back.appendChild(explanation);
   }
 
+  cardBox.appendChild(back);
+
+  // Botão de continuar: seta circular, centralizada verticalmente do lado
+  // direito do card (não faz parte do fluxo vertical do verso).
   const isLastCard = session.index + 1 >= session.cards.length;
   const continueBtn = document.createElement("button");
-  continueBtn.className = "btn btn-primary learn-continue-btn";
+  continueBtn.className = "learn-continue-fab";
   continueBtn.type = "button";
-  continueBtn.innerHTML = `<span>${isLastCard ? "Concluir" : "Continuar"}</span>${Icons.arrowRight}`;
+  continueBtn.title = isLastCard ? "Concluir" : "Continuar";
+  continueBtn.setAttribute("aria-label", isLastCard ? "Concluir" : "Continuar");
+  continueBtn.innerHTML = isLastCard ? Icons.checkSmall : Icons.arrowRight;
   continueBtn.addEventListener("click", () => {
     session.index += 1;
     if (session.index >= session.cards.length) {
@@ -404,9 +407,7 @@ function renderCardBack(cardBox, card, result) {
       renderCard();
     }
   });
-  back.appendChild(continueBtn);
-
-  cardBox.appendChild(back);
+  cardBox.appendChild(continueBtn);
 }
 
 async function selectOption(card, selectedOption, btn, optionsGrid) {

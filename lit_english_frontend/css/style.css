@@ -1097,6 +1097,11 @@ svg {
   gap: 18px;
 }
 
+.learn-card {
+  position: relative;
+}
+
+
 .learn-card.status-nova,
 .learn-card.status-em_revisao,
 .learn-card.status-aprendida {
@@ -1246,90 +1251,76 @@ svg {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 18px;
   text-align: center;
   animation: cardFlipReveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-style: preserve-3d;
   backface-visibility: hidden;
-}
-
-.learn-back-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 700;
-  padding: 6px 14px;
-  border-radius: 999px;
-}
-
-.learn-back-status.is-correct {
-  color: #1e7a44;
-  background: #eaf7ef;
-}
-
-.learn-back-status.is-wrong {
-  color: #a5372a;
-  background: #fbeae8;
-}
-
-.learn-back-phrase {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  margin: 0;
-  opacity: 0.75;
-}
-
-.learn-back-sentence {
-  font-size: 17px;
-  color: var(--text);
-  max-width: 520px;
-  margin: -8px 0 0;
-  line-height: 1.4;
-}
-
-.learn-back-sentence b {
-  color: var(--primary);
+  /* Espaço à direita pra não colidir com a setinha de continuar. */
+  padding-right: 56px;
+  box-sizing: border-box;
 }
 
 .learn-back-answer {
-  font-size: clamp(22px, 4vw, 30px);
-  font-weight: 800;
-  color: var(--primary);
+  font-size: clamp(19px, 3.2vw, 25px);
+  font-weight: 500;
+  color: var(--text);
   margin: 0;
+}
+
+.learn-back-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: block;
 }
 
 .learn-back-explanation {
   font-size: 16px;
-  color: var(--text);
+  color: var(--text-muted);
   max-width: 520px;
   margin: 0;
   line-height: 1.5;
 }
 
-.learn-continue-btn {
-  margin-top: 8px;
-  display: inline-flex;
+/* Botão de continuar: seta circular, centralizada verticalmente no card
+   (não acompanha o fluxo do verso — fica fixa em relação ao card todo). */
+.learn-continue-fab {
+  position: absolute;
+  top: 50%;
+  right: 28px;
+  transform: translateY(-50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1.5px solid var(--primary);
+  background: var(--bg);
+  color: var(--primary);
+  display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  animation: continueNudge 1.4s ease-in-out infinite;
 }
 
-.learn-continue-btn svg {
-  width: 18px;
-  height: 18px;
+.learn-continue-fab:hover {
+  background: var(--primary-pale);
+}
+
+.learn-continue-fab svg {
+  width: 20px;
+  height: 20px;
   stroke: currentColor;
-  animation: continueNudge 1.4s ease-in-out infinite;
 }
 
 @keyframes continueNudge {
   0%, 100% {
-    transform: translateX(0);
+    transform: translateY(-50%) translateX(0);
   }
   50% {
-    transform: translateX(4px);
+    transform: translateY(-50%) translateX(4px);
   }
 }
 
