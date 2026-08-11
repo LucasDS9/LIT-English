@@ -25,7 +25,7 @@
 
    Lá você já consegue testar tudo visualmente, sem precisar de curl ou Postman.
 
-## O que já funcionaa
+## O que já funciona
 
 ### Autenticação
 - `POST /auth/register` — cria um usuário (professor ou aluno)
