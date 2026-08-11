@@ -21,8 +21,8 @@ palavra da frase para ver o significado" NÃO precisam de rotas novas:
 import random
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import nullsfirst
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_approved_user, get_current_professor
@@ -52,8 +52,17 @@ router = APIRouter(prefix="/vocab-words", tags=["Aprender"])
 # Card é considerado "aprendida" depois desse número de acertos seguidos.
 LEARNED_STREAK = 3
 
-# Tamanho padrão da sessão de aprendizado (o "1 / 8" da tela).
-DEFAULT_SESSION_SIZE = 8
+# Estrutura do ciclo diário de aprendizado (tela "Aprender"):
+#   1) até 15 palavras NOVAS (nunca respondidas)
+#   2) revisão de TODAS as palavras erradas que ficaram devidas agora
+#      (status em_revisao, reaparecem na hora — não esperam as 200 novas
+#      acabarem pra aparecer)
+#   3) até 5 palavras já APRENDIDAS, escolhidas aleatoriamente (podem ser de
+#      ciclos anteriores), só pra reforçar retenção
+# Cada chamada a /learn/next devolve um ciclo inteiro (ou o que houver
+# disponível dele); quando o aluno termina os cards, o ciclo terminou.
+NEW_WORDS_PER_CYCLE = 15
+LEARNED_REVIEW_PER_CYCLE = 5
 
 # Separador interno dos distratores (a tradução pode conter vírgula, então
 # não usamos vírgula aqui).
@@ -293,12 +302,16 @@ def _build_options(word: VocabWord) -> list[str]:
 def get_learn_queue(
     db: Session = Depends(get_db),
     student: User = Depends(get_current_approved_user),
-    limit: int = Query(DEFAULT_SESSION_SIZE, ge=1, le=50),
 ):
     """
-    Retorna a próxima leva de palavras que o aluno deve aprender/revisar
-    agora (as "Novas" e as que já estão devidas pela repetição espaçada),
-    cada uma já com as 4 opções embaralhadas — nunca revela qual é a certa.
+    Monta o próximo ciclo diário de aprendizado, sempre nesta ordem:
+      1) até 15 palavras novas (nunca respondidas)
+      2) todas as palavras em revisão que já estão devidas agora (erradas
+         recentemente — reaparecem na hora, não esperam as novas acabarem)
+      3) até 5 palavras já aprendidas (retenção; podem ser de ciclos
+         anteriores), em ordem aleatória
+    Cada card já vem com as 4 opções embaralhadas — nunca revela qual é a
+    certa.
     """
     _require_student(student)
     now = datetime.utcnow()
@@ -306,31 +319,51 @@ def get_learn_queue(
     assigned_subquery = db.query(VocabWordAssignment.word_id).filter(
         VocabWordAssignment.student_id == student.id
     )
-
-    not_due_subquery = db.query(VocabWordProgress.word_id).filter(
-        VocabWordProgress.student_id == student.id,
-        VocabWordProgress.next_review > now,
+    attempted_subquery = db.query(VocabWordProgress.word_id).filter(
+        VocabWordProgress.student_id == student.id
     )
 
-    due_words = (
+    # 1) Novas: atribuídas ao aluno e sem nenhum progresso registrado ainda.
+    new_words = (
         db.query(VocabWord)
-        .outerjoin(
-            VocabWordProgress,
-            (VocabWordProgress.word_id == VocabWord.id)
-            & (VocabWordProgress.student_id == student.id),
-        )
         .filter(VocabWord.id.in_(assigned_subquery))
-        .filter(~VocabWord.id.in_(not_due_subquery))
-        .order_by(nullsfirst(VocabWordProgress.next_review))
-        .limit(limit)
+        .filter(~VocabWord.id.in_(attempted_subquery))
+        .order_by(VocabWord.created_at.asc())
+        .limit(NEW_WORDS_PER_CYCLE)
         .all()
     )
+
+    # 2) Revisão: tudo que está "em_revisao" e já devido agora (inclui as
+    # que acabaram de ser erradas nesta mesma sessão, que voltam na hora).
+    review_words = (
+        db.query(VocabWord)
+        .join(VocabWordProgress, VocabWordProgress.word_id == VocabWord.id)
+        .filter(VocabWordProgress.student_id == student.id)
+        .filter(VocabWordProgress.status == VocabWordStatus.em_revisao)
+        .filter(VocabWordProgress.next_review <= now)
+        .order_by(VocabWordProgress.next_review.asc())
+        .all()
+    )
+
+    # 3) Concluídas: reforço de retenção, aleatório, independente de estarem
+    # devidas ou não (podem ser de ciclos anteriores).
+    learned_words = (
+        db.query(VocabWord)
+        .join(VocabWordProgress, VocabWordProgress.word_id == VocabWord.id)
+        .filter(VocabWordProgress.student_id == student.id)
+        .filter(VocabWordProgress.status == VocabWordStatus.aprendida)
+        .order_by(func.random())
+        .limit(LEARNED_REVIEW_PER_CYCLE)
+        .all()
+    )
+
+    cycle_words = new_words + review_words + learned_words
 
     progress_by_word = {
         p.word_id: p
         for p in db.query(VocabWordProgress).filter(
             VocabWordProgress.student_id == student.id,
-            VocabWordProgress.word_id.in_([w.id for w in due_words]),
+            VocabWordProgress.word_id.in_([w.id for w in cycle_words]),
         )
     }
 
@@ -344,7 +377,7 @@ def get_learn_queue(
             options=_build_options(w),
             status=_status_label(progress_by_word.get(w.id)),
         )
-        for w in due_words
+        for w in cycle_words
     ]
 
     total_assigned = db.query(VocabWordAssignment).filter(VocabWordAssignment.student_id == student.id).count()
