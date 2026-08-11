@@ -37,6 +37,7 @@ MAX_TEXT_LENGTH = 200
 TTS_LANGUAGE_CODES = {
     "ingles": "en-US",
     "italiano": "it",
+    "frances": "fr",
 }
 DEFAULT_TTS_LANGUAGE_CODE = "en-US"
 

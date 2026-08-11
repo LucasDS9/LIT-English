@@ -9,9 +9,10 @@ from pydantic import BaseModel, EmailStr, Field
 from app.models import AccessType, ExerciseType, ReadingLevel, UserRole, VocabWordStatus
 
 # Línguas-alvo aceitas hoje no cadastro de Acesso Especial. Só existe estrutura
-# (campo salvo no usuário) — ainda sem conteúdo/curso montado para elas.
+# (campo salvo no usuário, TTS e conteúdo de Home) — ainda sem o vocabulário/
+# flashcards (frases) montado para "frances" e "ingles" nesse contexto.
 # Pra liberar uma nova língua no futuro, basta adicionar aqui.
-ALLOWED_TARGET_LANGUAGES = {"italiano"}
+ALLOWED_TARGET_LANGUAGES = {"ingles", "italiano", "frances"}
 
 
 # ---------- Auth ----------

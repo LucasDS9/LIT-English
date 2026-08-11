@@ -52,7 +52,7 @@ class User(Base):
     is_approved = Column(Boolean, default=False, nullable=False)
     access_type = Column(Enum(AccessType), nullable=False, default=AccessType.padrao)
     native_language = Column(String, nullable=True)   # só preenchido quando access_type == especial
-    target_language = Column(String, nullable=True)   # idem — hoje só "italiano" é aceito
+    target_language = Column(String, nullable=True)   # idem — ver ALLOWED_TARGET_LANGUAGES em schemas.py
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

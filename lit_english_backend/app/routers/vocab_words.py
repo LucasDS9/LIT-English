@@ -52,16 +52,25 @@ router = APIRouter(prefix="/vocab-words", tags=["Aprender"])
 # Card é considerado "aprendida" depois desse número de acertos seguidos.
 LEARNED_STREAK = 3
 
-# Estrutura do ciclo diário de aprendizado (tela "Aprender"):
+# Estrutura do ciclo diário de aprendizado (tela "Aprender"), sempre
+# CONTÍNUA (um bloco emenda no outro, sem esperar o aluno pedir "próximo
+# ciclo" — só aparece a tela de "concluiu o ciclo" no final de tudo):
 #   1) até 15 palavras NOVAS (nunca respondidas)
 #   2) revisão de TODAS as palavras erradas que ficaram devidas agora
-#      (status em_revisao, reaparecem na hora — não esperam as 200 novas
-#      acabarem pra aparecer)
-#   3) até 5 palavras já APRENDIDAS, escolhidas aleatoriamente (podem ser de
+#      (status em_revisao, reaparecem na hora — não esperam as 15 novas
+#      acabarem pra aparecer; é o próprio erro do aluno "voltando" pra ele
+#      até acertar)
+#   3) até 10 palavras ANTIGAS pra revisão geral — de qualquer status/idade
+#      (em_revisao ainda não devida ou já aprendida), desde que o aluno já
+#      tenha respondido alguma vez e a palavra não esteja em (1) ou (2).
+#      Se não houver nenhuma disponível, esse bloco simplesmente não entra
+#      no ciclo (sem erro, sem espaço vazio).
+#   4) até 5 palavras já APRENDIDAS, escolhidas aleatoriamente (podem ser de
 #      ciclos anteriores), só pra reforçar retenção
-# Cada chamada a /learn/next devolve um ciclo inteiro (ou o que houver
+# Cada chamada a /learn/next devolve o ciclo inteiro (ou o que houver
 # disponível dele); quando o aluno termina os cards, o ciclo terminou.
 NEW_WORDS_PER_CYCLE = 15
+OLD_REVIEW_PER_CYCLE = 10
 LEARNED_REVIEW_PER_CYCLE = 5
 
 # Separador interno dos distratores (a tradução pode conter vírgula, então
@@ -304,11 +313,15 @@ def get_learn_queue(
     student: User = Depends(get_current_approved_user),
 ):
     """
-    Monta o próximo ciclo diário de aprendizado, sempre nesta ordem:
+    Monta o próximo ciclo diário de aprendizado, sempre nesta ordem (um
+    bloco emenda direto no próximo, ciclo contínuo):
       1) até 15 palavras novas (nunca respondidas)
       2) todas as palavras em revisão que já estão devidas agora (erradas
          recentemente — reaparecem na hora, não esperam as novas acabarem)
-      3) até 5 palavras já aprendidas (retenção; podem ser de ciclos
+      3) até 10 palavras antigas pra revisão geral, de qualquer status/idade
+         (desde que já tenham sido respondidas antes e não estejam nos
+         blocos 1/2) — se não houver nenhuma, o bloco simplesmente não entra
+      4) até 5 palavras já aprendidas (retenção; podem ser de ciclos
          anteriores), em ordem aleatória
     Cada card já vem com as 4 opções embaralhadas — nunca revela qual é a
     certa.
@@ -345,19 +358,37 @@ def get_learn_queue(
         .all()
     )
 
-    # 3) Concluídas: reforço de retenção, aleatório, independente de estarem
+    # 3) Antigas para revisão geral: até 10 palavras já respondidas antes
+    # (qualquer status/idade — em_revisao ainda não devida ou já aprendida),
+    # que ainda não entraram nos blocos 1/2 acima. Se não sobrar nenhuma,
+    # o bloco fica vazio e o ciclo segue direto pras concluídas — sem erro,
+    # sem espaço em branco.
+    already_in_cycle_ids = [w.id for w in new_words] + [w.id for w in review_words]
+    old_review_words = (
+        db.query(VocabWord)
+        .join(VocabWordProgress, VocabWordProgress.word_id == VocabWord.id)
+        .filter(VocabWordProgress.student_id == student.id)
+        .filter(~VocabWord.id.in_(already_in_cycle_ids))
+        .order_by(VocabWordProgress.last_reviewed.asc().nullsfirst())
+        .limit(OLD_REVIEW_PER_CYCLE)
+        .all()
+    )
+
+    # 4) Concluídas: reforço de retenção, aleatório, independente de estarem
     # devidas ou não (podem ser de ciclos anteriores).
+    already_in_cycle_ids += [w.id for w in old_review_words]
     learned_words = (
         db.query(VocabWord)
         .join(VocabWordProgress, VocabWordProgress.word_id == VocabWord.id)
         .filter(VocabWordProgress.student_id == student.id)
         .filter(VocabWordProgress.status == VocabWordStatus.aprendida)
+        .filter(~VocabWord.id.in_(already_in_cycle_ids))
         .order_by(func.random())
         .limit(LEARNED_REVIEW_PER_CYCLE)
         .all()
     )
 
-    cycle_words = new_words + review_words + learned_words
+    cycle_words = new_words + review_words + old_review_words + learned_words
 
     progress_by_word = {
         p.word_id: p

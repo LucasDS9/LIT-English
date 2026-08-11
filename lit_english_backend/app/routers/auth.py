@@ -21,8 +21,9 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     - Se for aluno: fica pendente até o professor aprovar manualmente.
     - Se access_type == especial (cadastro pela tela "Acesso Especial"):
       exige língua-alvo, que precisa estar em ALLOWED_TARGET_LANGUAGES (hoje
-      só "italiano" — ainda sem conteúdo). Língua nativa fica fixa em "pt"
-      por enquanto (sem opção de escolha).
+      "ingles", "italiano" e "frances" — italiano com conteúdo completo,
+      inglês e francês ainda sem vocabulário/flashcards próprios). Língua
+      nativa fica fixa em "pt" por enquanto (sem opção de escolha).
     """
     existing = db.query(User).filter(User.email == user_in.email).first()
     if existing:

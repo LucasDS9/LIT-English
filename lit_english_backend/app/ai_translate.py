@@ -31,6 +31,7 @@ GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
 LANGUAGE_NAMES = {
     "ingles": "inglês",
     "italiano": "italiano",
+    "frances": "francês",
 }
 DEFAULT_LANGUAGE_NAME = "inglês"
 
