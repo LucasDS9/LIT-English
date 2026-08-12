@@ -126,10 +126,17 @@ class FlashcardBatchStudent(Base):
 
 
 class ReviewCardStatus(str, enum.Enum):
-    """Progressão de domínio na tela Revisar (Revisando → Aprofundando → Concluído)."""
-    revisando = "revisando"
-    aprofundando = "aprofundando"
+    """Progressão de domínio na tela Revisar (Aprendendo → Dominando → Concluído)."""
+    aprendendo = "aprendendo"
+    dominando = "dominando"
     concluido = "concluido"
+
+
+class ReviewMode(str, enum.Enum):
+    """Tipo de interação quando o card está devido (SM-2 agenda cada etapa)."""
+    flip = "flip"                   # virar card + Esqueci/Difícil/Ok/Fácil
+    type_pt = "type_pt"             # ver língua-alvo, digitar em português
+    type_target = "type_target"     # ver português, digitar na língua-alvo
 
 
 class CardProgress(Base):
@@ -144,8 +151,10 @@ class CardProgress(Base):
     ease_factor = Column(Float, default=2.5, nullable=False)
     next_review = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_reviewed = Column(DateTime, nullable=True)
-    # Progressão de status na tela Revisar (Revisando / Aprofundando / Concluído).
+    # Progressão: Aprendendo → Dominando → Concluído.
     review_status = Column(Enum(ReviewCardStatus), nullable=True)
+    # Qual exercício mostrar quando o card estiver devido (flip ou digitação).
+    review_mode = Column(Enum(ReviewMode), nullable=False, default=ReviewMode.flip, server_default="flip")
     correct_streak = Column(Integer, default=0, nullable=False)
     flashcard = relationship("Flashcard")
 

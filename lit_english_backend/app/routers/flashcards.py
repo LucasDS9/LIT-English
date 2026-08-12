@@ -23,9 +23,11 @@ from app.models import (
     FlashcardBatchStudent,
     QAAnswerLog,
     ReviewCardStatus,
+    ReviewMode,
     ReviewLog,
     User,
     UserRole,
+    VocabWord,
 )
 from app.schemas import (
     CardProgressOut,
@@ -42,6 +44,7 @@ from app.schemas import (
     FlashcardUpdate,
     ReviewCardOut,
     ReviewQueueOut,
+    ReviewResultOut,
     ReviewSubmit,
     VocabularyItemOut,
 )
@@ -53,16 +56,33 @@ router = APIRouter(prefix="/flashcards", tags=["Flashcards"])
 LIMIT_PER_WINDOW = 15
 WINDOW_HOURS = 12
 
-# Acertos consecutivos em Revisar (quality >= 3) necessários para "Concluído".
-MASTER_STREAK = 3
+
+def _normalize_answer(text: str) -> str:
+    return (text or "").strip().lower()
 
 
-def _review_status_from_streak(streak: int) -> ReviewCardStatus:
-    if streak >= MASTER_STREAK:
-        return ReviewCardStatus.concluido
-    if streak >= 1:
-        return ReviewCardStatus.aprofundando
-    return ReviewCardStatus.revisando
+def _apply_sm2(progress: CardProgress, quality: int) -> None:
+    result = calculate_sm2(
+        quality=quality,
+        repetitions=progress.repetitions,
+        interval_days=progress.interval_days,
+        ease_factor=progress.ease_factor,
+    )
+    progress.repetitions = result.repetitions
+    progress.interval_days = result.interval_days
+    progress.ease_factor = result.ease_factor
+    progress.next_review = result.next_review
+    progress.last_reviewed = datetime.utcnow()
+
+
+def _card_mode(progress: CardProgress | None) -> ReviewMode:
+    if progress and progress.review_mode:
+        return progress.review_mode
+    return ReviewMode.flip
+
+
+def _card_status(progress: CardProgress | None) -> ReviewCardStatus | None:
+    return progress.review_status if progress else None
 
 
 # ============================================================
@@ -485,12 +505,22 @@ def get_review_queue(
         .all()
     )
 
+    flashcard_ids = [card.id for card, _ in due_cards]
+    vocab_by_flashcard = {}
+    if flashcard_ids:
+        vocab_by_flashcard = {
+            w.review_flashcard_id: w
+            for w in db.query(VocabWord).filter(VocabWord.review_flashcard_id.in_(flashcard_ids)).all()
+        }
+
     cards_out = [
         ReviewCardOut(
             flashcard_id=card.id,
             front=card.front,
             back=card.back,
-            status=progress.review_status if progress else None,
+            status=_card_status(progress),
+            mode=_card_mode(progress),
+            explanation=vocab_by_flashcard[card.id].explanation if card.id in vocab_by_flashcard else None,
         )
         for card, progress in due_cards
     ]
@@ -499,7 +529,7 @@ def get_review_queue(
     )
 
 
-@router.post("/review/{flashcard_id}", response_model=CardProgressOut)
+@router.post("/review/{flashcard_id}", response_model=ReviewResultOut)
 def submit_review(
     flashcard_id: int,
     payload: ReviewSubmit,
@@ -507,8 +537,8 @@ def submit_review(
     student: User = Depends(get_current_approved_user),
 ):
     """
-    O aluno envia sua avaliação (0=errou, 3=difícil, 4=bom, 5=fácil) para um card.
-    Atualiza o estado do SM-2 e registra a revisão (pra contar no limite da janela).
+    Submissão de revisão — flip (Esqueci…Fácil) ou digitação (Dominando).
+    Cada etapa agenda a próxima via SM-2 (next_review).
     """
     _require_student(student)
 
@@ -529,35 +559,75 @@ def submit_review(
         .first()
     )
     if not progress:
-        progress = CardProgress(student_id=student.id, flashcard_id=flashcard_id)
+        progress = CardProgress(
+            student_id=student.id,
+            flashcard_id=flashcard_id,
+            review_status=ReviewCardStatus.concluido,
+            review_mode=ReviewMode.flip,
+        )
         db.add(progress)
         db.flush()
 
-    result = calculate_sm2(
-        quality=payload.quality,
-        repetitions=progress.repetitions,
-        interval_days=progress.interval_days,
-        ease_factor=progress.ease_factor,
-    )
-    progress.repetitions = result.repetitions
-    progress.interval_days = result.interval_days
-    progress.ease_factor = result.ease_factor
-    progress.next_review = result.next_review
-    progress.last_reviewed = datetime.utcnow()
+    mode = progress.review_mode or ReviewMode.flip
 
-    # Progressão Revisando → Aprofundando → Concluído (quality >= 3 = acerto).
-    if payload.quality >= 3:
-        progress.correct_streak += 1
-    else:
-        progress.correct_streak = 0
-    progress.review_status = _review_status_from_streak(progress.correct_streak)
+    # ── Digitação (Dominando) ─────────────────────────────────────────────
+    if mode in (ReviewMode.type_pt, ReviewMode.type_target):
+        if not payload.typed_answer or not payload.typed_answer.strip():
+            raise HTTPException(status_code=422, detail="Digite sua resposta.")
+
+        if mode == ReviewMode.type_pt:
+            expected = flashcard.back
+        else:
+            expected = flashcard.front
+
+        is_correct = _normalize_answer(payload.typed_answer) == _normalize_answer(expected)
+        quality = 5 if is_correct else 0
+        _apply_sm2(progress, quality)
+
+        if is_correct:
+            if mode == ReviewMode.type_pt:
+                progress.review_mode = ReviewMode.type_target
+            else:
+                progress.review_status = ReviewCardStatus.concluido
+                progress.review_mode = ReviewMode.flip
+
+        db.add(ReviewLog(student_id=student.id, flashcard_id=flashcard_id))
+        db.flush()
+        maybe_award_flashcard_daily_bonus(db, student.id)
+        db.commit()
+
+        return ReviewResultOut(
+            correct=is_correct,
+            correct_answer=expected,
+            review_status=progress.review_status,
+            review_mode=progress.review_mode,
+        )
+
+    # ── Flip (Aprendendo / Concluído) ─────────────────────────────────────
+    if payload.quality is None:
+        raise HTTPException(status_code=422, detail="Informe a avaliação (quality).")
+
+    quality = payload.quality
+    _apply_sm2(progress, quality)
+
+    if progress.review_status is None:
+        progress.review_status = ReviewCardStatus.concluido
+
+    # Aprendendo + Fácil (1x) → Dominando (primeiro: digitar em português).
+    if progress.review_status == ReviewCardStatus.aprendendo and quality == 5:
+        progress.review_status = ReviewCardStatus.dominando
+        progress.review_mode = ReviewMode.type_pt
 
     db.add(ReviewLog(student_id=student.id, flashcard_id=flashcard_id))
     db.flush()
     maybe_award_flashcard_daily_bonus(db, student.id)
     db.commit()
-    db.refresh(progress)
-    return progress
+
+    return ReviewResultOut(
+        correct=quality >= 3,
+        review_status=progress.review_status,
+        review_mode=progress.review_mode,
+    )
 
 
 # ============================================================
@@ -601,6 +671,7 @@ def get_student_vocabulary(
                 next_review=next_review,
                 is_due=is_due,
                 review_status=progress.review_status if progress else None,
+                review_mode=progress.review_mode if progress else None,
             )
         )
     return items

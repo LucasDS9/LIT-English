@@ -6,7 +6,15 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
-from app.models import AccessType, ExerciseType, ReadingLevel, ReviewCardStatus, UserRole, VocabWordStatus
+from app.models import (
+    AccessType,
+    ExerciseType,
+    ReadingLevel,
+    ReviewCardStatus,
+    ReviewMode,
+    UserRole,
+    VocabWordStatus,
+)
 
 # Línguas-alvo aceitas hoje no cadastro de Acesso Especial. Só existe estrutura
 # (campo salvo no usuário, TTS e conteúdo de Home) — ainda sem o vocabulário/
@@ -105,6 +113,8 @@ class ReviewCardOut(BaseModel):
     front: str
     back: str
     status: Optional[ReviewCardStatus] = None
+    mode: ReviewMode = ReviewMode.flip
+    explanation: Optional[str] = None
 
 
 class ReviewQueueOut(BaseModel):
@@ -114,7 +124,16 @@ class ReviewQueueOut(BaseModel):
 
 
 class ReviewSubmit(BaseModel):
-    quality: int = Field(ge=0, le=5)
+    quality: Optional[int] = Field(default=None, ge=0, le=5)
+    typed_answer: Optional[str] = None
+
+
+class ReviewResultOut(BaseModel):
+    """Resposta após revisão (flip ou digitação)."""
+    correct: bool
+    correct_answer: Optional[str] = None
+    review_status: Optional[ReviewCardStatus] = None
+    review_mode: ReviewMode = ReviewMode.flip
 
 
 class CardProgressOut(BaseModel):
@@ -124,6 +143,7 @@ class CardProgressOut(BaseModel):
     ease_factor: float
     next_review: datetime
     review_status: Optional[ReviewCardStatus] = None
+    review_mode: ReviewMode = ReviewMode.flip
     correct_streak: int = 0
 
     class Config:
@@ -138,6 +158,7 @@ class VocabularyItemOut(BaseModel):
     next_review: Optional[datetime] = None
     is_due: bool
     review_status: Optional[ReviewCardStatus] = None
+    review_mode: Optional[ReviewMode] = None
 
 
 class FlashcardResendPayload(BaseModel):
@@ -314,6 +335,7 @@ class VocabLearnQueueOut(BaseModel):
     cards: List[VocabLearnCardOut]
     total_assigned: int
     total_learned: int
+    new_words_count: int = 0
 
 
 class VocabLearnSubmit(BaseModel):

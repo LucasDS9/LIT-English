@@ -1082,13 +1082,13 @@ svg {
 }
 
 .vocab-status-dot.is-nova,
-.vocab-status-dot.is-revisando {
-  background: #D64F4F;
+.vocab-status-dot.is-aprendendo {
+  background: var(--primary);
 }
 
 .vocab-status-dot.is-em-revisao,
-.vocab-status-dot.is-aprofundando {
-  background: var(--primary);
+.vocab-status-dot.is-dominando {
+  background: #D18C8C;
 }
 
 .vocab-status-dot.is-aprendida,
@@ -1146,20 +1146,20 @@ svg {
   border-radius: 2px;
 }
 
-.review-card-status.status-revisando .front-text {
-  color: #D64F4F;
-}
-
-.review-card-status.status-revisando .front-text::after {
-  background: #D64F4F;
-}
-
-.review-card-status.status-aprofundando .front-text {
+.review-card-status.status-aprendendo .front-text {
   color: var(--primary);
 }
 
-.review-card-status.status-aprofundando .front-text::after {
+.review-card-status.status-aprendendo .front-text::after {
   background: var(--primary);
+}
+
+.review-card-status.status-dominando .front-text {
+  color: #D18C8C;
+}
+
+.review-card-status.status-dominando .front-text::after {
+  background: #D18C8C;
 }
 
 .review-card-status.status-concluido .front-text {
@@ -1168,6 +1168,82 @@ svg {
 
 .review-card-status.status-concluido .front-text::after {
   background: #D18C8C;
+}
+
+/* Verso do card em Revisar — texto preto + explicação (igual Aprender) */
+.review-card-back {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: center;
+}
+
+.review-card-back .review-back-word {
+  font-size: clamp(22px, 4vw, 32px);
+  font-weight: 600;
+  margin: 0;
+}
+
+.review-card-back .review-back-word.status-aprendendo {
+  color: var(--primary);
+}
+
+.review-card-back .review-back-word.status-dominando {
+  color: #D18C8C;
+}
+
+.review-card-back .review-back-word.status-concluido {
+  color: #D18C8C;
+}
+
+.review-card-back .learn-back-answer {
+  color: var(--text);
+}
+
+.review-card-back .learn-back-explanation {
+  color: var(--text);
+}
+
+.review-type-input {
+  width: 100%;
+  max-width: 420px;
+  padding: 14px 16px;
+  font-size: 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  margin-top: 8px;
+  font-family: inherit;
+}
+
+.review-type-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.review-type-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  width: 100%;
+}
+
+.review-type-feedback {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin: 0;
+  text-align: center;
+}
+
+.review-type-feedback.is-wrong {
+  color: #c0392b;
+}
+
+.review-type-feedback.is-correct {
+  color: #2e9e5b;
 }
 
 .learn-pos {

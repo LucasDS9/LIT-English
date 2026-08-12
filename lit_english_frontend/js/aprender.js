@@ -36,7 +36,8 @@ document.getElementById("logout-btn").addEventListener("click", () => {
 const session = {
   cards: [],
   index: 0,
-  answered: false, // true depois que o aluno escolheu uma opção no card atual
+  answered: false,
+  newWordsCount: 0, // quantas palavras novas vieram no início da sessão
 };
 
 // ---------------------------------------------------------------------------
@@ -220,8 +221,8 @@ function renderFinished() {
   SFX.play("finish");
   renderStateBox({
     icon: Icons.checkCircle,
-    title: "Você concluiu esta sessão! 🎉",
-    text: "Todas as palavras novas disponíveis foram apresentadas. Quer continuar aprendendo?",
+    title: "Sessão concluída! 🎉",
+    text: "Você passou pelas palavras novas e pelas que tinha errado. Quer continuar aprendendo?",
     actionLabel: "Continuar aprendendo",
     onAction: loadQueue,
   });
@@ -383,6 +384,23 @@ function renderCardBack(cardBox, card, result) {
   continueBtn.setAttribute("aria-label", isLastCard ? "Concluir" : "Continuar");
   continueBtn.innerHTML = isLastCard ? Icons.checkSmall : Icons.arrowRight;
   continueBtn.addEventListener("click", () => {
+    // Palavra errada volta ao fim da fila, depois das novas.
+    if (!result.correct && !result.graduated_to_review) {
+      const alreadyQueued = session.cards
+        .slice(session.index + 1)
+        .some((c) => c.word_id === card.word_id);
+      if (!alreadyQueued) {
+        session.cards.push({
+          word_id: card.word_id,
+          word: card.word,
+          part_of_speech: card.part_of_speech,
+          example_sentence: card.example_sentence,
+          tip: card.tip,
+          options: card.options,
+        });
+      }
+    }
+
     session.index += 1;
     if (session.index >= session.cards.length) {
       renderFinished();
@@ -439,6 +457,7 @@ async function loadQueue() {
 
     session.cards = data.cards;
     session.index = 0;
+    session.newWordsCount = data.new_words_count ?? session.cards.length;
 
     if (session.cards.length === 0) {
       renderEmpty();

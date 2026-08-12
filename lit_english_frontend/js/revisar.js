@@ -37,6 +37,7 @@ const session = {
   flipped: false,
   remaining: 0,
   limit: 15,
+  typingLocked: false,
 };
 
 // ---------------------------------------------------------------------------
@@ -356,10 +357,23 @@ function renderStateBox({ icon, title, text, actionLabel, onAction }) {
 }
 
 const STATUS_CLASS = {
-  revisando: "is-revisando",
-  aprofundando: "is-aprofundando",
+  aprendendo: "is-aprendendo",
+  dominando: "is-dominando",
   concluido: "is-concluido",
 };
+
+function isFlipMode(card) {
+  return !card.mode || card.mode === "flip";
+}
+
+function isTypeMode(card) {
+  return card.mode === "type_pt" || card.mode === "type_target";
+}
+
+function promptText(card) {
+  if (card.mode === "type_target") return card.back;
+  return card.front;
+}
 
 function updateStatusLegend(status) {
   document.querySelectorAll(".vocab-status-item").forEach((item) => {
@@ -369,16 +383,40 @@ function updateStatusLegend(status) {
   });
 }
 
+function statusClassName(card) {
+  return card.status ? `status-${card.status}` : "";
+}
+
+function advanceToNextCard() {
+  session.remaining = Math.max(0, session.remaining - 1);
+  session.index += 1;
+  session.flipped = false;
+  session.typingLocked = false;
+
+  if (session.index >= session.cards.length) {
+    renderFinished();
+  } else {
+    renderCard();
+  }
+}
+
 function renderCard() {
   const card = session.cards[session.index];
   reviewArea.innerHTML = "";
   updateStatusLegend(card.status);
 
+  if (isTypeMode(card)) {
+    renderTypeCard(card);
+  } else {
+    renderFlipCard(card);
+  }
+}
+
+function renderTypeCard(card) {
   const wrapper = document.createElement("div");
 
   const cardBox = document.createElement("div");
-  const statusClass = card.status ? `status-${card.status}` : "";
-  cardBox.className = `review-card review-card-status ${statusClass}`.trim();
+  cardBox.className = `review-card review-card-status ${statusClassName(card)}`.trim();
 
   const counter = document.createElement("div");
   counter.className = "counter";
@@ -388,16 +426,117 @@ function renderCard() {
   const body = document.createElement("div");
   body.className = "card-body";
 
-  const front = document.createElement("p");
-  front.className = "front-text";
-  front.textContent = card.front;
-  body.appendChild(front);
+  const prompt = document.createElement("p");
+  prompt.className = "front-text";
+  prompt.textContent = promptText(card);
+  body.appendChild(prompt);
+
+  const hint = document.createElement("p");
+  hint.className = "review-hint";
+  hint.style.margin = "0";
+  hint.textContent =
+    card.mode === "type_pt"
+      ? "Digite a tradução em português"
+      : "Digite na língua-alvo";
+  body.appendChild(hint);
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "review-type-input";
+  input.autocomplete = "off";
+  input.placeholder = card.mode === "type_pt" ? "Tradução em português" : "Resposta na língua-alvo";
+  body.appendChild(input);
+
+  const feedback = document.createElement("p");
+  feedback.className = "review-type-feedback";
+  feedback.hidden = true;
+  body.appendChild(feedback);
+
+  const speakBtn = document.createElement("button");
+  speakBtn.className = "speak-btn";
+  speakBtn.type = "button";
+  speakBtn.innerHTML = Icons.volume;
+  speakBtn.title = "Ouvir pronúncia";
+  if (card.mode === "type_pt") {
+    speakBtn.addEventListener("click", () => speak(card.front, speakBtn));
+  }
+  body.appendChild(speakBtn);
+
+  cardBox.appendChild(body);
+  wrapper.appendChild(cardBox);
+
+  const actions = document.createElement("div");
+  actions.className = "review-type-actions";
+
+  const submitBtn = document.createElement("button");
+  submitBtn.className = "btn btn-primary";
+  submitBtn.type = "button";
+  submitBtn.textContent = "Verificar";
+  submitBtn.addEventListener("click", () =>
+    submitTypedAnswer(card, input, feedback, submitBtn)
+  );
+  actions.appendChild(submitBtn);
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !session.typingLocked) {
+      submitTypedAnswer(card, input, feedback, submitBtn);
+    }
+  });
+
+  wrapper.appendChild(actions);
+  reviewArea.appendChild(wrapper);
+
+  input.focus();
+  if (card.mode === "type_pt") {
+    speak(card.front, speakBtn);
+  }
+}
+
+function renderFlipCard(card) {
+  const wrapper = document.createElement("div");
+
+  const cardBox = document.createElement("div");
+  cardBox.className = `review-card review-card-status ${statusClassName(card)}`.trim();
+
+  const counter = document.createElement("div");
+  counter.className = "counter";
+  counter.textContent = `${session.index + 1} / ${session.cards.length}`;
+  cardBox.appendChild(counter);
+
+  const body = document.createElement("div");
+  body.className = "card-body";
 
   if (session.flipped) {
-    const back = document.createElement("p");
-    back.className = "back-text card-flip-anim";
-    back.textContent = card.back;
-    body.appendChild(back);
+    const backWrap = document.createElement("div");
+    backWrap.className = "review-card-back card-flip-anim";
+
+    const word = document.createElement("p");
+    word.className = `review-back-word ${statusClassName(card)}`.trim();
+    word.textContent = card.front;
+    backWrap.appendChild(word);
+
+    const answer = document.createElement("p");
+    answer.className = "learn-back-answer";
+    answer.textContent = card.back;
+    backWrap.appendChild(answer);
+
+    if (card.explanation) {
+      const dot = document.createElement("span");
+      dot.className = "learn-back-dot";
+      backWrap.appendChild(dot);
+
+      const explanation = document.createElement("p");
+      explanation.className = "learn-back-explanation";
+      explanation.textContent = card.explanation;
+      backWrap.appendChild(explanation);
+    }
+
+    body.appendChild(backWrap);
+  } else {
+    const front = document.createElement("p");
+    front.className = "front-text";
+    front.textContent = card.front;
+    body.appendChild(front);
   }
 
   const speakBtn = document.createElement("button");
@@ -459,6 +598,52 @@ function renderCard() {
 
   wrapper.appendChild(actions);
   reviewArea.appendChild(wrapper);
+
+  if (!session.flipped) {
+    speak(card.front, speakBtn);
+  }
+}
+
+async function submitTypedAnswer(card, input, feedback, submitBtn) {
+  if (session.typingLocked) return;
+
+  const typed = input.value.trim();
+  if (!typed) {
+    showToast("Digite sua resposta antes de verificar.");
+    return;
+  }
+
+  session.typingLocked = true;
+  submitBtn.disabled = true;
+  input.disabled = true;
+
+  try {
+    const result = await apiFetch(`/flashcards/review/${card.flashcard_id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ typed_answer: typed }),
+    });
+
+    SFX.play(result.correct ? "correct" : "wrong");
+
+    feedback.hidden = false;
+    feedback.classList.toggle("is-correct", result.correct);
+    feedback.classList.toggle("is-wrong", !result.correct);
+    feedback.textContent = result.correct
+      ? "Correto!"
+      : `Resposta correta: ${result.correct_answer}`;
+
+    setTimeout(() => advanceToNextCard(), 900);
+  } catch (err) {
+    if (err.status === 429) {
+      renderLimitReached();
+    } else {
+      showToast(err.message || "Não foi possível salvar sua resposta. Tente novamente.");
+      session.typingLocked = false;
+      submitBtn.disabled = false;
+      input.disabled = false;
+    }
+  }
 }
 
 async function submitReview(flashcardId, quality, qualityRow) {
@@ -471,15 +656,7 @@ async function submitReview(flashcardId, quality, qualityRow) {
       body: JSON.stringify({ quality }),
     });
 
-    session.remaining = Math.max(0, session.remaining - 1);
-    session.index += 1;
-    session.flipped = false;
-
-    if (session.index >= session.cards.length) {
-      renderFinished();
-    } else {
-      renderCard();
-    }
+    advanceToNextCard();
   } catch (err) {
     if (err.status === 429) {
       renderLimitReached();

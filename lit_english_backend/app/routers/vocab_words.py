@@ -19,6 +19,7 @@ from app.models import (
     Flashcard,
     FlashcardAssignment,
     ReviewCardStatus,
+    ReviewMode,
     User,
     UserRole,
     VocabWord,
@@ -169,13 +170,15 @@ def _graduate_word_to_review(word: VocabWord, student: User, db: Session) -> Fla
         card_progress = CardProgress(
             student_id=student.id,
             flashcard_id=flashcard.id,
-            review_status=ReviewCardStatus.revisando,
+            review_status=ReviewCardStatus.aprendendo,
+            review_mode=ReviewMode.flip,
             correct_streak=0,
             next_review=datetime.utcnow(),
         )
         db.add(card_progress)
     elif card_progress.review_status is None:
-        card_progress.review_status = ReviewCardStatus.revisando
+        card_progress.review_status = ReviewCardStatus.aprendendo
+        card_progress.review_mode = ReviewMode.flip
 
     return flashcard
 
@@ -320,9 +323,11 @@ def get_learn_queue(
     student: User = Depends(get_current_approved_user),
 ):
     """
-    Retorna palavras NOVAS para Aprender: atribuídas ao aluno e que ele
-    nunca respondeu (sem registro em VocabWordProgress). Palavras que já
-    foram respondidas ou graduadas para Revisar não aparecem aqui.
+    Monta a sessão de Aprender nesta ordem:
+      1) até 15 palavras novas (nunca respondidas)
+      2) palavras erradas anteriormente (sem primeiro acerto) — aparecem
+         depois das novas; o frontend também pode recolocá-las ao fim da
+         sessão atual quando o aluno erra de novo.
     """
     _require_student(student)
 
@@ -342,6 +347,18 @@ def get_learn_queue(
         .all()
     )
 
+    already_in_cycle_ids = [w.id for w in new_words]
+    wrong_words = (
+        db.query(VocabWord)
+        .join(VocabWordProgress, VocabWordProgress.word_id == VocabWord.id)
+        .filter(VocabWordProgress.student_id == student.id)
+        .filter(VocabWordProgress.first_correct_at.is_(None))
+        .filter(~VocabWord.id.in_(already_in_cycle_ids))
+        .order_by(VocabWordProgress.last_reviewed.asc())
+        .all()
+    )
+
+    cycle_words = new_words + wrong_words
     cards = [
         VocabLearnCardOut(
             word_id=w.id,
@@ -351,7 +368,7 @@ def get_learn_queue(
             tip=w.tip,
             options=_build_options(w),
         )
-        for w in new_words
+        for w in cycle_words
     ]
 
     total_assigned = db.query(VocabWordAssignment).filter(
@@ -366,7 +383,12 @@ def get_learn_queue(
         .count()
     )
 
-    return VocabLearnQueueOut(cards=cards, total_assigned=total_assigned, total_learned=total_learned)
+    return VocabLearnQueueOut(
+        cards=cards,
+        total_assigned=total_assigned,
+        total_learned=total_learned,
+        new_words_count=len(new_words),
+    )
 
 
 @router.post("/learn/{word_id}", response_model=VocabLearnResult)
@@ -397,21 +419,20 @@ def submit_learn_answer(
         .filter(VocabWordProgress.student_id == student.id, VocabWordProgress.word_id == word_id)
         .first()
     )
-    if progress:
+    if progress and progress.first_correct_at:
         raise HTTPException(
             status_code=409,
-            detail="Esta palavra já foi respondida e não está mais disponível em Aprender.",
+            detail="Esta palavra já foi aprendida e não está mais disponível em Aprender.",
         )
 
     is_correct = payload.selected_option.strip().lower() == word.translation.strip().lower()
     now = datetime.utcnow()
 
-    progress = VocabWordProgress(
-        student_id=student.id,
-        word_id=word_id,
-        last_reviewed=now,
-    )
-    db.add(progress)
+    if not progress:
+        progress = VocabWordProgress(student_id=student.id, word_id=word_id)
+        db.add(progress)
+
+    progress.last_reviewed = now
 
     graduated = False
     if is_correct:

@@ -310,9 +310,43 @@ def run_migrations():
                             "ALTER TABLE card_progress ADD COLUMN correct_streak INTEGER NOT NULL DEFAULT 0"
                         ))
                         conn.commit()
+                    # Novos valores do enum + renomeação lógica revisando→aprendendo
+                    for val in ("aprendendo", "dominando"):
+                        try:
+                            conn.execute(text(
+                                f"ALTER TYPE reviewcardstatus ADD VALUE IF NOT EXISTS '{val}'"
+                            ))
+                            conn.commit()
+                        except Exception:
+                            conn.rollback()
+                    try:
+                        conn.execute(text(
+                            "UPDATE card_progress SET review_status = 'aprendendo' "
+                            "WHERE review_status::text = 'revisando'"
+                        ))
+                        conn.execute(text(
+                            "UPDATE card_progress SET review_status = 'dominando' "
+                            "WHERE review_status::text = 'aprofundando'"
+                        ))
+                        conn.commit()
+                    except Exception:
+                        conn.rollback()
+                    # Modo de interação (flip / type_pt / type_target)
+                    conn.execute(text(
+                        "DO $$ BEGIN "
+                        "CREATE TYPE reviewmode AS ENUM ('flip', 'type_pt', 'type_target'); "
+                        "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+                    ))
+                    conn.commit()
+                    if not _col_exists(conn, "card_progress", "review_mode"):
+                        conn.execute(text(
+                            "ALTER TABLE card_progress ADD COLUMN review_mode reviewmode "
+                            "NOT NULL DEFAULT 'flip'"
+                        ))
+                        conn.commit()
                 except Exception:
                     logger.exception(
-                        "Falha ao migrar card_progress (review_status / correct_streak), ignorando."
+                        "Falha ao migrar card_progress (review_status / review_mode), ignorando."
                     )
                     conn.rollback()
 
