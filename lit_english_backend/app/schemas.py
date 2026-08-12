@@ -121,6 +121,8 @@ class ReviewQueueOut(BaseModel):
     cards: list[ReviewCardOut]
     remaining_in_window: int
     limit_per_window: int
+    blocked_by: Optional[str] = None
+    blocked_message: Optional[str] = None
 
 
 class ReviewSubmit(BaseModel):
@@ -628,6 +630,13 @@ class ReadingHeartbeatIn(BaseModel):
 class ReadingHeartbeatOut(BaseModel):
     total_seconds: int
     points_awarded: int
+
+
+class NextActivityOut(BaseModel):
+    """Próxima atividade recomendada para o aluno (fila global)."""
+    activity: str  # "exercises" | "flashcards" | "none"
+    url: Optional[str] = None
+    message: Optional[str] = None
 
 # ---------- Teste de Nivelamento (leads) ----------
 

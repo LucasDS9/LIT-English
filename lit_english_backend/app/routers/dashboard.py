@@ -9,6 +9,7 @@ Rotas da tela inicial (Dashboard) do aluno:
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.activity_queue import resolve_next_activity
 from app.auth import get_current_approved_user
 from app.database import get_db
 from app.lit_points import (
@@ -21,7 +22,7 @@ from app.lit_points import (
     flashcard_points_total,
 )
 from app.models import ExerciseSubmission, ReadingTimeLog, User
-from app.schemas import DashboardMetricsOut, ReadingHeartbeatIn, ReadingHeartbeatOut
+from app.schemas import DashboardMetricsOut, NextActivityOut, ReadingHeartbeatIn, ReadingHeartbeatOut
 from app.timezone import start_of_day_brazil_utc
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
@@ -99,6 +100,16 @@ def get_dashboard_metrics(
     user: User = Depends(get_current_approved_user),
 ):
     return build_dashboard_metrics(db, user.id)
+
+
+@router.get("/next-activity", response_model=NextActivityOut)
+def get_next_activity(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_approved_user),
+):
+    """Fila global: indica qual atividade o aluno deve fazer primeiro."""
+    data = resolve_next_activity(db, user)
+    return NextActivityOut(**data)
 
 
 @router.post("/reading-heartbeat", response_model=ReadingHeartbeatOut)

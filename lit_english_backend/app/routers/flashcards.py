@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import nullsfirst
 from sqlalchemy.orm import Session
 
+from app.activity_queue import should_defer_flashcards
 from app.ai_judge import judge_answer
 from app.ai_translate import TranslationUnavailable, translate_to_portuguese
 from app.flashcard_judge import judge_flashcard_answer
@@ -558,6 +559,18 @@ def get_review_queue(
     respeitando o limite de cards por janela de tempo.
     """
     _require_student(student)
+
+    if should_defer_flashcards(db, student):
+        return ReviewQueueOut(
+            cards=[],
+            remaining_in_window=0,
+            limit_per_window=LIMIT_PER_WINDOW,
+            blocked_by="exercises",
+            blocked_message=(
+                "Complete os exercícios atribuídos pelo professor antes de revisar flashcards."
+            ),
+        )
+
     remaining = _remaining_in_window(student.id, db)
 
     if remaining == 0:

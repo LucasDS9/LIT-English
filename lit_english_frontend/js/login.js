@@ -164,7 +164,7 @@
         return;
       }
 
-      window.location.href = "home.html";
+      await redirectAfterStudentLogin(user);
     } catch (err) {
       if (err.status === 401) {
         showError("E-mail ou senha incorretos.");

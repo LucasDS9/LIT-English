@@ -168,6 +168,34 @@ async function fetchCurrentUser() {
 }
 
 /**
+ * Redireciona aluno do curso padrão para exercícios prioritários (listas do
+ * professor), se houver. Usado na Home e após login.
+ */
+async function redirectToPriorityActivityIfNeeded(user) {
+  if (!user || user.role !== "aluno" || user.access_type === "especial" || !user.is_approved) {
+    return false;
+  }
+  try {
+    const next = await apiFetch("/dashboard/next-activity");
+    if (next.activity === "exercises" && next.url) {
+      window.location.href = next.url;
+      return true;
+    }
+  } catch {
+    // Ignora — permanece na página atual.
+  }
+  return false;
+}
+
+/**
+ * Destino padrão após login de aluno aprovado (respeita fila global).
+ */
+async function redirectAfterStudentLogin(user) {
+  if (await redirectToPriorityActivityIfNeeded(user)) return;
+  window.location.href = "home.html";
+}
+
+/**
  * Alunos que se cadastraram pelo "Acesso Especial" (access_type === "especial")
  * ainda não têm conteúdo de exercícios — então o menu "Exercícios" fica
  * escondido, e quem tentar acessar exercicios.html direto pela URL é

@@ -138,6 +138,7 @@ async function init() {
   }
 
   loadMetrics();
+  redirectToPriorityActivityIfNeeded(user);
 }
 
 init();

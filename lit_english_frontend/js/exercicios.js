@@ -128,9 +128,6 @@ async function loadExercises() {
     return;
   }
 
-  // Do mais antigo para o mais novo
-  exercises.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-
   session.exercises = exercises;
   session.index = 0;
   renderCurrent();

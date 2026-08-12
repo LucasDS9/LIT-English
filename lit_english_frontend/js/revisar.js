@@ -894,7 +894,19 @@ async function loadQueue() {
     session.remaining = data.remaining_in_window;
     session.limit = data.limit_per_window;
 
-    if (session.remaining <= 0) {
+    if (data.blocked_by === "exercises") {
+      renderStateBox({
+        icon: Icons.alert,
+        title: "Exercícios prioritários",
+        text:
+          data.blocked_message ||
+          "Complete os exercícios atribuídos pelo professor antes de revisar flashcards.",
+        actionLabel: "Ir para exercícios",
+        onAction: () => {
+          window.location.href = "exercicios.html";
+        },
+      });
+    } else if (session.remaining <= 0 && session.cards.length === 0) {
       renderLimitReached();
     } else if (session.cards.length === 0) {
       renderEmpty();

@@ -10,6 +10,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.activity_queue import build_student_exercise_queue
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
 from app.models import (
@@ -590,84 +591,7 @@ def my_assignments(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_approved_user),
 ):
-    now = utcnow()
-
-    # Quantos exercícios o aluno já respondeu hoje contam para o limite diário.
-    # O que sobrar de exercícios devidos não é descartado: continua devido e
-    # reaparece nos próximos dias (acumula).
-    start_today = start_of_day_brazil_utc()
-    answered_today = (
-        db.query(ExerciseSubmission)
-        .filter(
-            ExerciseSubmission.student_id == user.id,
-            ExerciseSubmission.created_at >= start_today,
-        )
-        .count()
-    )
-
-    assigned_ids_subquery = (
-        db.query(ExerciseAssignment.exercise_id)
-        .filter(ExerciseAssignment.student_id == user.id)
-    )
-
-    not_due_subquery = (
-        db.query(ExerciseProgress.exercise_id)
-        .filter(
-            ExerciseProgress.student_id == user.id,
-            ExerciseProgress.next_review > now,
-        )
-    )
-
-    due_exercises = (
-        db.query(Exercise)
-        .filter(Exercise.id.in_(assigned_ids_subquery))
-        .filter(~Exercise.id.in_(not_due_subquery))
-        .all()
-    )
-
-    # Se o aluno acumulou mais exercícios devidos do que o limite normal (ou
-    # seja, não conseguiu zerar algum dia anterior), o limite do dia dobra
-    # (10 -> 20) para ajudar a resolver o acúmulo mais rápido.
-    daily_limit = (
-        DAILY_EXERCISE_LIMIT_WITH_BACKLOG
-        if len(due_exercises) > DAILY_EXERCISE_LIMIT
-        else DAILY_EXERCISE_LIMIT
-    )
-    remaining_quota = max(0, daily_limit - answered_today)
-    if remaining_quota == 0:
-        return []
-
-    # "Novo" = aluno nunca respondeu esse exercício (sem registro de progresso).
-    progress_by_exercise = {
-        p.exercise_id: p
-        for p in db.query(ExerciseProgress).filter(ExerciseProgress.student_id == user.id).all()
-    }
-
-    # Para os novos, a ordem segue a fila de atribuição (o mais antigo enviado
-    # pelo professor primeiro). Quando o mesmo exercício foi atribuído mais de
-    # uma vez, usamos a atribuição mais antiga.
-    earliest_assigned_at: dict[int, object] = {}
-    for a in (
-        db.query(ExerciseAssignment)
-        .filter(ExerciseAssignment.student_id == user.id)
-        .all()
-    ):
-        current = earliest_assigned_at.get(a.exercise_id)
-        if current is None or a.assigned_at < current:
-            earliest_assigned_at[a.exercise_id] = a.assigned_at
-
-    def sort_key(ex: Exercise):
-        progress = progress_by_exercise.get(ex.id)
-        if progress is None:
-            # Novos primeiro, ordenados por ordem de chegada (fila).
-            return (0, earliest_assigned_at.get(ex.id) or ex.created_at)
-        # Depois, por ordem de disponibilidade: quem está devido há mais
-        # tempo (next_review mais antigo) aparece primeiro.
-        return (1, progress.next_review or ex.created_at)
-
-    due_exercises.sort(key=sort_key)
-
-    return due_exercises[:remaining_quota]
+    return build_student_exercise_queue(db, user)
 
 
 @router.post("/{exercise_id}/submit", response_model=ExerciseAnswerResult)
