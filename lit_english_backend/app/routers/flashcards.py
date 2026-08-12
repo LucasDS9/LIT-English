@@ -53,7 +53,7 @@ from app.schemas import (
     ReviewSubmit,
     VocabularyItemOut,
 )
-from app.routers.pronunciation import transcribe
+from app.routers.pronunciation import assess_pronunciation, transcribe
 from app.sm2 import calculate_sm2
 
 router = APIRouter(prefix="/flashcards", tags=["Flashcards"])
@@ -751,29 +751,46 @@ async def pronounce_flashcard(
     if len(audio_bytes) < 100:
         raise HTTPException(status_code=400, detail="Áudio muito curto ou inválido.")
 
+    from app.pronunciation_limits import enforce_optional_pronunciation_limits, log_pronunciation_attempt
+
+    enforce_optional_pronunciation_limits(db, student.id, audio_bytes)
+
     lang = student_language(student)
     whisper_lang = _WHISPER_LANGUAGE.get(lang, "english")
+    expected = flashcard.front
 
     try:
-        transcribed_text = transcribe(audio_bytes, whisper_lang)
+        assessment = assess_pronunciation(audio_bytes, whisper_lang, expected)
     except Exception as exc:
         logger.exception("Erro na transcrição de pronúncia de flashcard")
         raise HTTPException(status_code=500, detail=f"Erro na transcrição: {exc}")
 
-    transcribed_text = transcribed_text or ""
-    expected = flashcard.front
-    judge_result = _judge_spoken_answer(
-        student=student,
-        expected=expected,
-        given=transcribed_text,
-        context=flashcard.back,
-    )
+    transcribed_text = assessment.get("transcribed_text") or ""
+    score = assessment.get("score")
+    word_scores = assessment.get("word_scores")
+
+    if score is not None:
+        is_correct = score >= 60
+        reason = assessment.get("reason") or "Avaliação de pronúncia concluída."
+    else:
+        judge_result = _judge_spoken_answer(
+            student=student,
+            expected=expected,
+            given=transcribed_text,
+            context=flashcard.back,
+        )
+        is_correct = judge_result["correct"]
+        reason = judge_result["reason"]
+
+    log_pronunciation_attempt(db, student.id)
 
     return FlashcardPronunciationResult(
-        correct=judge_result["correct"],
+        correct=is_correct,
         correct_answer=expected,
         transcribed_text=transcribed_text or None,
-        reason=judge_result["reason"],
+        reason=reason,
+        score=score,
+        word_scores=word_scores,
     )
 
 

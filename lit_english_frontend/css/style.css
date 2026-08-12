@@ -1104,6 +1104,44 @@ svg {
   position: relative;
 }
 
+.learn-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.learn-lang-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.learn-lang-flag {
+  display: inline-flex;
+  width: 24px;
+  height: 16px;
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.learn-lang-flag svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.learn-card-counter {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
 .learn-card .front-text {
   text-transform: none;
   letter-spacing: 0;
@@ -1271,10 +1309,60 @@ svg {
   stroke: currentColor;
 }
 
+.review-audio-btn--mic .mic-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+
+.review-audio-btn--mic .mic-icon-wrap svg {
+  width: 18px;
+  height: 18px;
+}
+
+.review-audio-btn.is-preparing {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-pale);
+  cursor: wait;
+}
+
+.review-audio-btn.is-preparing .mic-icon-wrap {
+  animation: micPreparing 0.75s ease-in-out infinite;
+}
+
 .review-audio-btn.is-recording {
   background: var(--primary);
   color: #fff;
   border-color: var(--primary);
+  animation: micBtnPulse 1.25s ease-out infinite;
+}
+
+.review-audio-btn.is-recording .mic-icon-wrap {
+  animation: micRecording 0.55s ease-in-out infinite;
+}
+
+.review-audio-btn.is-analyzing {
+  opacity: 0.85;
+  cursor: wait;
+}
+
+@keyframes micPreparing {
+  0%, 100% { opacity: 0.45; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes micRecording {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+
+@keyframes micBtnPulse {
+  0% { box-shadow: 0 0 0 0 rgba(134, 30, 25, 0.45); }
+  70% { box-shadow: 0 0 0 10px rgba(134, 30, 25, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(134, 30, 25, 0); }
 }
 
 .review-pronunciation-feedback {
@@ -1381,9 +1469,13 @@ svg {
   animation: cardFlipReveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   transform-style: preserve-3d;
   backface-visibility: hidden;
-  /* Espaço à direita pra não colidir com a setinha de continuar. */
   padding-right: 56px;
   box-sizing: border-box;
+}
+
+.learn-card-back .learn-card-header {
+  justify-content: space-between;
+  margin-bottom: 4px;
 }
 
 .learn-back-answer {
@@ -1437,6 +1529,257 @@ svg {
 .learn-continue-fab svg {
   width: 20px;
   height: 20px;
+  stroke: currentColor;
+}
+
+/* ---------- Aprender: feedback de pronúncia (verso após gravar) ---------- */
+
+.learn-pronunciation-view {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.pronunciation-legend {
+  width: 100%;
+  max-width: 720px;
+  text-align: center;
+}
+
+.pronunciation-legend-title {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.pronunciation-legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 18px;
+}
+
+.pronunciation-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.pronunciation-legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pronunciation-legend-dot.tier-good,
+.pronunciation-word.tier-good,
+.pronunciation-score-value.tier-good,
+.pronunciation-ai-feedback.tier-good .pronunciation-ai-icon {
+  color: #861E19;
+}
+
+.pronunciation-legend-dot.tier-good { background: #861E19; }
+.pronunciation-legend-dot.tier-medium { background: #D18C8C; }
+.pronunciation-legend-dot.tier-bad { background: #F2C4C4; }
+
+.pronunciation-word.tier-good { color: #861E19; }
+.pronunciation-word.tier-medium { color: #D18C8C; }
+.pronunciation-word.tier-bad { color: #F2C4C4; }
+
+.learn-card--pronunciation-back {
+  padding-top: 28px;
+  padding-bottom: 36px;
+}
+
+.learn-card-back-pronunciation {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  text-align: center;
+  animation: cardFlipReveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  padding-right: 56px;
+  box-sizing: border-box;
+}
+
+.pronunciation-phrase {
+  margin: 0;
+  font-size: clamp(28px, 5vw, 44px);
+  font-weight: 700;
+  line-height: 1.25;
+  max-width: 640px;
+}
+
+.pronunciation-phrase-divider {
+  width: 46px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+.pronunciation-translation {
+  margin: 0;
+  font-size: clamp(18px, 3vw, 24px);
+  font-weight: 500;
+  color: var(--text);
+  max-width: 560px;
+}
+
+.pronunciation-usage {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.pronunciation-usage-label {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #FCEEEC;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pronunciation-usage-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.pronunciation-score-section {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.pronunciation-score-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.pronunciation-score-ring-wrap {
+  position: relative;
+  width: 148px;
+  height: 148px;
+}
+
+.pronunciation-score-ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.pronunciation-score-ring .ring-bg {
+  fill: none;
+  stroke: #EFEFEF;
+  stroke-width: 8;
+}
+
+.pronunciation-score-ring .ring-fill {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.45s ease;
+}
+
+.pronunciation-score-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.pronunciation-score-value .score-num {
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pronunciation-score-value .score-denom {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.pronunciation-score-value.tier-medium .score-num { color: #D18C8C; }
+.pronunciation-score-value.tier-bad .score-num { color: #E8A0A0; }
+
+.pronunciation-ai-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+}
+
+.pronunciation-ai-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.pronunciation-ai-feedback.tier-good .pronunciation-ai-icon { color: #861E19; }
+.pronunciation-ai-feedback.tier-medium .pronunciation-ai-icon { color: #D18C8C; }
+.pronunciation-ai-feedback.tier-bad .pronunciation-ai-icon { color: var(--primary); }
+
+.pronunciation-ai-text {
+  flex: 1;
+}
+
+.pronunciation-ai-text strong {
+  display: block;
+  font-size: 16px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.pronunciation-ai-text p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.pronunciation-listen-btn {
+  width: 100%;
+  max-width: 420px;
+  justify-content: center;
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.pronunciation-listen-btn svg {
+  width: 18px;
+  height: 18px;
   stroke: currentColor;
 }
 
@@ -2611,6 +2954,24 @@ svg {
   .learn-options {
     grid-template-columns: 1fr;
     gap: 10px;
+  }
+
+  .pronunciation-legend-items {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .learn-card-back-pronunciation,
+  .learn-card-back {
+    padding-right: 0;
+  }
+
+  .learn-continue-fab {
+    right: 16px;
+  }
+
+  .pronunciation-phrase {
+    font-size: clamp(24px, 7vw, 34px);
   }
 
   .vocab-status-legend {

@@ -38,7 +38,17 @@ const session = {
   index: 0,
   answered: false,
   newWordsCount: 0, // quantas palavras novas vieram no início da sessão
+  pronunciationByWordId: {}, // word_id -> resultado da última gravação neste card
 };
+
+let currentUser = null;
+
+function studentLanguage(user) {
+  if (user?.access_type === "especial" && user?.target_language) {
+    return user.target_language.trim().toLowerCase();
+  }
+  return "ingles";
+}
 
 // ---------------------------------------------------------------------------
 // Áudio (pronúncia da palavra isolada — mesma lógica usada em Revisar)
@@ -276,6 +286,15 @@ function renderCard() {
   const cardBox = document.createElement("div");
   cardBox.className = "review-card learn-card";
 
+  const header = document.createElement("div");
+  header.className = "learn-card-header";
+  header.appendChild(FlashcardPronounce.buildLangBadge(studentLanguage(currentUser)));
+  const counter = document.createElement("span");
+  counter.className = "learn-card-counter";
+  counter.textContent = `${session.index + 1} / ${session.cards.length}`;
+  header.appendChild(counter);
+  cardBox.appendChild(header);
+
   const body = document.createElement("div");
   body.className = "card-body";
 
@@ -309,8 +328,6 @@ function renderCard() {
     body.appendChild(sentence);
   }
 
-  let pronunciationFeedback = null;
-
   const { controls, listenBtn } = FlashcardPronounce.buildAudioControlsRow({
     listenLabel: "Ouvir pronúncia",
     onListen: () => speakWord(card.word, listenBtn),
@@ -318,13 +335,18 @@ function renderCard() {
     pronounceLabel: "Pronunciar",
     onPronounceReady: (btn) => {
       const recorder = FlashcardPronounce.attachRecordButton(btn, {
+        recordingLabel: "Parar (5s máx)",
+        preparingLabel: "Preparando...",
         onStop: async (blob) => {
           try {
-            const result = await FlashcardPronounce.submitAudio(
+    const result = await FlashcardPronounce.submitAudio(
               blob,
               `/vocab-words/learn/${card.word_id}/pronounce`
             );
-            FlashcardPronounce.showFeedback(pronunciationFeedback, result);
+            session.pronunciationByWordId[card.word_id] = result;
+            showToast(result.score != null
+              ? "Pronúncia avaliada — veja o feedback ao virar o card."
+              : "Pronúncia registrada — veja o feedback ao virar o card.");
             SFX.play(result.correct ? "correct" : "wrong");
           } catch (err) {
             showToast(err.message || "Não foi possível analisar a pronúncia.");
@@ -337,11 +359,6 @@ function renderCard() {
     },
   });
   body.appendChild(controls);
-
-  pronunciationFeedback = document.createElement("div");
-  pronunciationFeedback.className = "review-pronunciation-feedback";
-  pronunciationFeedback.hidden = true;
-  body.appendChild(pronunciationFeedback);
 
   cardBox.appendChild(body);
 
@@ -366,42 +383,7 @@ function renderCard() {
   speakWord(card.word, listenBtn);
 }
 
-// Depois que o aluno responde, o card "vira": o corpo (palavra + opções)
-// dá lugar ao verso, com a frase, a resposta certa e a explicação (quando
-// houver). Só chega aqui DEPOIS da resposta — o verso nunca aparece antes
-// disso.
-function renderCardBack(cardBox, card, result) {
-  cardBox.innerHTML = "";
-
-  const back = document.createElement("div");
-  back.className = "learn-card-back";
-
-  // A frase (a palavra sendo aprendida).
-  const phrase = document.createElement("p");
-  phrase.className = "front-text";
-  phrase.textContent = card.word;
-  back.appendChild(phrase);
-
-  const answer = document.createElement("p");
-  answer.className = "learn-back-answer";
-  answer.textContent = result.correct_answer;
-  back.appendChild(answer);
-
-  if (result.explanation) {
-    const dot = document.createElement("span");
-    dot.className = "learn-back-dot";
-    back.appendChild(dot);
-
-    const explanation = document.createElement("p");
-    explanation.className = "learn-back-explanation";
-    explanation.textContent = result.explanation;
-    back.appendChild(explanation);
-  }
-
-  cardBox.appendChild(back);
-
-  // Botão de continuar: seta circular, centralizada verticalmente do lado
-  // direito do card (não faz parte do fluxo vertical do verso).
+function appendContinueFab(cardBox, card, result) {
   const isLastCard = session.index + 1 >= session.cards.length;
   const continueBtn = document.createElement("button");
   continueBtn.className = "learn-continue-fab";
@@ -410,7 +392,8 @@ function renderCardBack(cardBox, card, result) {
   continueBtn.setAttribute("aria-label", isLastCard ? "Concluir" : "Continuar");
   continueBtn.innerHTML = isLastCard ? Icons.checkSmall : Icons.arrowRight;
   continueBtn.addEventListener("click", () => {
-    // Palavra errada volta ao fim da fila, depois das novas.
+    delete session.pronunciationByWordId[card.word_id];
+
     if (!result.correct && !result.graduated_to_review) {
       const alreadyQueued = session.cards
         .slice(session.index + 1)
@@ -435,6 +418,79 @@ function renderCardBack(cardBox, card, result) {
     }
   });
   cardBox.appendChild(continueBtn);
+}
+
+// Depois que o aluno responde, o card "vira": o corpo (palavra + opções)
+// dá lugar ao verso. Se o aluno usou pronúncia, mostra o painel visual;
+// caso contrário, mantém o verso simples de antes.
+function renderCardBack(cardBox, card, result) {
+  const pronunciationResult = session.pronunciationByWordId[card.word_id];
+
+  if (pronunciationResult) {
+    learnArea.innerHTML = "";
+
+    const view = document.createElement("div");
+    view.className = "learn-pronunciation-view";
+
+    view.appendChild(FlashcardPronounce.buildLegend());
+
+    const cardBoxNew = document.createElement("div");
+    cardBoxNew.className = "review-card learn-card learn-card--pronunciation-back";
+
+    const back = FlashcardPronounce.buildPronunciationBack({
+      card,
+      learnResult: result,
+      pronunciationResult,
+      languageCode: studentLanguage(currentUser),
+      cardIndex: session.index,
+      totalCards: session.cards.length,
+      onListen: (btn) => speakWord(card.word, btn),
+    });
+    cardBoxNew.appendChild(back);
+    appendContinueFab(cardBoxNew, card, result);
+
+    view.appendChild(cardBoxNew);
+    learnArea.appendChild(view);
+    return;
+  }
+
+  cardBox.innerHTML = "";
+
+  const back = document.createElement("div");
+  back.className = "learn-card-back";
+
+  const header = document.createElement("div");
+  header.className = "learn-card-header";
+  header.appendChild(FlashcardPronounce.buildLangBadge(studentLanguage(currentUser)));
+  const counter = document.createElement("span");
+  counter.className = "learn-card-counter";
+  counter.textContent = `${session.index + 1} / ${session.cards.length}`;
+  header.appendChild(counter);
+  back.appendChild(header);
+
+  const phrase = document.createElement("p");
+  phrase.className = "front-text";
+  phrase.textContent = card.word;
+  back.appendChild(phrase);
+
+  const answer = document.createElement("p");
+  answer.className = "learn-back-answer";
+  answer.textContent = result.correct_answer;
+  back.appendChild(answer);
+
+  if (result.explanation) {
+    const dot = document.createElement("span");
+    dot.className = "learn-back-dot";
+    back.appendChild(dot);
+
+    const explanation = document.createElement("p");
+    explanation.className = "learn-back-explanation";
+    explanation.textContent = result.explanation;
+    back.appendChild(explanation);
+  }
+
+  cardBox.appendChild(back);
+  appendContinueFab(cardBox, card, result);
 }
 
 async function selectOption(card, selectedOption, btn, optionsGrid) {
@@ -484,6 +540,7 @@ async function loadQueue() {
     session.cards = data.cards;
     session.index = 0;
     session.newWordsCount = data.new_words_count ?? session.cards.length;
+    session.pronunciationByWordId = {};
 
     if (session.cards.length === 0) {
       renderEmpty();
@@ -519,6 +576,7 @@ async function init() {
     return;
   }
 
+  currentUser = user;
   studentNameEl.textContent = user.name;
   roleLabelEl.textContent = user.role === "professor" ? "PROFESSOR" : "ALUNO";
 

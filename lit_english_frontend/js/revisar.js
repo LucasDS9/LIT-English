@@ -188,6 +188,8 @@ function buildReviewAudioControls(card, body, { listenLabel = "Ouvir novamente" 
     pronounceLabel: "Pronunciar",
     onPronounceReady: (btn) => {
       const recorder = FlashcardPronounce.attachRecordButton(btn, {
+        recordingLabel: "Parar (5s máx)",
+        preparingLabel: "Preparando...",
         onStop: async (blob) => {
           try {
             const result = await FlashcardPronounce.submitAudio(
@@ -576,8 +578,10 @@ function renderSpeakCard(card) {
       FlashcardPronounce.attachRecordButton(recordBtn, {
         recordingLabel: "Parar",
         idleLabel: "Gravar",
+        preparingLabel: "Preparando...",
         stopLabel: "Gravado — pode refazer",
         disableOnStop: false,
+        maxDurationMs: 0,
         onStop: (blob) => {
           recordedBlob = blob;
         },

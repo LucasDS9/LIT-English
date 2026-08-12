@@ -481,26 +481,36 @@ async def pronounce_vocab_word(
     if not assigned:
         raise HTTPException(status_code=403, detail="Esta palavra não está disponível para você.")
 
-    from app.routers.pronunciation import transcribe
+    from app.routers.pronunciation import assess_pronunciation
 
     audio_bytes = await audio.read()
     if len(audio_bytes) < 100:
         raise HTTPException(status_code=400, detail="Áudio muito curto ou inválido.")
 
+    from app.pronunciation_limits import enforce_optional_pronunciation_limits, log_pronunciation_attempt
+
+    enforce_optional_pronunciation_limits(db, student.id, audio_bytes)
+
     lang = student_language(student)
     whisper_map = {"ingles": "english", "italiano": "italian", "frances": "french"}
     whisper_lang = whisper_map.get(lang, "english")
     answer_lang_map = {"italiano": "italiano", "frances": "francês", "ingles": "inglês"}
+    expected = word.word
 
     try:
-        transcribed_text = transcribe(audio_bytes, whisper_lang)
+        assessment = assess_pronunciation(audio_bytes, whisper_lang, expected)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Erro na transcrição: {exc}")
 
-    transcribed_text = transcribed_text or ""
-    expected = word.word
+    transcribed_text = assessment.get("transcribed_text") or ""
+    score = assessment.get("score")
+    word_scores = assessment.get("word_scores")
+    reason = assessment.get("reason")
 
-    if lang in ("italiano", "frances"):
+    if score is not None:
+        is_correct = score >= 60
+        reason = reason or "Avaliação de pronúncia concluída."
+    elif lang in ("italiano", "frances"):
         result = judge_flashcard_answer(
             expected=expected,
             given=transcribed_text,
@@ -515,11 +525,15 @@ async def pronounce_vocab_word(
         is_correct = result["correct"]
         reason = result["reason"]
 
+    log_pronunciation_attempt(db, student.id)
+
     return FlashcardPronunciationResult(
         correct=is_correct,
         correct_answer=expected,
         transcribed_text=transcribed_text or None,
         reason=reason,
+        score=score,
+        word_scores=word_scores,
     )
 
 

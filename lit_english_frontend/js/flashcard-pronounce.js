@@ -1,6 +1,6 @@
 /* ==========================================================================
    LIT English — flashcard-pronounce.js
-   Gravação e envio de áudio para pronúncia (Aprender, Revisar, Speak).
+   Gravação, envio e UI de feedback de pronúncia (Aprender, Revisar, Speak).
    ========================================================================== */
 
 const FlashcardPronounce = (() => {
@@ -10,6 +10,279 @@ const FlashcardPronounce = (() => {
     "audio/ogg;codecs=opus",
     "audio/ogg",
   ];
+
+  /** Limite alinhado ao backend (Azure free tier). */
+  const PRONUNCIATION_MAX_DURATION_MS = 5000;
+
+  const SCORE_TIERS = [
+    { min: 80, id: "good", legend: "Boa pronúncia (80-100)", color: "#861E19", className: "tier-good" },
+    { min: 60, id: "medium", legend: "Pode melhorar (60-79)", color: "#D18C8C", className: "tier-medium" },
+    { min: 0, id: "bad", legend: "Pronúncia incorreta (0-59)", color: "#F2C4C4", className: "tier-bad" },
+  ];
+
+  const LANGUAGE_META = {
+    ingles: {
+      label: "Inglês",
+      flag: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#012169"/><path d="M0 0l24 16M24 0L0 16" stroke="#fff" stroke-width="2.4"/><path d="M0 0l24 16M24 0L0 16" stroke="#C8102E" stroke-width="1.2"/><path d="M12 0v16M0 8h24" stroke="#fff" stroke-width="3.2"/><path d="M12 0v16M0 8h24" stroke="#C8102E" stroke-width="1.6"/></svg>`,
+    },
+    italiano: {
+      label: "Italiano",
+      flag: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#fff"/><rect x="8" width="8" height="16" fill="#CE2B37"/><rect width="8" height="16" fill="#009246"/></svg>`,
+    },
+    frances: {
+      label: "Francês",
+      flag: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#fff"/><rect width="8" height="16" fill="#0055A4"/><rect x="16" width="8" height="16" fill="#EF4135"/></svg>`,
+    },
+  };
+
+  function escapeHtml(str) {
+    return (str || "").replace(/[&<>"]/g, (c) => (
+      { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]
+    ));
+  }
+
+  function getScoreTier(score) {
+    const value = Number(score) || 0;
+    for (const tier of SCORE_TIERS) {
+      if (value >= tier.min) return tier;
+    }
+    return SCORE_TIERS[SCORE_TIERS.length - 1];
+  }
+
+  function getLanguageMeta(languageCode) {
+    const code = (languageCode || "ingles").trim().toLowerCase();
+    return LANGUAGE_META[code] || LANGUAGE_META.ingles;
+  }
+
+  function buildWordScoresFromText(text, overallScore, isCorrect) {
+    const words = (text || "").trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) return [];
+    if (words.length === 1) {
+      return [{ word: words[0], score: overallScore }];
+    }
+    if (isCorrect) {
+      return words.map((word) => ({ word, score: Math.min(100, overallScore + 2) }));
+    }
+    const last = Math.max(15, overallScore - 5);
+    const first = Math.min(92, overallScore + 38);
+    const mid = Math.min(76, overallScore + 18);
+    return words.map((word, index) => {
+      if (index === 0) return { word, score: first };
+      if (index === words.length - 1) return { word, score: last };
+      return { word, score: mid };
+    });
+  }
+
+  /** Normaliza resposta da API (ou fallback Whisper) para score + cores por palavra. */
+  function normalizePronunciationResult(result) {
+    const isCorrect = Boolean(result.correct);
+    const score = result.score != null
+      ? Math.max(0, Math.min(100, Number(result.score)))
+      : (isCorrect ? 88 : 42);
+
+    const wordScores = Array.isArray(result.word_scores) && result.word_scores.length
+      ? result.word_scores.map((item) => ({
+        word: item.word,
+        score: Math.max(0, Math.min(100, Number(item.score))),
+      }))
+      : buildWordScoresFromText(result.correct_answer, score, isCorrect);
+
+    return {
+      score,
+      wordScores,
+      reason: result.reason || "",
+      transcribedText: result.transcribed_text || "",
+      tier: getScoreTier(score),
+    };
+  }
+
+  function colorizePhrase(text, wordScores) {
+    if (!wordScores || wordScores.length === 0) {
+      return escapeHtml(text);
+    }
+
+    let html = "";
+    let remaining = text || "";
+
+    wordScores.forEach((entry, index) => {
+      const word = entry.word;
+      const pos = remaining.toLowerCase().indexOf(word.toLowerCase());
+      if (pos === -1) return;
+
+      html += escapeHtml(remaining.slice(0, pos));
+      const tier = getScoreTier(entry.score);
+      html += `<span class="pronunciation-word ${tier.className}">${escapeHtml(remaining.slice(pos, pos + word.length))}</span>`;
+      remaining = remaining.slice(pos + word.length);
+
+      if (index < wordScores.length - 1 && remaining.startsWith(" ")) {
+        html += " ";
+        remaining = remaining.slice(1);
+      }
+    });
+
+    html += escapeHtml(remaining);
+    return html;
+  }
+
+  function buildLangBadge(languageCode) {
+    const meta = getLanguageMeta(languageCode);
+    const badge = document.createElement("div");
+    badge.className = "learn-lang-badge";
+    badge.innerHTML = `<span class="learn-lang-flag">${meta.flag}</span><span>${meta.label}</span>`;
+    return badge;
+  }
+
+  function buildLegend() {
+    const legend = document.createElement("div");
+    legend.className = "pronunciation-legend";
+    legend.innerHTML = `
+      <p class="pronunciation-legend-title">Indicador de pronúncia da frase</p>
+      <div class="pronunciation-legend-items">
+        ${SCORE_TIERS.map((tier) => `
+          <span class="pronunciation-legend-item">
+            <span class="pronunciation-legend-dot ${tier.className}"></span>
+            ${tier.legend}
+          </span>
+        `).join("")}
+      </div>
+    `;
+    return legend;
+  }
+
+  function buildScoreRing(score, tier) {
+    const radius = 52;
+    const circumference = 2 * Math.PI * radius;
+    const progress = Math.max(0, Math.min(100, score)) / 100;
+    const dashOffset = circumference * (1 - progress);
+
+    const wrap = document.createElement("div");
+    wrap.className = "pronunciation-score-ring-wrap";
+    wrap.innerHTML = `
+      <svg class="pronunciation-score-ring" viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="ring-bg" cx="60" cy="60" r="${radius}" />
+        <circle
+          class="ring-fill ${tier.className}"
+          cx="60"
+          cy="60"
+          r="${radius}"
+          stroke="${tier.color}"
+          stroke-dasharray="${circumference.toFixed(2)}"
+          stroke-dashoffset="${dashOffset.toFixed(2)}"
+        />
+      </svg>
+      <div class="pronunciation-score-value ${tier.className}">
+        <span class="score-num">${score}</span>
+        <span class="score-denom">/ 100</span>
+      </div>
+    `;
+    return wrap;
+  }
+
+  function feedbackHeadline(tier) {
+    if (tier.id === "good") return "Ótima pronúncia!";
+    if (tier.id === "medium") return "Quase lá!";
+    return "Tente novamente!";
+  }
+
+  function feedbackIcon(tier) {
+    if (tier.id === "good") {
+      return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>`;
+    }
+    return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9 9 15M9 9l6 6"/></svg>`;
+  }
+
+  function defaultFeedbackDetail(tier, wordScores) {
+    if (tier.id === "good") {
+      return "Continue praticando para manter essa fluência.";
+    }
+    if (tier.id === "medium") {
+      return "Sua pronúncia está no caminho certo — refine o ritmo e os sons finais.";
+    }
+    const weak = [...wordScores].sort((a, b) => a.score - b.score)[0];
+    if (weak) {
+      return `Preste atenção ao som de "${weak.word}" e ao ritmo da frase.`;
+    }
+    return "Preste atenção ao ritmo da frase e aos sons de cada palavra.";
+  }
+
+  /**
+   * Verso do card Aprender com feedback visual de pronúncia (após virar).
+   */
+  function buildPronunciationBack({
+    card,
+    learnResult,
+    pronunciationResult,
+    languageCode,
+    cardIndex,
+    totalCards,
+    onListen,
+  }) {
+    const normalized = normalizePronunciationResult(pronunciationResult);
+    const usageText = learnResult.explanation || card.tip || "";
+
+    const back = document.createElement("div");
+    back.className = "learn-card-back-pronunciation";
+
+    const header = document.createElement("div");
+    header.className = "learn-card-header";
+    header.appendChild(buildLangBadge(languageCode));
+    const counter = document.createElement("span");
+    counter.className = "learn-card-counter";
+    counter.textContent = `${cardIndex + 1} / ${totalCards}`;
+    header.appendChild(counter);
+    back.appendChild(header);
+
+    const phrase = document.createElement("p");
+    phrase.className = "pronunciation-phrase";
+    phrase.innerHTML = colorizePhrase(card.word, normalized.wordScores);
+    back.appendChild(phrase);
+
+    const divider = document.createElement("div");
+    divider.className = "pronunciation-phrase-divider";
+    back.appendChild(divider);
+
+    const translation = document.createElement("p");
+    translation.className = "pronunciation-translation";
+    translation.textContent = learnResult.correct_answer;
+    back.appendChild(translation);
+
+    if (usageText) {
+      const usage = document.createElement("div");
+      usage.className = "pronunciation-usage";
+      usage.innerHTML = `
+        <span class="pronunciation-usage-label">Usado para</span>
+        <p class="pronunciation-usage-text">${escapeHtml(usageText)}</p>
+      `;
+      back.appendChild(usage);
+    }
+
+    const scoreSection = document.createElement("div");
+    scoreSection.className = "pronunciation-score-section";
+    scoreSection.innerHTML = `<p class="pronunciation-score-label">Sua pronúncia</p>`;
+    scoreSection.appendChild(buildScoreRing(normalized.score, normalized.tier));
+
+    const feedback = document.createElement("div");
+    feedback.className = `pronunciation-ai-feedback ${normalized.tier.className}`;
+    const detail = normalized.reason || defaultFeedbackDetail(normalized.tier, normalized.wordScores);
+    feedback.innerHTML = `
+      <span class="pronunciation-ai-icon">${feedbackIcon(normalized.tier)}</span>
+      <div class="pronunciation-ai-text">
+        <strong>${feedbackHeadline(normalized.tier)}</strong>
+        <p>${escapeHtml(detail)}</p>
+      </div>
+    `;
+    scoreSection.appendChild(feedback);
+    back.appendChild(scoreSection);
+
+    const listenBtn = document.createElement("button");
+    listenBtn.type = "button";
+    listenBtn.className = "btn btn-outline pronunciation-listen-btn";
+    listenBtn.innerHTML = `${Icons.volume}<span>Ouvir pronúncia correta</span>`;
+    listenBtn.addEventListener("click", () => onListen(listenBtn));
+    back.appendChild(listenBtn);
+
+    return back;
+  }
 
   function showFeedback(container, result) {
     if (!container) return;
@@ -48,34 +321,73 @@ const FlashcardPronounce = (() => {
     return response.json();
   }
 
-  /**
-   * Anexa gravação toggle ao botão. onStop recebe o Blob gravado.
-   * Retorna função cleanup() para parar stream pendente.
-   */
   function attachRecordButton(btn, {
     onStop,
     onError,
     recordingLabel = "Parar gravação",
     idleLabel = "Pronunciar",
+    preparingLabel = "Preparando...",
     stopLabel = "Analisando...",
     disableOnStop = true,
+    maxDurationMs = PRONUNCIATION_MAX_DURATION_MS,
   }) {
     let mediaRecorder = null;
     let audioChunks = [];
-    let isRecording = false;
     let stream = null;
+    let maxDurationTimer = null;
+    let state = "idle"; // idle | preparing | recording | analyzing
+
+    function getLabelSpan() {
+      return btn.querySelector(".record-label") || btn.querySelector("span:last-child");
+    }
+
+    function setLabel(text) {
+      const span = getLabelSpan();
+      if (span) span.textContent = text;
+    }
+
+    function clearMaxDurationTimer() {
+      if (maxDurationTimer) {
+        clearTimeout(maxDurationTimer);
+        maxDurationTimer = null;
+      }
+    }
+
+    function cleanupStream() {
+      if (stream) {
+        stream.getTracks().forEach((t) => t.stop());
+        stream = null;
+      }
+    }
+
+    function resetToIdle() {
+      clearMaxDurationTimer();
+      cleanupStream();
+      mediaRecorder = null;
+      audioChunks = [];
+      state = "idle";
+      btn.disabled = false;
+      btn.classList.remove("is-preparing", "is-recording", "is-analyzing");
+      setLabel(idleLabel);
+    }
+
+    function finishRecording() {
+      if (state !== "recording" || !mediaRecorder) return;
+
+      clearMaxDurationTimer();
+      state = "analyzing";
+      btn.disabled = disableOnStop;
+      btn.classList.remove("is-recording");
+      btn.classList.add("is-analyzing");
+      setLabel(stopLabel || "Analisando...");
+      mediaRecorder.stop();
+    }
 
     const handler = async () => {
-      if (isRecording) {
-        mediaRecorder.stop();
-        isRecording = false;
-        btn.classList.remove("is-recording");
-        if (stopLabel) {
-          btn.querySelector("span").textContent = stopLabel;
-        }
-        if (disableOnStop) {
-          btn.disabled = true;
-        }
+      if (state === "preparing" || state === "analyzing") return;
+
+      if (state === "recording") {
+        finishRecording();
         return;
       }
 
@@ -84,10 +396,21 @@ const FlashcardPronounce = (() => {
         return;
       }
 
+      state = "preparing";
+      btn.disabled = true;
+      btn.classList.add("is-preparing");
+      setLabel(preparingLabel);
+
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
         });
+
+        if (state !== "preparing") {
+          cleanupStream();
+          return;
+        }
+
         audioChunks = [];
         let mimeType = "";
         for (const mt of PREFERRED_MIME_TYPES) {
@@ -96,25 +419,40 @@ const FlashcardPronounce = (() => {
             break;
           }
         }
+
         mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
         mediaRecorder.ondataavailable = (e) => {
           if (e.data.size > 0) audioChunks.push(e.data);
         };
         mediaRecorder.onstop = () => {
-          stream.getTracks().forEach((t) => t.stop());
-          stream = null;
+          cleanupStream();
           const blobType = mimeType || "audio/webm";
-          onStop(new Blob(audioChunks, { type: blobType }));
+          const blob = new Blob(audioChunks, { type: blobType });
+          mediaRecorder = null;
+          audioChunks = [];
+          onStop(blob);
+          if (!disableOnStop) {
+            state = "idle";
+            btn.disabled = false;
+            btn.classList.remove("is-recording", "is-analyzing");
+            setLabel(stopLabel || idleLabel);
+          }
         };
-        mediaRecorder.start();
-        isRecording = true;
+
+        mediaRecorder.start(200);
+        state = "recording";
+        btn.disabled = false;
+        btn.classList.remove("is-preparing");
         btn.classList.add("is-recording");
-        btn.querySelector("span").textContent = recordingLabel;
-      } catch (err) {
-        if (stream) {
-          stream.getTracks().forEach((t) => t.stop());
-          stream = null;
+        setLabel(recordingLabel);
+
+        if (maxDurationMs > 0) {
+          maxDurationTimer = setTimeout(() => {
+            if (state === "recording") finishRecording();
+          }, maxDurationMs);
         }
+      } catch (err) {
+        resetToIdle();
         onError(err);
       }
     };
@@ -122,13 +460,22 @@ const FlashcardPronounce = (() => {
     btn.addEventListener("click", handler);
 
     return {
-      reset() {
-        btn.disabled = false;
-        btn.classList.remove("is-recording");
-        const span = btn.querySelector("span");
-        if (span) span.textContent = idleLabel;
+      reset: resetToIdle,
+      cancel() {
+        if (state === "recording" && mediaRecorder) {
+          try {
+            mediaRecorder.stop();
+          } catch (_) {
+            /* ignore */
+          }
+        }
+        resetToIdle();
       },
     };
+  }
+
+  function buildMicButtonContent(label) {
+    return `<span class="mic-icon-wrap" aria-hidden="true">${Icons.mic}</span><span class="record-label">${label}</span>`;
   }
 
   function buildAudioControlsRow({ listenLabel, onListen, showPronounce, pronounceLabel, onPronounceReady }) {
@@ -146,8 +493,8 @@ const FlashcardPronounce = (() => {
     if (showPronounce) {
       pronounceBtn = document.createElement("button");
       pronounceBtn.type = "button";
-      pronounceBtn.className = "btn btn-outline review-audio-btn";
-      pronounceBtn.innerHTML = `${Icons.mic}<span>${pronounceLabel || "Pronunciar"}</span>`;
+      pronounceBtn.className = "btn btn-outline review-audio-btn review-audio-btn--mic";
+      pronounceBtn.innerHTML = buildMicButtonContent(pronounceLabel || "Pronunciar");
       controls.appendChild(pronounceBtn);
       if (onPronounceReady) onPronounceReady(pronounceBtn);
     }
@@ -156,9 +503,16 @@ const FlashcardPronounce = (() => {
   }
 
   return {
+    buildLangBadge,
+    buildLegend,
+    buildPronunciationBack,
+    getLanguageMeta,
+    getScoreTier,
+    normalizePronunciationResult,
     showFeedback,
     submitAudio,
     attachRecordButton,
     buildAudioControlsRow,
+    PRONUNCIATION_MAX_DURATION_MS,
   };
 })();

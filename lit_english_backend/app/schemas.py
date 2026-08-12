@@ -141,12 +141,20 @@ class ReviewResultOut(BaseModel):
     transcribed_text: Optional[str] = None
 
 
+class WordPronunciationScore(BaseModel):
+    """Pontuação por palavra/frase — preenchido pela API de pronúncia (futuro)."""
+    word: str
+    score: int = Field(ge=0, le=100)
+
+
 class FlashcardPronunciationResult(BaseModel):
     """Feedback de pronúncia opcional em flashcards (não afeta SM-2)."""
     correct: bool
     correct_answer: str
     transcribed_text: Optional[str] = None
     reason: Optional[str] = None
+    score: Optional[int] = Field(default=None, ge=0, le=100)
+    word_scores: Optional[List[WordPronunciationScore]] = None
 
 
 class CardProgressOut(BaseModel):

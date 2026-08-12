@@ -478,6 +478,18 @@ class ReadingTimeLog(Base):
     student = relationship("User")
 
 
+class PronunciationAttemptLog(Base):
+    """Testes opcionais de pronúncia (Aprender / Revisar — botão Pronunciar).
+    Usado para limitar consumo da Azure Speech free tier."""
+    __tablename__ = "pronunciation_attempt_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    student = relationship("User")
+
+
 # ── Teste de Nivelamento (lit_english_teste_ingles) ──────────────────────────
 # Resultados do teste de inglês público (fora do login), usado como fonte de
 # leads: o professor só se interessa por quem terminou o teste E deixou o
