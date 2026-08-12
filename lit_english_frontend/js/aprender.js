@@ -220,8 +220,8 @@ function renderFinished() {
   SFX.play("finish");
   renderStateBox({
     icon: Icons.checkCircle,
-    title: "Você concluiu o ciclo diário! 🎉",
-    text: "Novas palavras, revisão das erradas e reforço das já aprendidas — tudo em dia. Quer continuar pro próximo ciclo?",
+    title: "Você concluiu esta sessão! 🎉",
+    text: "Todas as palavras novas disponíveis foram apresentadas. Quer continuar aprendendo?",
     actionLabel: "Continuar aprendendo",
     onAction: loadQueue,
   });
@@ -267,28 +267,13 @@ function renderError(message) {
 // Card de aprendizado
 // ---------------------------------------------------------------------------
 
-const STATUS_CLASS = {
-  nova: "is-nova",
-  em_revisao: "is-em-revisao",
-  aprendida: "is-aprendida",
-};
-
-function updateStatusLegend(status) {
-  document.querySelectorAll(".vocab-status-item").forEach((item) => {
-    const dot = item.querySelector(".vocab-status-dot");
-    const isCurrent = dot.classList.contains(STATUS_CLASS[status]);
-    item.classList.toggle("is-current", isCurrent);
-  });
-}
-
 function renderCard() {
   const card = session.cards[session.index];
   session.answered = false;
   learnArea.innerHTML = "";
-  updateStatusLegend(card.status);
 
   const cardBox = document.createElement("div");
-  cardBox.className = `review-card learn-card status-${card.status}`;
+  cardBox.className = "review-card learn-card";
 
   const body = document.createElement("div");
   body.className = "card-body";
@@ -364,9 +349,7 @@ function renderCardBack(cardBox, card, result) {
   const back = document.createElement("div");
   back.className = "learn-card-back";
 
-  // A frase (a palavra sendo aprendida) — reaproveita a classe "front-text"
-  // de propósito: assim ela herda a cor e o sublinhado conforme o status da
-  // palavra (nova / em revisão / aprendida), igual na frente do card.
+  // A frase (a palavra sendo aprendida).
   const phrase = document.createElement("p");
   phrase.className = "front-text";
   phrase.textContent = card.word;

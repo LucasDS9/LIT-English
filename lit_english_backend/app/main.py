@@ -7,7 +7,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import Base, engine, run_migrations
+from app.database import Base, SessionLocal, engine, run_migrations
 from app.routers import admin, auth, dashboard, exercises, flashcards, level_test, qa, site_leads, texts, tts, vocab_words
 
 logging.basicConfig(level=logging.INFO)
@@ -20,6 +20,15 @@ Base.metadata.create_all(bind=engine)
 # 2. Migrações incrementais (adiciona colunas / tabelas novas com segurança)
 logger.info("Rodando migrações...")
 run_migrations()
+
+# 3. Migra vocabulário antigo (Aprender legado → Revisar)
+try:
+    db = SessionLocal()
+    vocab_words.migrate_legacy_vocab_to_review(db)
+    db.close()
+except Exception:
+    logger.exception("Falha na migração de vocabulário legado (ignorando).")
+
 logger.info("Banco de dados pronto.")
 
 app = FastAPI(title="LIT English API", version="0.18.0")

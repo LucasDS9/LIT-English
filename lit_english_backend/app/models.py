@@ -125,6 +125,13 @@ class FlashcardBatchStudent(Base):
     student = relationship("User")
 
 
+class ReviewCardStatus(str, enum.Enum):
+    """Progressão de domínio na tela Revisar (Revisando → Aprofundando → Concluído)."""
+    revisando = "revisando"
+    aprofundando = "aprofundando"
+    concluido = "concluido"
+
+
 class CardProgress(Base):
     __tablename__ = "card_progress"
     __table_args__ = (UniqueConstraint("student_id", "flashcard_id", name="uq_student_card"),)
@@ -137,6 +144,9 @@ class CardProgress(Base):
     ease_factor = Column(Float, default=2.5, nullable=False)
     next_review = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_reviewed = Column(DateTime, nullable=True)
+    # Progressão de status na tela Revisar (Revisando / Aprofundando / Concluído).
+    review_status = Column(Enum(ReviewCardStatus), nullable=True)
+    correct_streak = Column(Integer, default=0, nullable=False)
     flashcard = relationship("Flashcard")
 
 
@@ -328,11 +338,12 @@ class ExerciseProgress(Base):
 # ser clicadas para ver o significado, igual ao Read and Listen — MENOS a
 # própria palavra sendo aprendida, que fica de fora disso), e o aluno escolhe
 # a tradução certa entre 4 opções (a certa + 3 distratores cadastrados pelo
-# professor). O progresso usa o mesmo espírito do ExerciseProgress
-# (correct_streak -> next_review), com um status explícito pra alimentar os
-# indicadores "Nova / Em revisão / Aprendida" da tela.
+# professor). Aprender exibe SOMENTE palavras nunca respondidas; o primeiro
+# acerto gradua a palavra para Revisar como flashcard. A progressão de
+# status (Revisando / Aprofundando / Concluído) acontece em Revisar.
 
 class VocabWordStatus(str, enum.Enum):
+    """Legado — usado apenas na visão do professor."""
     nova = "nova"
     em_revisao = "em_revisao"
     aprendida = "aprendida"
@@ -368,11 +379,15 @@ class VocabWord(Base):
     # a resposta da múltipla escolha. Opcional: nem toda palavra precisa de
     # uma explicação além da tradução em si.
     explanation = Column(Text, nullable=True)
+    # Flashcard de Revisar gerado a partir desta palavra no primeiro acerto
+    # em Aprender. Um flashcard por palavra, compartilhado entre alunos.
+    review_flashcard_id = Column(Integer, ForeignKey("flashcards.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     assignments = relationship(
         "VocabWordAssignment", cascade="all, delete-orphan", passive_deletes=True, backref="word"
     )
+    review_flashcard = relationship("Flashcard", foreign_keys=[review_flashcard_id])
 
     @property
     def students(self):
@@ -393,19 +408,26 @@ class VocabWordAssignment(Base):
 
 
 class VocabWordProgress(Base):
-    """Progresso do aluno numa palavra: status (Nova / Em revisão / Aprendida)
-    + agendamento de repetição espaçada (mesma lógica de correct_streak ->
-    next_review já usada em ExerciseProgress)."""
+    """Progresso do aluno numa palavra em Aprender.
+
+    Registra tentativas e o momento do primeiro acerto. Depois do primeiro
+    acerto, a palavra sai de Aprender e passa a ser revisada via flashcard
+    (CardProgress em Revisar).
+    """
     __tablename__ = "vocab_word_progress"
     __table_args__ = (UniqueConstraint("student_id", "word_id", name="uq_student_vocabword"),)
 
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     word_id = Column(Integer, ForeignKey("vocab_words.id", ondelete="CASCADE"), nullable=False)
+    # Legado — mantido para compatibilidade com dados antigos.
     status = Column(Enum(VocabWordStatus), nullable=False, default=VocabWordStatus.nova)
     correct_streak = Column(Integer, default=0, nullable=False)
     next_review = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_reviewed = Column(DateTime, nullable=True)
+    # Preenchido no primeiro acerto em Aprender — a partir daí a palavra
+    # não volta mais para Aprender e entra em Revisar.
+    first_correct_at = Column(DateTime, nullable=True)
 
     student = relationship("User")
     word = relationship("VocabWord")

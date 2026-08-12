@@ -1,34 +1,24 @@
 """
 Rotas de "Aprender" (treino de vocabulário por reconhecimento/múltipla escolha):
 - Professor: criar, listar, editar e excluir palavras (com atribuição por aluno)
-- Aluno: aprender palavras — sempre 4 opções (a certa + 3 distratores
-  cadastrados pelo professor), com progresso Nova / Em revisão / Aprendida
-
-A pronúncia da palavra (botão embaixo do card) e o popup de "clicar numa
-palavra da frase para ver o significado" NÃO precisam de rotas novas:
-- Pronúncia: reutiliza GET /tts/speak?text=<palavra> (mesmo endpoint já
-  usado em Revisar e no popup de vocabulário do Read and Listen) — o
-  frontend só precisa chamar com a palavra isolada, não a frase inteira.
-- Popup de significado: reutiliza POST /texts/word-lookup (mesmo endpoint do
-  Read and Listen), sem enviar text_id. O único cuidado é no FRONTEND: a
-  própria palavra sendo aprendida não deve ficar clicável na frase de
-  exemplo (ou o clique não deve disparar o lookup pra ela), pra não entregar
-  a resposta da múltipla escolha. Este backend já ajuda nisso devolvendo,
-  na fila de aprendizado, só a palavra + as opções embaralhadas — nunca qual
-  delas é a certa (isso só sai em /vocab-words/learn/{word_id}, depois que o
-  aluno responde).
+- Aluno: aprender palavras NOVAS — sempre 4 opções (a certa + 3 distratores).
+  Aprender exibe somente palavras nunca respondidas. O primeiro acerto gradua
+  a palavra para Revisar como flashcard; a progressão de status acontece lá.
 """
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
 from app.models import (
     AccessType,
+    CardProgress,
+    Flashcard,
+    FlashcardAssignment,
+    ReviewCardStatus,
     User,
     UserRole,
     VocabWord,
@@ -49,29 +39,8 @@ from app.schemas import (
 
 router = APIRouter(prefix="/vocab-words", tags=["Aprender"])
 
-# Card é considerado "aprendida" depois desse número de acertos seguidos.
-LEARNED_STREAK = 3
-
-# Estrutura do ciclo diário de aprendizado (tela "Aprender"), sempre
-# CONTÍNUA (um bloco emenda no outro, sem esperar o aluno pedir "próximo
-# ciclo" — só aparece a tela de "concluiu o ciclo" no final de tudo):
-#   1) até 15 palavras NOVAS (nunca respondidas)
-#   2) revisão de TODAS as palavras erradas que ficaram devidas agora
-#      (status em_revisao, reaparecem na hora — não esperam as 15 novas
-#      acabarem pra aparecer; é o próprio erro do aluno "voltando" pra ele
-#      até acertar)
-#   3) até 10 palavras ANTIGAS pra revisão geral — de qualquer status/idade
-#      (em_revisao ainda não devida ou já aprendida), desde que o aluno já
-#      tenha respondido alguma vez e a palavra não esteja em (1) ou (2).
-#      Se não houver nenhuma disponível, esse bloco simplesmente não entra
-#      no ciclo (sem erro, sem espaço vazio).
-#   4) até 5 palavras já APRENDIDAS, escolhidas aleatoriamente (podem ser de
-#      ciclos anteriores), só pra reforçar retenção
-# Cada chamada a /learn/next devolve o ciclo inteiro (ou o que houver
-# disponível dele); quando o aluno termina os cards, o ciclo terminou.
+# Máximo de palavras novas por sessão de Aprender.
 NEW_WORDS_PER_CYCLE = 15
-OLD_REVIEW_PER_CYCLE = 10
-LEARNED_REVIEW_PER_CYCLE = 5
 
 # Separador interno dos distratores (a tradução pode conter vírgula, então
 # não usamos vírgula aqui).
@@ -167,6 +136,50 @@ def _to_word_out(word: VocabWord) -> VocabWordOut:
     )
 
 
+def _graduate_word_to_review(word: VocabWord, student: User, db: Session) -> Flashcard:
+    """Cria (ou reutiliza) o flashcard de Revisar e atribui ao aluno."""
+    if word.review_flashcard_id:
+        flashcard = db.query(Flashcard).filter(Flashcard.id == word.review_flashcard_id).first()
+    else:
+        flashcard = Flashcard(front=word.word, back=word.translation)
+        db.add(flashcard)
+        db.flush()
+        word.review_flashcard_id = flashcard.id
+
+    assigned = (
+        db.query(FlashcardAssignment)
+        .filter(
+            FlashcardAssignment.flashcard_id == flashcard.id,
+            FlashcardAssignment.student_id == student.id,
+        )
+        .first()
+    )
+    if not assigned:
+        db.add(FlashcardAssignment(flashcard_id=flashcard.id, student_id=student.id))
+
+    card_progress = (
+        db.query(CardProgress)
+        .filter(
+            CardProgress.student_id == student.id,
+            CardProgress.flashcard_id == flashcard.id,
+        )
+        .first()
+    )
+    if not card_progress:
+        card_progress = CardProgress(
+            student_id=student.id,
+            flashcard_id=flashcard.id,
+            review_status=ReviewCardStatus.revisando,
+            correct_streak=0,
+            next_review=datetime.utcnow(),
+        )
+        db.add(card_progress)
+    elif card_progress.review_status is None:
+        card_progress.review_status = ReviewCardStatus.revisando
+
+    return flashcard
+
+
 # ============================================================
 # PROFESSOR: CRUD de palavras
 # ============================================================
@@ -250,8 +263,6 @@ def update_vocab_word(
         distractors = _validate_distractors(data.distractors, new_translation)
         word.distractors = _pack_distractors(distractors)
     elif data.translation is not None:
-        # Tradução mudou mas os distratores não foram reenviados: garante
-        # que nenhum distrator antigo ficou igual à nova tradução.
         _validate_distractors(_unpack_distractors(word.distractors), new_translation)
     if data.translation is not None:
         word.translation = new_translation
@@ -283,7 +294,7 @@ def delete_vocab_word(
         raise HTTPException(status_code=404, detail="Palavra não encontrada.")
 
     db.query(VocabWordProgress).filter(VocabWordProgress.word_id == word_id).delete()
-    db.delete(word)  # assignments somem via cascade da relationship
+    db.delete(word)
     db.commit()
     return None
 
@@ -295,10 +306,6 @@ def delete_vocab_word(
 def _require_student(user: User) -> None:
     if user.role != UserRole.aluno:
         raise HTTPException(status_code=403, detail="Apenas alunos podem usar o treino de vocabulário.")
-
-
-def _status_label(progress: VocabWordProgress | None) -> VocabWordStatus:
-    return progress.status if progress else VocabWordStatus.nova
 
 
 def _build_options(word: VocabWord) -> list[str]:
@@ -313,21 +320,11 @@ def get_learn_queue(
     student: User = Depends(get_current_approved_user),
 ):
     """
-    Monta o próximo ciclo diário de aprendizado, sempre nesta ordem (um
-    bloco emenda direto no próximo, ciclo contínuo):
-      1) até 15 palavras novas (nunca respondidas)
-      2) todas as palavras em revisão que já estão devidas agora (erradas
-         recentemente — reaparecem na hora, não esperam as novas acabarem)
-      3) até 10 palavras antigas pra revisão geral, de qualquer status/idade
-         (desde que já tenham sido respondidas antes e não estejam nos
-         blocos 1/2) — se não houver nenhuma, o bloco simplesmente não entra
-      4) até 5 palavras já aprendidas (retenção; podem ser de ciclos
-         anteriores), em ordem aleatória
-    Cada card já vem com as 4 opções embaralhadas — nunca revela qual é a
-    certa.
+    Retorna palavras NOVAS para Aprender: atribuídas ao aluno e que ele
+    nunca respondeu (sem registro em VocabWordProgress). Palavras que já
+    foram respondidas ou graduadas para Revisar não aparecem aqui.
     """
     _require_student(student)
-    now = datetime.utcnow()
 
     assigned_subquery = db.query(VocabWordAssignment.word_id).filter(
         VocabWordAssignment.student_id == student.id
@@ -336,7 +333,6 @@ def get_learn_queue(
         VocabWordProgress.student_id == student.id
     )
 
-    # 1) Novas: atribuídas ao aluno e sem nenhum progresso registrado ainda.
     new_words = (
         db.query(VocabWord)
         .filter(VocabWord.id.in_(assigned_subquery))
@@ -346,58 +342,6 @@ def get_learn_queue(
         .all()
     )
 
-    # 2) Revisão: tudo que está "em_revisao" e já devido agora (inclui as
-    # que acabaram de ser erradas nesta mesma sessão, que voltam na hora).
-    review_words = (
-        db.query(VocabWord)
-        .join(VocabWordProgress, VocabWordProgress.word_id == VocabWord.id)
-        .filter(VocabWordProgress.student_id == student.id)
-        .filter(VocabWordProgress.status == VocabWordStatus.em_revisao)
-        .filter(VocabWordProgress.next_review <= now)
-        .order_by(VocabWordProgress.next_review.asc())
-        .all()
-    )
-
-    # 3) Antigas para revisão geral: até 10 palavras já respondidas antes
-    # (qualquer status/idade — em_revisao ainda não devida ou já aprendida),
-    # que ainda não entraram nos blocos 1/2 acima. Se não sobrar nenhuma,
-    # o bloco fica vazio e o ciclo segue direto pras concluídas — sem erro,
-    # sem espaço em branco.
-    already_in_cycle_ids = [w.id for w in new_words] + [w.id for w in review_words]
-    old_review_words = (
-        db.query(VocabWord)
-        .join(VocabWordProgress, VocabWordProgress.word_id == VocabWord.id)
-        .filter(VocabWordProgress.student_id == student.id)
-        .filter(~VocabWord.id.in_(already_in_cycle_ids))
-        .order_by(VocabWordProgress.last_reviewed.asc().nullsfirst())
-        .limit(OLD_REVIEW_PER_CYCLE)
-        .all()
-    )
-
-    # 4) Concluídas: reforço de retenção, aleatório, independente de estarem
-    # devidas ou não (podem ser de ciclos anteriores).
-    already_in_cycle_ids += [w.id for w in old_review_words]
-    learned_words = (
-        db.query(VocabWord)
-        .join(VocabWordProgress, VocabWordProgress.word_id == VocabWord.id)
-        .filter(VocabWordProgress.student_id == student.id)
-        .filter(VocabWordProgress.status == VocabWordStatus.aprendida)
-        .filter(~VocabWord.id.in_(already_in_cycle_ids))
-        .order_by(func.random())
-        .limit(LEARNED_REVIEW_PER_CYCLE)
-        .all()
-    )
-
-    cycle_words = new_words + review_words + old_review_words + learned_words
-
-    progress_by_word = {
-        p.word_id: p
-        for p in db.query(VocabWordProgress).filter(
-            VocabWordProgress.student_id == student.id,
-            VocabWordProgress.word_id.in_([w.id for w in cycle_words]),
-        )
-    }
-
     cards = [
         VocabLearnCardOut(
             word_id=w.id,
@@ -406,15 +350,19 @@ def get_learn_queue(
             example_sentence=w.example_sentence,
             tip=w.tip,
             options=_build_options(w),
-            status=_status_label(progress_by_word.get(w.id)),
         )
-        for w in cycle_words
+        for w in new_words
     ]
 
-    total_assigned = db.query(VocabWordAssignment).filter(VocabWordAssignment.student_id == student.id).count()
+    total_assigned = db.query(VocabWordAssignment).filter(
+        VocabWordAssignment.student_id == student.id
+    ).count()
     total_learned = (
         db.query(VocabWordProgress)
-        .filter(VocabWordProgress.student_id == student.id, VocabWordProgress.status == VocabWordStatus.aprendida)
+        .filter(
+            VocabWordProgress.student_id == student.id,
+            VocabWordProgress.first_correct_at.isnot(None),
+        )
         .count()
     )
 
@@ -428,8 +376,8 @@ def submit_learn_answer(
     db: Session = Depends(get_db),
     student: User = Depends(get_current_approved_user),
 ):
-    """O aluno escolheu uma das 4 opções para esta palavra. Atualiza o status
-    (Nova -> Em revisão -> Aprendida) e agenda a próxima revisão."""
+    """O aluno escolheu uma das 4 opções. No primeiro acerto, a palavra
+    sai de Aprender e entra em Revisar como flashcard."""
     _require_student(student)
 
     word = db.query(VocabWord).filter(VocabWord.id == word_id).first()
@@ -444,45 +392,43 @@ def submit_learn_answer(
     if not assigned:
         raise HTTPException(status_code=403, detail="Esta palavra não está disponível para você.")
 
-    is_correct = payload.selected_option.strip().lower() == word.translation.strip().lower()
-
     progress = (
         db.query(VocabWordProgress)
         .filter(VocabWordProgress.student_id == student.id, VocabWordProgress.word_id == word_id)
         .first()
     )
-    if not progress:
-        progress = VocabWordProgress(student_id=student.id, word_id=word_id)
-        db.add(progress)
-        db.flush()
-
-    if is_correct:
-        progress.correct_streak += 1
-        progress.status = (
-            VocabWordStatus.aprendida
-            if progress.correct_streak >= LEARNED_STREAK
-            else VocabWordStatus.em_revisao
+    if progress:
+        raise HTTPException(
+            status_code=409,
+            detail="Esta palavra já foi respondida e não está mais disponível em Aprender.",
         )
-        # Espaçamento cresce a cada acerto seguido (1, 3, 7, 14... dias).
-        days = {1: 1, 2: 3, 3: 7}.get(progress.correct_streak, 14)
-    else:
-        progress.correct_streak = 0
-        # Errou: sempre volta para "Em revisão" (mesmo se já estava
-        # "Aprendida") e reaparece logo, no mesmo espírito do SM-2.
-        progress.status = VocabWordStatus.em_revisao
-        days = 0  # reaparece ainda na mesma sessão/dia
 
-    progress.last_reviewed = datetime.utcnow()
-    progress.next_review = datetime.utcnow() + timedelta(days=days)
+    is_correct = payload.selected_option.strip().lower() == word.translation.strip().lower()
+    now = datetime.utcnow()
+
+    progress = VocabWordProgress(
+        student_id=student.id,
+        word_id=word_id,
+        last_reviewed=now,
+    )
+    db.add(progress)
+
+    graduated = False
+    if is_correct:
+        progress.first_correct_at = now
+        progress.status = VocabWordStatus.em_revisao
+        _graduate_word_to_review(word, student, db)
+        graduated = True
+    else:
+        progress.status = VocabWordStatus.nova
 
     db.commit()
-    db.refresh(progress)
 
     return VocabLearnResult(
         correct=is_correct,
         correct_answer=word.translation,
         explanation=word.explanation,
-        status=progress.status,
+        graduated_to_review=graduated,
     )
 
 
@@ -490,14 +436,21 @@ def submit_learn_answer(
 # PROFESSOR: vocabulário (Aprender) de um aluno específico
 # ============================================================
 
+def _professor_status_label(progress: VocabWordProgress | None) -> VocabWordStatus:
+    if not progress:
+        return VocabWordStatus.nova
+    if progress.first_correct_at:
+        return VocabWordStatus.aprendida
+    return VocabWordStatus.nova
+
+
 @router.get("/vocabulary/{student_id}", response_model=list[VocabWordProgressOut])
 def get_student_vocab_progress(
     student_id: int,
     db: Session = Depends(get_db),
     _professor: User = Depends(get_current_professor),
 ):
-    """Lista as palavras atribuídas a um aluno, com o status atual (Nova /
-    Em revisão / Aprendida)."""
+    """Lista as palavras atribuídas a um aluno, com o status atual."""
     student = db.query(User).filter(User.id == student_id, User.role == UserRole.aluno).first()
     if not student:
         raise HTTPException(status_code=404, detail="Aluno não encontrado.")
@@ -523,8 +476,34 @@ def get_student_vocab_progress(
                 word=word.word,
                 part_of_speech=word.part_of_speech,
                 translation=word.translation,
-                status=_status_label(progress),
+                status=_professor_status_label(progress),
                 next_review=progress.next_review if progress else now,
             )
         )
     return items
+
+
+def migrate_legacy_vocab_to_review(db: Session) -> None:
+    """Migra dados antigos: palavras que já tinham progresso em Aprender
+    passam a ter flashcard em Revisar e first_correct_at preenchido."""
+    legacy_rows = (
+        db.query(VocabWordProgress, VocabWord, User)
+        .join(VocabWord, VocabWord.id == VocabWordProgress.word_id)
+        .join(User, User.id == VocabWordProgress.student_id)
+        .filter(
+            VocabWordProgress.first_correct_at.is_(None),
+            VocabWordProgress.status.in_([
+                VocabWordStatus.em_revisao,
+                VocabWordStatus.aprendida,
+            ]),
+        )
+        .all()
+    )
+    if not legacy_rows:
+        return
+
+    for progress, word, student in legacy_rows:
+        progress.first_correct_at = progress.last_reviewed or progress.next_review or datetime.utcnow()
+        _graduate_word_to_review(word, student, db)
+
+    db.commit()

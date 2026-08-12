@@ -355,14 +355,30 @@ function renderStateBox({ icon, title, text, actionLabel, onAction }) {
   reviewArea.appendChild(box);
 }
 
+const STATUS_CLASS = {
+  revisando: "is-revisando",
+  aprofundando: "is-aprofundando",
+  concluido: "is-concluido",
+};
+
+function updateStatusLegend(status) {
+  document.querySelectorAll(".vocab-status-item").forEach((item) => {
+    const dot = item.querySelector(".vocab-status-dot");
+    const isCurrent = status && dot.classList.contains(STATUS_CLASS[status]);
+    item.classList.toggle("is-current", isCurrent);
+  });
+}
+
 function renderCard() {
   const card = session.cards[session.index];
   reviewArea.innerHTML = "";
+  updateStatusLegend(card.status);
 
   const wrapper = document.createElement("div");
 
   const cardBox = document.createElement("div");
-  cardBox.className = "review-card";
+  const statusClass = card.status ? `status-${card.status}` : "";
+  cardBox.className = `review-card review-card-status ${statusClass}`.trim();
 
   const counter = document.createElement("div");
   counter.className = "counter";

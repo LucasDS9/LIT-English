@@ -6,7 +6,7 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
-from app.models import AccessType, ExerciseType, ReadingLevel, UserRole, VocabWordStatus
+from app.models import AccessType, ExerciseType, ReadingLevel, ReviewCardStatus, UserRole, VocabWordStatus
 
 # Línguas-alvo aceitas hoje no cadastro de Acesso Especial. Só existe estrutura
 # (campo salvo no usuário, TTS e conteúdo de Home) — ainda sem o vocabulário/
@@ -104,6 +104,7 @@ class ReviewCardOut(BaseModel):
     flashcard_id: int
     front: str
     back: str
+    status: Optional[ReviewCardStatus] = None
 
 
 class ReviewQueueOut(BaseModel):
@@ -122,6 +123,8 @@ class CardProgressOut(BaseModel):
     interval_days: int
     ease_factor: float
     next_review: datetime
+    review_status: Optional[ReviewCardStatus] = None
+    correct_streak: int = 0
 
     class Config:
         from_attributes = True
@@ -134,6 +137,7 @@ class VocabularyItemOut(BaseModel):
     back: str
     next_review: Optional[datetime] = None
     is_due: bool
+    review_status: Optional[ReviewCardStatus] = None
 
 
 class FlashcardResendPayload(BaseModel):
@@ -304,7 +308,6 @@ class VocabLearnCardOut(BaseModel):
     example_sentence: Optional[str] = None
     tip: Optional[str] = None
     options: List[str]  # sempre 4, em ordem embaralhada
-    status: VocabWordStatus
 
 
 class VocabLearnQueueOut(BaseModel):
@@ -324,7 +327,7 @@ class VocabLearnResult(BaseModel):
     correct: bool
     correct_answer: str
     explanation: Optional[str] = None
-    status: VocabWordStatus
+    graduated_to_review: bool = False
 
 
 class VocabWordProgressOut(BaseModel):

@@ -22,6 +22,7 @@ from app.models import (
     FlashcardBatchItem,
     FlashcardBatchStudent,
     QAAnswerLog,
+    ReviewCardStatus,
     ReviewLog,
     User,
     UserRole,
@@ -51,6 +52,17 @@ router = APIRouter(prefix="/flashcards", tags=["Flashcards"])
 # Limite de revisões por janela de tempo (igual ao seu app antigo: 15 cards a cada 12h)
 LIMIT_PER_WINDOW = 15
 WINDOW_HOURS = 12
+
+# Acertos consecutivos em Revisar (quality >= 3) necessários para "Concluído".
+MASTER_STREAK = 3
+
+
+def _review_status_from_streak(streak: int) -> ReviewCardStatus:
+    if streak >= MASTER_STREAK:
+        return ReviewCardStatus.concluido
+    if streak >= 1:
+        return ReviewCardStatus.aprofundando
+    return ReviewCardStatus.revisando
 
 
 # ============================================================
@@ -461,7 +473,7 @@ def get_review_queue(
     )
 
     due_cards = (
-        db.query(Flashcard)
+        db.query(Flashcard, CardProgress)
         .outerjoin(
             CardProgress,
             (CardProgress.flashcard_id == Flashcard.id) & (CardProgress.student_id == student.id),
@@ -473,7 +485,15 @@ def get_review_queue(
         .all()
     )
 
-    cards_out = [ReviewCardOut(flashcard_id=c.id, front=c.front, back=c.back) for c in due_cards]
+    cards_out = [
+        ReviewCardOut(
+            flashcard_id=card.id,
+            front=card.front,
+            back=card.back,
+            status=progress.review_status if progress else None,
+        )
+        for card, progress in due_cards
+    ]
     return ReviewQueueOut(
         cards=cards_out, remaining_in_window=remaining, limit_per_window=LIMIT_PER_WINDOW
     )
@@ -525,6 +545,13 @@ def submit_review(
     progress.next_review = result.next_review
     progress.last_reviewed = datetime.utcnow()
 
+    # Progressão Revisando → Aprofundando → Concluído (quality >= 3 = acerto).
+    if payload.quality >= 3:
+        progress.correct_streak += 1
+    else:
+        progress.correct_streak = 0
+    progress.review_status = _review_status_from_streak(progress.correct_streak)
+
     db.add(ReviewLog(student_id=student.id, flashcard_id=flashcard_id))
     db.flush()
     maybe_award_flashcard_daily_bonus(db, student.id)
@@ -573,6 +600,7 @@ def get_student_vocabulary(
                 back=card.back,
                 next_review=next_review,
                 is_due=is_due,
+                review_status=progress.review_status if progress else None,
             )
         )
     return items

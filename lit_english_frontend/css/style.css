@@ -1081,15 +1081,18 @@ svg {
   box-sizing: border-box;
 }
 
-.vocab-status-dot.is-nova {
-  background: var(--primary);
-}
-
-.vocab-status-dot.is-em-revisao {
+.vocab-status-dot.is-nova,
+.vocab-status-dot.is-revisando {
   background: #D64F4F;
 }
 
-.vocab-status-dot.is-aprendida {
+.vocab-status-dot.is-em-revisao,
+.vocab-status-dot.is-aprofundando {
+  background: var(--primary);
+}
+
+.vocab-status-dot.is-aprendida,
+.vocab-status-dot.is-concluido {
   background: #D18C8C;
 }
 
@@ -1101,18 +1104,12 @@ svg {
   position: relative;
 }
 
-
-.learn-card.status-nova,
-.learn-card.status-em_revisao,
-.learn-card.status-aprendida {
-  background: var(--bg);
-}
-
 .learn-card .front-text {
   text-transform: none;
   letter-spacing: 0;
   position: relative;
   padding-bottom: 14px;
+  color: var(--primary);
 }
 
 .learn-card .front-text::after {
@@ -1127,27 +1124,49 @@ svg {
   background: var(--primary);
 }
 
-.learn-card.status-nova .front-text {
+.learn-sentence b {
   color: var(--primary);
 }
 
-.learn-card.status-nova .front-text::after {
-  background: var(--primary);
+/* ---------- Revisar: cores de status (Revisando / Aprofundando / Concluído) ---------- */
+
+.review-card-status .front-text {
+  position: relative;
+  padding-bottom: 14px;
 }
 
-.learn-card.status-em_revisao .front-text {
+.review-card-status .front-text::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 46px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.review-card-status.status-revisando .front-text {
   color: #D64F4F;
 }
 
-.learn-card.status-em_revisao .front-text::after {
+.review-card-status.status-revisando .front-text::after {
   background: #D64F4F;
 }
 
-.learn-card.status-aprendida .front-text {
+.review-card-status.status-aprofundando .front-text {
+  color: var(--primary);
+}
+
+.review-card-status.status-aprofundando .front-text::after {
+  background: var(--primary);
+}
+
+.review-card-status.status-concluido .front-text {
   color: #D18C8C;
 }
 
-.learn-card.status-aprendida .front-text::after {
+.review-card-status.status-concluido .front-text::after {
   background: #D18C8C;
 }
 
@@ -1179,22 +1198,6 @@ svg {
   color: var(--text);
   margin: 0;
   max-width: 560px;
-}
-
-.learn-sentence b {
-  color: var(--primary);
-}
-
-.learn-card.status-nova .learn-sentence b {
-  color: var(--primary);
-}
-
-.learn-card.status-em_revisao .learn-sentence b {
-  color: #D64F4F;
-}
-
-.learn-card.status-aprendida .learn-sentence b {
-  color: #D18C8C;
 }
 
 .learn-options {

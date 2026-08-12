@@ -264,9 +264,55 @@ def run_migrations():
                     if not _col_exists(conn, "vocab_words", "explanation"):
                         conn.execute(text("ALTER TABLE vocab_words ADD COLUMN explanation TEXT"))
                         conn.commit()
+                    if not _col_exists(conn, "vocab_words", "review_flashcard_id"):
+                        conn.execute(text(
+                            "ALTER TABLE vocab_words ADD COLUMN review_flashcard_id INTEGER "
+                            "REFERENCES flashcards(id) ON DELETE SET NULL"
+                        ))
+                        conn.commit()
                 except Exception:
                     logger.exception(
                         "Falha ao migrar vocab_words (coluna tip / example_sentence opcional / language), ignorando."
+                    )
+                    conn.rollback()
+
+            # Aprender → Revisar: first_correct_at em vocab_word_progress
+            if _table_exists(conn, "vocab_word_progress"):
+                try:
+                    if not _col_exists(conn, "vocab_word_progress", "first_correct_at"):
+                        conn.execute(text(
+                            "ALTER TABLE vocab_word_progress ADD COLUMN first_correct_at TIMESTAMP"
+                        ))
+                        conn.commit()
+                except Exception:
+                    logger.exception(
+                        "Falha ao migrar vocab_word_progress (first_correct_at), ignorando."
+                    )
+                    conn.rollback()
+
+            # Revisar: status de progressão (Revisando / Aprofundando / Concluído)
+            if _table_exists(conn, "card_progress"):
+                try:
+                    conn.execute(text(
+                        "DO $$ BEGIN "
+                        "CREATE TYPE reviewcardstatus AS ENUM "
+                        "('revisando', 'aprofundando', 'concluido'); "
+                        "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+                    ))
+                    conn.commit()
+                    if not _col_exists(conn, "card_progress", "review_status"):
+                        conn.execute(text(
+                            "ALTER TABLE card_progress ADD COLUMN review_status reviewcardstatus"
+                        ))
+                        conn.commit()
+                    if not _col_exists(conn, "card_progress", "correct_streak"):
+                        conn.execute(text(
+                            "ALTER TABLE card_progress ADD COLUMN correct_streak INTEGER NOT NULL DEFAULT 0"
+                        ))
+                        conn.commit()
+                except Exception:
+                    logger.exception(
+                        "Falha ao migrar card_progress (review_status / correct_streak), ignorando."
                     )
                     conn.rollback()
 
