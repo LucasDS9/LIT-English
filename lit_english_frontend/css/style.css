@@ -1246,6 +1246,50 @@ svg {
   color: #2e9e5b;
 }
 
+.review-audio-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.review-audio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  padding: 10px 16px;
+}
+
+.review-audio-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  stroke: currentColor;
+}
+
+.review-audio-btn.is-recording {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.review-pronunciation-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  max-width: 520px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: left;
+}
+
 .learn-pos {
   font-size: 14px;
   color: var(--text-secondary);

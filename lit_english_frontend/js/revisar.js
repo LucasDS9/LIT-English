@@ -170,6 +170,156 @@ async function speak(text, btn) {
   }
 }
 
+function shouldShowPronounce(card) {
+  return isFlipMode(card) && (card.status === "aprendendo" || card.status === "concluido");
+}
+
+function listenTextForCard(card) {
+  return card.front;
+}
+
+function showPronunciationFeedback(container, result) {
+  container.hidden = false;
+  const reasonHtml = result.reason
+    ? `<div style="font-weight:400;font-size:0.9em;margin-top:4px;">${result.reason}</div>`
+    : "";
+  if (result.correct) {
+    container.style.background = "#f0faf4";
+    container.style.border = "1px solid #b7dfc7";
+    const said = result.transcribed_text ? ` Você disse: "${result.transcribed_text}"` : "";
+    container.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#155724" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><span style="color:#155724;font-weight:600;">Pronúncia correta!<span style="font-weight:400;">${said}</span>${reasonHtml}</span>`;
+  } else {
+    container.style.background = "#fff5f5";
+    container.style.border = "1px solid #f5c6cb";
+    const said = result.transcribed_text ? ` Você disse: "${result.transcribed_text}".` : "";
+    container.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9 9 15M9 9l6 6"/></svg><span style="color:#721c24;font-weight:600;">Pronúncia incorreta.${said} <span style="font-weight:400;">Esperado: <strong>${result.correct_answer}</strong></span>${reasonHtml}</span>`;
+  }
+}
+
+function buildReviewAudioControls(card, body) {
+  const controls = document.createElement("div");
+  controls.className = "review-audio-controls";
+
+  const listenBtn = document.createElement("button");
+  listenBtn.type = "button";
+  listenBtn.className = "btn btn-outline review-audio-btn";
+  listenBtn.innerHTML = `${Icons.volume}<span>Ouvir novamente</span>`;
+  listenBtn.addEventListener("click", () => speak(listenTextForCard(card), listenBtn));
+  controls.appendChild(listenBtn);
+
+  let pronounceBtn = null;
+  let pronunciationFeedback = null;
+
+  if (shouldShowPronounce(card)) {
+    pronounceBtn = document.createElement("button");
+    pronounceBtn.type = "button";
+    pronounceBtn.className = "btn btn-outline review-audio-btn";
+    pronounceBtn.innerHTML = `${Icons.mic}<span>Pronunciar</span>`;
+    controls.appendChild(pronounceBtn);
+
+    attachPronunciationHandler(card, pronounceBtn, () => pronunciationFeedback);
+  }
+
+  body.appendChild(controls);
+
+  if (shouldShowPronounce(card)) {
+    pronunciationFeedback = document.createElement("div");
+    pronunciationFeedback.className = "review-pronunciation-feedback";
+    pronunciationFeedback.hidden = true;
+    body.appendChild(pronunciationFeedback);
+  }
+
+  return { listenBtn, pronounceBtn, pronunciationFeedback };
+}
+
+function attachPronunciationHandler(card, pronounceBtn, getFeedbackEl) {
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let isRecording = false;
+  let stream = null;
+
+  pronounceBtn.addEventListener("click", async () => {
+    if (isRecording) {
+      mediaRecorder.stop();
+      isRecording = false;
+      pronounceBtn.classList.remove("is-recording");
+      pronounceBtn.querySelector("span").textContent = "Analisando...";
+      pronounceBtn.disabled = true;
+      return;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showToast("Seu navegador não suporta gravação de áudio.");
+      return;
+    }
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 },
+      });
+      audioChunks = [];
+      const preferredMimeTypes = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/ogg"];
+      let mimeType = "";
+      for (const mt of preferredMimeTypes) {
+        if (MediaRecorder.isTypeSupported(mt)) {
+          mimeType = mt;
+          break;
+        }
+      }
+      mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunks.push(e.data);
+      };
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        stream = null;
+        const blobType = mimeType || "audio/webm";
+        const recordedBlob = new Blob(audioChunks, { type: blobType });
+        const feedbackEl = getFeedbackEl();
+        await submitPronunciation(card, recordedBlob, pronounceBtn, feedbackEl);
+      };
+      mediaRecorder.start();
+      isRecording = true;
+      pronounceBtn.classList.add("is-recording");
+      pronounceBtn.querySelector("span").textContent = "Parar gravação";
+    } catch (err) {
+      showToast("Permissão de microfone negada.");
+      if (stream) {
+        stream.getTracks().forEach((t) => t.stop());
+        stream = null;
+      }
+    }
+  });
+}
+
+async function submitPronunciation(card, recordedBlob, pronounceBtn, feedbackEl) {
+  try {
+    const formData = new FormData();
+    const ext = recordedBlob.type.includes("ogg") ? "ogg" : "webm";
+    formData.append("audio", recordedBlob, `recording.${ext}`);
+
+    const token = Auth.getToken();
+    const response = await fetch(`${API_BASE_URL}/flashcards/review/${card.flashcard_id}/pronounce`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!response.ok) {
+      const errBody = await response.json().catch(() => ({}));
+      throw new Error(errBody.detail || `Erro ${response.status}`);
+    }
+    const result = await response.json();
+    showPronunciationFeedback(feedbackEl, result);
+    SFX.play(result.correct ? "correct" : "wrong");
+  } catch (err) {
+    showToast(err.message || "Não foi possível analisar a pronúncia.");
+  } finally {
+    pronounceBtn.disabled = false;
+    pronounceBtn.classList.remove("is-recording");
+    pronounceBtn.querySelector("span").textContent = "Pronunciar";
+  }
+}
+
 // ---------------------------------------------------------------------------
 // "Adicionar flashcard" — aluno cria o próprio flashcard.
 // Verso é opcional: se ficar em branco, o backend gera a tradução
@@ -452,15 +602,7 @@ function renderTypeCard(card) {
   feedback.hidden = true;
   body.appendChild(feedback);
 
-  const speakBtn = document.createElement("button");
-  speakBtn.className = "speak-btn";
-  speakBtn.type = "button";
-  speakBtn.innerHTML = Icons.volume;
-  speakBtn.title = "Ouvir pronúncia";
-  if (card.mode === "type_pt") {
-    speakBtn.addEventListener("click", () => speak(card.front, speakBtn));
-  }
-  body.appendChild(speakBtn);
+  const { listenBtn } = buildReviewAudioControls(card, body);
 
   cardBox.appendChild(body);
   wrapper.appendChild(cardBox);
@@ -487,9 +629,7 @@ function renderTypeCard(card) {
   reviewArea.appendChild(wrapper);
 
   input.focus();
-  if (card.mode === "type_pt") {
-    speak(card.front, speakBtn);
-  }
+  speak(listenTextForCard(card), listenBtn);
 }
 
 function renderFlipCard(card) {
@@ -539,13 +679,7 @@ function renderFlipCard(card) {
     body.appendChild(front);
   }
 
-  const speakBtn = document.createElement("button");
-  speakBtn.className = "speak-btn";
-  speakBtn.type = "button";
-  speakBtn.innerHTML = Icons.volume;
-  speakBtn.title = "Ouvir pronúncia";
-  speakBtn.addEventListener("click", () => speak(card.front, speakBtn));
-  body.appendChild(speakBtn);
+  const { listenBtn } = buildReviewAudioControls(card, body);
 
   cardBox.appendChild(body);
   wrapper.appendChild(cardBox);
@@ -600,7 +734,7 @@ function renderFlipCard(card) {
   reviewArea.appendChild(wrapper);
 
   if (!session.flipped) {
-    speak(card.front, speakBtn);
+    speak(listenTextForCard(card), listenBtn);
   }
 }
 
@@ -629,9 +763,13 @@ async function submitTypedAnswer(card, input, feedback, submitBtn) {
     feedback.hidden = false;
     feedback.classList.toggle("is-correct", result.correct);
     feedback.classList.toggle("is-wrong", !result.correct);
-    feedback.textContent = result.correct
-      ? "Correto!"
-      : `Resposta correta: ${result.correct_answer}`;
+    if (result.correct) {
+      feedback.textContent = "Correto!";
+    } else if (result.reason) {
+      feedback.textContent = `Resposta correta: ${result.correct_answer}. ${result.reason}`;
+    } else {
+      feedback.textContent = `Resposta correta: ${result.correct_answer}`;
+    }
 
     setTimeout(() => advanceToNextCard(), 900);
   } catch (err) {

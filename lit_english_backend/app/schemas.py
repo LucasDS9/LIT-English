@@ -134,6 +134,16 @@ class ReviewResultOut(BaseModel):
     correct_answer: Optional[str] = None
     review_status: Optional[ReviewCardStatus] = None
     review_mode: ReviewMode = ReviewMode.flip
+    reason: Optional[str] = None
+    confidence: Optional[float] = None
+
+
+class FlashcardPronunciationResult(BaseModel):
+    """Feedback de pronúncia opcional em flashcards (não afeta SM-2)."""
+    correct: bool
+    correct_answer: str
+    transcribed_text: Optional[str] = None
+    reason: Optional[str] = None
 
 
 class CardProgressOut(BaseModel):

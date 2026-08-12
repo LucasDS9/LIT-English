@@ -3,13 +3,16 @@ Rotas de Flashcards:
 - Professor: criar, listar, editar e excluir flashcards
 - Aluno: revisar flashcards (spaced repetition SM-2), respeitando limite por janela de tempo
 """
+import logging
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import nullsfirst
 from sqlalchemy.orm import Session
 
+from app.ai_judge import judge_answer
 from app.ai_translate import TranslationUnavailable, translate_to_portuguese
+from app.flashcard_judge import judge_flashcard_answer
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
 from app.lit_points import maybe_award_flashcard_daily_bonus
@@ -39,6 +42,7 @@ from app.schemas import (
     FlashcardBatchStudentOut,
     FlashcardCreate,
     FlashcardOut,
+    FlashcardPronunciationResult,
     FlashcardResendPayload,
     FlashcardSelfAdd,
     FlashcardUpdate,
@@ -48,9 +52,11 @@ from app.schemas import (
     ReviewSubmit,
     VocabularyItemOut,
 )
+from app.routers.pronunciation import transcribe
 from app.sm2 import calculate_sm2
 
 router = APIRouter(prefix="/flashcards", tags=["Flashcards"])
+logger = logging.getLogger(__name__)
 
 # Limite de revisões por janela de tempo (igual ao seu app antigo: 15 cards a cada 12h)
 LIMIT_PER_WINDOW = 15
@@ -59,6 +65,73 @@ WINDOW_HOURS = 12
 
 def _normalize_answer(text: str) -> str:
     return (text or "").strip().lower()
+
+
+_WHISPER_LANGUAGE = {
+    "ingles": "english",
+    "italiano": "italian",
+    "frances": "french",
+}
+
+_ANSWER_LANGUAGE = {
+    "italiano": "italiano",
+    "frances": "francês",
+    "ingles": "inglês",
+}
+
+
+def _check_typed_answer(
+    *,
+    expected: str,
+    given: str,
+    student: User,
+    mode: ReviewMode,
+    flashcard: Flashcard,
+) -> dict:
+    """
+    Verifica resposta digitada. Inglês mantém comparação simples; francês/
+    italiano usam normalização básica + IA semântica.
+    """
+    lang = student_language(student)
+    if lang in ("italiano", "frances"):
+        if mode == ReviewMode.type_pt:
+            answer_language = "português"
+            context = flashcard.front
+        else:
+            answer_language = _ANSWER_LANGUAGE[lang]
+            context = flashcard.back
+        return judge_flashcard_answer(
+            expected=expected,
+            given=given,
+            target_language=lang,
+            answer_language=answer_language,
+            context=context,
+        )
+
+    is_correct = _normalize_answer(given) == _normalize_answer(expected)
+    return {
+        "correct": is_correct,
+        "confidence": 1.0,
+        "reason": None,
+        "ai_used": False,
+    }
+
+
+def _require_assigned_flashcard(flashcard_id: int, student_id: int, db: Session) -> Flashcard:
+    flashcard = db.query(Flashcard).filter(Flashcard.id == flashcard_id).first()
+    if not flashcard:
+        raise HTTPException(status_code=404, detail="Flashcard não encontrado.")
+    assigned = (
+        db.query(FlashcardAssignment)
+        .filter(
+            FlashcardAssignment.flashcard_id == flashcard_id,
+            FlashcardAssignment.student_id == student_id,
+        )
+        .first()
+    )
+    if not assigned:
+        raise HTTPException(status_code=404, detail="Flashcard não encontrado.")
+    return flashcard
 
 
 def _apply_sm2(progress: CardProgress, quality: int) -> None:
@@ -580,7 +653,14 @@ def submit_review(
         else:
             expected = flashcard.front
 
-        is_correct = _normalize_answer(payload.typed_answer) == _normalize_answer(expected)
+        judge_result = _check_typed_answer(
+            expected=expected,
+            given=payload.typed_answer,
+            student=student,
+            mode=mode,
+            flashcard=flashcard,
+        )
+        is_correct = judge_result["correct"]
         quality = 5 if is_correct else 0
         _apply_sm2(progress, quality)
 
@@ -601,6 +681,8 @@ def submit_review(
             correct_answer=expected,
             review_status=progress.review_status,
             review_mode=progress.review_mode,
+            reason=judge_result.get("reason"),
+            confidence=judge_result.get("confidence"),
         )
 
     # ── Flip (Aprendendo / Concluído) ─────────────────────────────────────
@@ -627,6 +709,63 @@ def submit_review(
         correct=quality >= 3,
         review_status=progress.review_status,
         review_mode=progress.review_mode,
+    )
+
+
+@router.post("/review/{flashcard_id}/pronounce", response_model=FlashcardPronunciationResult)
+async def pronounce_flashcard(
+    flashcard_id: int,
+    audio: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    student: User = Depends(get_current_approved_user),
+):
+    """
+    Prática opcional de pronúncia em flashcards (Aprender/Concluído).
+    Não altera SM-2, não consome limite de revisão, não bloqueia avanço.
+    """
+    _require_student(student)
+    flashcard = _require_assigned_flashcard(flashcard_id, student.id, db)
+
+    audio_bytes = await audio.read()
+    if len(audio_bytes) < 100:
+        raise HTTPException(status_code=400, detail="Áudio muito curto ou inválido.")
+
+    lang = student_language(student)
+    whisper_lang = _WHISPER_LANGUAGE.get(lang, "english")
+
+    try:
+        transcribed_text = transcribe(audio_bytes, whisper_lang)
+    except Exception as exc:
+        logger.exception("Erro na transcrição de pronúncia de flashcard")
+        raise HTTPException(status_code=500, detail=f"Erro na transcrição: {exc}")
+
+    transcribed_text = transcribed_text or ""
+    expected = flashcard.front
+
+    if lang in ("italiano", "frances"):
+        result = judge_flashcard_answer(
+            expected=expected,
+            given=transcribed_text,
+            target_language=lang,
+            answer_language=_ANSWER_LANGUAGE[lang],
+            context=flashcard.back,
+        )
+        is_correct = result["correct"]
+        reason = result["reason"]
+    else:
+        result = judge_answer(
+            expected=expected,
+            given=transcribed_text,
+            context=flashcard.back,
+        )
+        is_correct = result["correct"]
+        reason = result["reason"]
+
+    return FlashcardPronunciationResult(
+        correct=is_correct,
+        correct_answer=expected,
+        transcribed_text=transcribed_text or None,
+        reason=reason,
     )
 
 
