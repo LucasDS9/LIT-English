@@ -136,7 +136,8 @@ class ReviewMode(str, enum.Enum):
     """Tipo de interação quando o card está devido (SM-2 agenda cada etapa)."""
     flip = "flip"                   # virar card + Esqueci/Difícil/Ok/Fácil
     type_pt = "type_pt"             # ver língua-alvo, digitar em português
-    type_target = "type_target"     # ver português, digitar na língua-alvo
+    type_speak = "type_speak"       # ver português, falar na língua-alvo
+    type_target = "type_target"     # legado — migrado para type_speak
 
 
 class CardProgress(Base):

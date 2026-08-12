@@ -136,6 +136,7 @@ class ReviewResultOut(BaseModel):
     review_mode: ReviewMode = ReviewMode.flip
     reason: Optional[str] = None
     confidence: Optional[float] = None
+    transcribed_text: Optional[str] = None
 
 
 class FlashcardPronunciationResult(BaseModel):

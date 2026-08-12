@@ -79,13 +79,30 @@ _ANSWER_LANGUAGE = {
     "ingles": "inglês",
 }
 
+_SPEAK_MODES = (ReviewMode.type_speak, ReviewMode.type_target)
+
+
+def _judge_spoken_answer(*, student: User, expected: str, given: str, context: str) -> dict:
+    """Julga pronúncia/transcrição na língua-alvo."""
+    lang = student_language(student)
+    if lang in ("italiano", "frances"):
+        result = judge_flashcard_answer(
+            expected=expected,
+            given=given,
+            target_language=lang,
+            answer_language=_ANSWER_LANGUAGE[lang],
+            context=context,
+        )
+        return {"correct": result["correct"], "reason": result["reason"], "confidence": result.get("confidence")}
+    result = judge_answer(expected=expected, given=given, context=context)
+    return {"correct": result["correct"], "reason": result["reason"], "confidence": None}
+
 
 def _check_typed_answer(
     *,
     expected: str,
     given: str,
     student: User,
-    mode: ReviewMode,
     flashcard: Flashcard,
 ) -> dict:
     """
@@ -94,18 +111,12 @@ def _check_typed_answer(
     """
     lang = student_language(student)
     if lang in ("italiano", "frances"):
-        if mode == ReviewMode.type_pt:
-            answer_language = "português"
-            context = flashcard.front
-        else:
-            answer_language = _ANSWER_LANGUAGE[lang]
-            context = flashcard.back
         return judge_flashcard_answer(
             expected=expected,
             given=given,
             target_language=lang,
-            answer_language=answer_language,
-            context=context,
+            answer_language="português",
+            context=flashcard.front,
         )
 
     is_correct = _normalize_answer(given) == _normalize_answer(expected)
@@ -643,21 +654,16 @@ def submit_review(
 
     mode = progress.review_mode or ReviewMode.flip
 
-    # ── Digitação (Dominando) ─────────────────────────────────────────────
-    if mode in (ReviewMode.type_pt, ReviewMode.type_target):
+    # ── Digitação em português (Dominando — type_pt) ─────────────────────
+    if mode == ReviewMode.type_pt:
         if not payload.typed_answer or not payload.typed_answer.strip():
             raise HTTPException(status_code=422, detail="Digite sua resposta.")
 
-        if mode == ReviewMode.type_pt:
-            expected = flashcard.back
-        else:
-            expected = flashcard.front
-
+        expected = flashcard.back
         judge_result = _check_typed_answer(
             expected=expected,
             given=payload.typed_answer,
             student=student,
-            mode=mode,
             flashcard=flashcard,
         )
         is_correct = judge_result["correct"]
@@ -665,11 +671,7 @@ def submit_review(
         _apply_sm2(progress, quality)
 
         if is_correct:
-            if mode == ReviewMode.type_pt:
-                progress.review_mode = ReviewMode.type_target
-            else:
-                progress.review_status = ReviewCardStatus.concluido
-                progress.review_mode = ReviewMode.flip
+            progress.review_mode = ReviewMode.type_speak
 
         db.add(ReviewLog(student_id=student.id, flashcard_id=flashcard_id))
         db.flush()
@@ -683,6 +685,12 @@ def submit_review(
             review_mode=progress.review_mode,
             reason=judge_result.get("reason"),
             confidence=judge_result.get("confidence"),
+        )
+
+    if mode in _SPEAK_MODES:
+        raise HTTPException(
+            status_code=422,
+            detail="Use o envio de áudio para este exercício de pronúncia.",
         )
 
     # ── Flip (Aprendendo / Concluído) ─────────────────────────────────────
@@ -741,31 +749,97 @@ async def pronounce_flashcard(
 
     transcribed_text = transcribed_text or ""
     expected = flashcard.front
-
-    if lang in ("italiano", "frances"):
-        result = judge_flashcard_answer(
-            expected=expected,
-            given=transcribed_text,
-            target_language=lang,
-            answer_language=_ANSWER_LANGUAGE[lang],
-            context=flashcard.back,
-        )
-        is_correct = result["correct"]
-        reason = result["reason"]
-    else:
-        result = judge_answer(
-            expected=expected,
-            given=transcribed_text,
-            context=flashcard.back,
-        )
-        is_correct = result["correct"]
-        reason = result["reason"]
+    judge_result = _judge_spoken_answer(
+        student=student,
+        expected=expected,
+        given=transcribed_text,
+        context=flashcard.back,
+    )
 
     return FlashcardPronunciationResult(
-        correct=is_correct,
+        correct=judge_result["correct"],
         correct_answer=expected,
         transcribed_text=transcribed_text or None,
-        reason=reason,
+        reason=judge_result["reason"],
+    )
+
+
+@router.post("/review/{flashcard_id}/submit-speak", response_model=ReviewResultOut)
+async def submit_speak_review(
+    flashcard_id: int,
+    audio: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    student: User = Depends(get_current_approved_user),
+):
+    """
+    Exercício obrigatório de pronúncia (Dominando — type_speak):
+    frase em português, aluno fala na língua-alvo. Atualiza SM-2.
+    """
+    _require_student(student)
+
+    remaining = _remaining_in_window(student.id, db)
+    if remaining <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Limite de {LIMIT_PER_WINDOW} cards a cada {WINDOW_HOURS}h atingido. Volte mais tarde.",
+        )
+
+    flashcard = _require_assigned_flashcard(flashcard_id, student.id, db)
+
+    progress = (
+        db.query(CardProgress)
+        .filter(CardProgress.student_id == student.id, CardProgress.flashcard_id == flashcard_id)
+        .first()
+    )
+    if not progress:
+        raise HTTPException(status_code=422, detail="Este card ainda não está em modo de pronúncia.")
+
+    mode = progress.review_mode or ReviewMode.flip
+    if mode not in _SPEAK_MODES:
+        raise HTTPException(status_code=422, detail="Este card não está no exercício de pronúncia.")
+
+    audio_bytes = await audio.read()
+    if len(audio_bytes) < 100:
+        raise HTTPException(status_code=400, detail="Áudio muito curto ou inválido.")
+
+    lang = student_language(student)
+    whisper_lang = _WHISPER_LANGUAGE.get(lang, "english")
+
+    try:
+        transcribed_text = transcribe(audio_bytes, whisper_lang)
+    except Exception as exc:
+        logger.exception("Erro na transcrição do exercício de pronúncia")
+        raise HTTPException(status_code=500, detail=f"Erro na transcrição: {exc}")
+
+    transcribed_text = transcribed_text or ""
+    expected = flashcard.front
+    judge_result = _judge_spoken_answer(
+        student=student,
+        expected=expected,
+        given=transcribed_text,
+        context=flashcard.back,
+    )
+    is_correct = judge_result["correct"]
+    quality = 5 if is_correct else 0
+    _apply_sm2(progress, quality)
+
+    if is_correct:
+        progress.review_status = ReviewCardStatus.concluido
+        progress.review_mode = ReviewMode.flip
+
+    db.add(ReviewLog(student_id=student.id, flashcard_id=flashcard_id))
+    db.flush()
+    maybe_award_flashcard_daily_bonus(db, student.id)
+    db.commit()
+
+    return ReviewResultOut(
+        correct=is_correct,
+        correct_answer=expected,
+        review_status=progress.review_status,
+        review_mode=progress.review_mode,
+        reason=judge_result.get("reason"),
+        confidence=judge_result.get("confidence"),
+        transcribed_text=transcribed_text or None,
     )
 
 

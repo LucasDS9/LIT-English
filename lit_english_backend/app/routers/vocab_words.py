@@ -8,11 +8,13 @@ Rotas de "Aprender" (treino de vocabulário por reconhecimento/múltipla escolha
 import random
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.ai_judge import judge_answer
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
+from app.flashcard_judge import judge_flashcard_answer
 from app.models import (
     AccessType,
     CardProgress,
@@ -28,6 +30,7 @@ from app.models import (
     VocabWordStatus,
 )
 from app.schemas import (
+    FlashcardPronunciationResult,
     VocabLearnCardOut,
     VocabLearnQueueOut,
     VocabLearnResult,
@@ -450,6 +453,73 @@ def submit_learn_answer(
         correct_answer=word.translation,
         explanation=word.explanation,
         graduated_to_review=graduated,
+    )
+
+
+@router.post("/learn/{word_id}/pronounce", response_model=FlashcardPronunciationResult)
+async def pronounce_vocab_word(
+    word_id: int,
+    audio: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    student: User = Depends(get_current_approved_user),
+):
+    """
+    Prática opcional de pronúncia na tela Aprender.
+    Não altera progresso nem acerto do card.
+    """
+    _require_student(student)
+
+    word = db.query(VocabWord).filter(VocabWord.id == word_id).first()
+    if not word:
+        raise HTTPException(status_code=404, detail="Palavra não encontrada.")
+
+    assigned = (
+        db.query(VocabWordAssignment)
+        .filter(VocabWordAssignment.word_id == word_id, VocabWordAssignment.student_id == student.id)
+        .first()
+    )
+    if not assigned:
+        raise HTTPException(status_code=403, detail="Esta palavra não está disponível para você.")
+
+    from app.routers.pronunciation import transcribe
+
+    audio_bytes = await audio.read()
+    if len(audio_bytes) < 100:
+        raise HTTPException(status_code=400, detail="Áudio muito curto ou inválido.")
+
+    lang = student_language(student)
+    whisper_map = {"ingles": "english", "italiano": "italian", "frances": "french"}
+    whisper_lang = whisper_map.get(lang, "english")
+    answer_lang_map = {"italiano": "italiano", "frances": "francês", "ingles": "inglês"}
+
+    try:
+        transcribed_text = transcribe(audio_bytes, whisper_lang)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Erro na transcrição: {exc}")
+
+    transcribed_text = transcribed_text or ""
+    expected = word.word
+
+    if lang in ("italiano", "frances"):
+        result = judge_flashcard_answer(
+            expected=expected,
+            given=transcribed_text,
+            target_language=lang,
+            answer_language=answer_lang_map[lang],
+            context=word.translation,
+        )
+        is_correct = result["correct"]
+        reason = result["reason"]
+    else:
+        result = judge_answer(expected=expected, given=transcribed_text, context=word.translation)
+        is_correct = result["correct"]
+        reason = result["reason"]
+
+    return FlashcardPronunciationResult(
+        correct=is_correct,
+        correct_answer=expected,
+        transcribed_text=transcribed_text or None,
+        reason=reason,
     )
 
 

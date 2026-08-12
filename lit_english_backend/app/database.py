@@ -331,13 +331,29 @@ def run_migrations():
                         conn.commit()
                     except Exception:
                         conn.rollback()
-                    # Modo de interação (flip / type_pt / type_target)
+                    # Modo de interação (flip / type_pt / type_speak)
                     conn.execute(text(
                         "DO $$ BEGIN "
                         "CREATE TYPE reviewmode AS ENUM ('flip', 'type_pt', 'type_target'); "
                         "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
                     ))
                     conn.commit()
+                    for val in ("type_speak",):
+                        try:
+                            conn.execute(text(
+                                f"ALTER TYPE reviewmode ADD VALUE IF NOT EXISTS '{val}'"
+                            ))
+                            conn.commit()
+                        except Exception:
+                            conn.rollback()
+                    try:
+                        conn.execute(text(
+                            "UPDATE card_progress SET review_mode = 'type_speak' "
+                            "WHERE review_mode::text = 'type_target'"
+                        ))
+                        conn.commit()
+                    except Exception:
+                        conn.rollback()
                     if not _col_exists(conn, "card_progress", "review_mode"):
                         conn.execute(text(
                             "ALTER TABLE card_progress ADD COLUMN review_mode reviewmode "

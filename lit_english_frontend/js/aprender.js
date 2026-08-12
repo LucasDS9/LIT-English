@@ -309,13 +309,39 @@ function renderCard() {
     body.appendChild(sentence);
   }
 
-  const speakBtn = document.createElement("button");
-  speakBtn.className = "speak-btn learn-speak-btn";
-  speakBtn.type = "button";
-  speakBtn.innerHTML = Icons.volume;
-  speakBtn.title = "Ouvir pronúncia da palavra";
-  speakBtn.addEventListener("click", () => speakWord(card.word, speakBtn));
-  body.appendChild(speakBtn);
+  let pronunciationFeedback = null;
+
+  const { controls, listenBtn } = FlashcardPronounce.buildAudioControlsRow({
+    listenLabel: "Ouvir pronúncia",
+    onListen: () => speakWord(card.word, listenBtn),
+    showPronounce: true,
+    pronounceLabel: "Pronunciar",
+    onPronounceReady: (btn) => {
+      const recorder = FlashcardPronounce.attachRecordButton(btn, {
+        onStop: async (blob) => {
+          try {
+            const result = await FlashcardPronounce.submitAudio(
+              blob,
+              `/vocab-words/learn/${card.word_id}/pronounce`
+            );
+            FlashcardPronounce.showFeedback(pronunciationFeedback, result);
+            SFX.play(result.correct ? "correct" : "wrong");
+          } catch (err) {
+            showToast(err.message || "Não foi possível analisar a pronúncia.");
+          } finally {
+            recorder.reset();
+          }
+        },
+        onError: (err) => showToast(err.message || "Permissão de microfone negada."),
+      });
+    },
+  });
+  body.appendChild(controls);
+
+  pronunciationFeedback = document.createElement("div");
+  pronunciationFeedback.className = "review-pronunciation-feedback";
+  pronunciationFeedback.hidden = true;
+  body.appendChild(pronunciationFeedback);
 
   cardBox.appendChild(body);
 
@@ -337,7 +363,7 @@ function renderCard() {
   // Toca a pronúncia automaticamente assim que o card aparece — sem
   // precisar clicar no botão de áudio. Falha silenciosamente se o
   // navegador bloquear o autoplay (ex: antes de qualquer interação).
-  speakWord(card.word, speakBtn);
+  speakWord(card.word, listenBtn);
 }
 
 // Depois que o aluno responde, o card "vira": o corpo (palavra + opções)
