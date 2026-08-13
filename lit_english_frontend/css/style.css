@@ -2442,7 +2442,6 @@ svg {
 .reader-body .word.is-reading {
   color: var(--primary-dark);
   text-shadow: 0 0 10px rgba(134, 30, 25, 0.75), 0 0 2px rgba(134, 30, 25, 0.9);
-  transition: text-shadow 0.08s ease, color 0.08s ease;
 }
 
 /* ---------- Popup de vocabulário (clique em palavra) ---------- */
@@ -2837,7 +2836,7 @@ svg {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  background: var(--sidebar-bg);
+  background: var(--bg);
   padding: 28px 20px 40px;
   overflow-y: auto;
   box-sizing: border-box;
@@ -2859,9 +2858,9 @@ svg {
   max-width: 520px;
   min-height: min(78vh, 900px);
   background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
   padding: 28px 36px 40px;
   margin: 0 auto;
   box-sizing: border-box;
@@ -2987,6 +2986,13 @@ svg {
 
 body.reader-fs-open {
   overflow: hidden;
+  background: var(--bg);
+}
+
+/* Fullscreen: garante fundo branco atrás do elemento em tela cheia nativa */
+.reader-viewport:fullscreen::backdrop,
+.reader-viewport:-webkit-full-screen::backdrop {
+  background: var(--bg);
 }
 
 @media (max-width: 860px) {
@@ -3230,7 +3236,9 @@ body.reader-fs-open {
     max-width: 100%;
     min-height: 85vh;
     padding: 22px 20px 32px;
-    border-radius: var(--radius-md);
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .player-progress {

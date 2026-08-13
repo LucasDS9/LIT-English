@@ -43,7 +43,9 @@ function excerptOf(text, maxLen = 130) {
 }
 
 // Antecipa a marcação da palavra em relação ao áudio (compensa latência perceptiva).
-const WORD_HIGHLIGHT_LEAD_SEC = 0.15;
+const WORD_HIGHLIGHT_LEAD_SEC = 0.22;
+// Pequeno avanço no início do trecho shadowing (evita começar “no meio” da 1ª palavra).
+const SHADOWING_AUDIO_START_PAD_SEC = 0.035;
 
 function ttsUrl(text) {
   return `/tts/speak?text=${encodeURIComponent(text)}`;
@@ -234,9 +236,9 @@ function splitIntoShadowingSegments(text) {
   return segments;
 }
 
-function buildSegmentTimings(segments, wordSpans, wordTimings) {
+function buildSegmentTimings(segments, wordSpans, wordTimings, totalDuration) {
   let spanIdx = 0;
-  return segments.map((segmentText) => {
+  const built = segments.map((segmentText) => {
     const segWords = segmentText.match(WORD_ONLY_RE) || [];
     const spans = wordSpans.slice(spanIdx, spanIdx + segWords.length);
     spanIdx += segWords.length;
@@ -250,15 +252,40 @@ function buildSegmentTimings(segments, wordSpans, wordTimings) {
       spans,
       start: firstTiming ? firstTiming.start : 0,
       end: lastTiming ? lastTiming.end : 0,
+      audioEnd: lastTiming ? lastTiming.end : 0,
     };
   });
+
+  // O áudio de cada trecho vai até o início do próximo (corte exato no buffer).
+  for (let i = 0; i < built.length - 1; i++) {
+    built[i].audioEnd = built[i + 1].start;
+  }
+  if (built.length && totalDuration) {
+    built[built.length - 1].audioEnd = totalDuration;
+  }
+
+  return built;
 }
 
-function findWordAtTime(timings, time, spanFilter) {
+function findWordAtTime(timings, time, spanFilter, maxEnd) {
   for (let i = 0; i < timings.length; i++) {
     const t = timings[i];
     if (spanFilter && !spanFilter.has(t.span)) continue;
-    if (time >= t.start && time < t.end) return t;
+
+    let effectiveEnd = t.end;
+    let foundNext = false;
+    for (let j = i + 1; j < timings.length; j++) {
+      const next = timings[j];
+      if (spanFilter && !spanFilter.has(next.span)) continue;
+      effectiveEnd = next.start;
+      foundNext = true;
+      break;
+    }
+    if (!foundNext && maxEnd != null) {
+      effectiveEnd = maxEnd;
+    }
+
+    if (time >= t.start && time < effectiveEnd) return t;
   }
   return null;
 }
@@ -868,11 +895,26 @@ function highlightShadowingSegment(segment) {
 
 function updateShadowingWordHighlight(segment, elapsedInSegment) {
   if (!segment || !segment.spans.length) return;
-  const spanSet = new Set(segment.spans);
-  const highlightTime = segment.start + elapsedInSegment + WORD_HIGHLIGHT_LEAD_SEC;
-  const current = findWordAtTime(player.wordTimings, highlightTime, spanSet);
 
   segment.spans.forEach((span) => span.classList.remove("is-shadowing-active"));
+
+  if (elapsedInSegment < 0.06) {
+    segment.spans[0].classList.add("is-shadowing-active");
+    return;
+  }
+
+  const spanSet = new Set(segment.spans);
+  const audioEnd = segment.audioEnd ?? segment.end;
+  const highlightTime = Math.min(
+    segment.start + elapsedInSegment + WORD_HIGHLIGHT_LEAD_SEC,
+    audioEnd - 0.001,
+  );
+  let current = findWordAtTime(player.wordTimings, highlightTime, spanSet, audioEnd);
+
+  if (!current && highlightTime >= audioEnd - 0.05) {
+    current = { span: segment.spans[segment.spans.length - 1] };
+  }
+
   if (current) current.span.classList.add("is-shadowing-active");
 }
 
@@ -942,14 +984,19 @@ function onShadowingSegmentEnded(segment, audioDuration) {
 }
 
 function startShadowingSegmentAudio(segment, elapsedInSegment) {
-  const audioDuration = shadowingMode.currentSegmentDuration;
-  const remaining = audioDuration - elapsedInSegment;
+  const audioEnd = segment.audioEnd ?? segment.end;
+  const audioStart = Math.max(0, segment.start - (elapsedInSegment <= 0 ? SHADOWING_AUDIO_START_PAD_SEC : 0));
+  const audioDuration = Math.max(0.1, audioEnd - segment.start);
+  const playOffset = audioStart + elapsedInSegment;
+  const remaining = Math.max(0.05, audioEnd - playOffset);
+
   if (remaining <= 0.05) {
     onShadowingSegmentEnded(segment, audioDuration);
     return;
   }
 
   highlightShadowingSegment(segment);
+  updateShadowingWordHighlight(segment, elapsedInSegment);
 
   const ctx = getAudioCtx();
   if (ctx.state === "suspended") ctx.resume();
@@ -968,7 +1015,7 @@ function startShadowingSegmentAudio(segment, elapsedInSegment) {
   };
   shadowingMode.sourceNode = source;
   shadowingMode.segmentStartCtx = ctx.currentTime - elapsedInSegment;
-  source.start(0, segment.start + elapsedInSegment, remaining);
+  source.start(0, playOffset, remaining);
   shadowingMode.rafId = requestAnimationFrame(shadowingTick);
   shadowingMode.syncPlayIcon?.();
 }
@@ -1053,7 +1100,10 @@ function playShadowingSegment(index) {
   const segment = shadowingMode.segments[index];
   shadowingMode.index = index;
   shadowingMode.currentSegment = segment;
-  shadowingMode.currentSegmentDuration = Math.max(0.1, segment.end - segment.start);
+  shadowingMode.currentSegmentDuration = Math.max(
+    0.1,
+    (segment.audioEnd ?? segment.end) - segment.start,
+  );
   shadowingMode.pauseState = null;
   shadowingMode.isPaused = false;
   startShadowingSegmentAudio(segment, 0);
@@ -1276,7 +1326,7 @@ function renderReader(text) {
 
   const card = document.createElement("div");
   card.className = "reader-card";
-  card.dataset.readerVersion = "20260813-2";
+  card.dataset.readerVersion = "20260813-3";
 
   const header = document.createElement("div");
   header.className = "reader-card-header";
@@ -1646,7 +1696,12 @@ function renderReader(text) {
     if (!ready) return;
 
     const segmentTexts = splitIntoShadowingSegments(text.content);
-    const segments = buildSegmentTimings(segmentTexts, wordSpans, player.wordTimings);
+    const segments = buildSegmentTimings(
+      segmentTexts,
+      wordSpans,
+      player.wordTimings,
+      player.buffer.duration,
+    );
     if (!segments.length) {
       showToast("Não há trechos disponíveis para o Shadowing Mode.");
       return;
