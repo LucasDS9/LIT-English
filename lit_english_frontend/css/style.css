@@ -2819,23 +2819,52 @@ svg {
   opacity: 1;
 }
 
-/* ---------- Reader viewport (fullscreen + listening mode) ---------- */
+/* ---------- Reader viewport (fullscreen + shadowing mode) ---------- */
 
 .reader-viewport {
   position: relative;
 }
 
-.reader-viewport.is-fullscreen,
-.reader-viewport:fullscreen {
-  background: var(--bg);
-  padding: 28px 32px;
-  overflow-y: auto;
-  max-width: none;
+.reader-book-page {
+  width: 100%;
 }
 
-.reader-viewport:fullscreen {
+.reader-viewport.is-fullscreen,
+.reader-viewport:fullscreen,
+.reader-viewport:-webkit-full-screen,
+.reader-viewport.reader-fullscreen-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: var(--sidebar-bg);
+  padding: 28px 20px 40px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100%;
+}
+
+.reader-viewport:fullscreen,
+.reader-viewport:-webkit-full-screen {
   width: 100%;
   height: 100%;
+}
+
+.reader-viewport.is-fullscreen .reader-book-page,
+.reader-viewport:fullscreen .reader-book-page,
+.reader-viewport:-webkit-full-screen .reader-book-page,
+.reader-viewport.reader-fullscreen-fallback .reader-book-page {
+  width: 100%;
+  max-width: 520px;
+  min-height: min(78vh, 900px);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 28px 36px 40px;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .reader-toolbar {
@@ -2864,6 +2893,13 @@ svg {
 .reader-tool-btn svg {
   width: 16px;
   height: 16px;
+  stroke: currentColor;
+  flex-shrink: 0;
+}
+
+.reader-fullscreen-btn svg {
+  width: 17px;
+  height: 17px;
 }
 
 .reader-tool-btn:hover {
@@ -2878,7 +2914,7 @@ svg {
   border-color: var(--primary);
 }
 
-.listening-mode-btn {
+.shadowing-mode-btn {
   width: auto;
   padding: 0 14px;
   gap: 7px;
@@ -2887,47 +2923,28 @@ svg {
   font-weight: 600;
 }
 
-.listening-mode-btn svg {
+.shadowing-mode-btn svg {
   width: 15px;
   height: 15px;
 }
 
-.listening-status {
-  display: none;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  margin: 0 0 12px;
-  border-radius: var(--radius-md);
-  background: var(--primary-pale);
-  border: 1px solid rgba(134, 30, 25, 0.15);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--primary);
+.shadowing-status {
+  display: none !important;
 }
 
-.listening-status.is-visible {
-  display: flex;
-}
-
-.listening-status.is-your-turn {
-  background: rgba(134, 30, 25, 0.08);
-  border-color: rgba(134, 30, 25, 0.22);
-}
-
-/* Destaque do trecho ativo no Listening Mode */
-.reader-body .word.is-listening-segment {
+/* Destaque do trecho ativo no Shadowing Mode */
+.reader-body .word.is-shadowing-segment {
   background: var(--primary-pale);
   box-shadow: 0 1px 6px rgba(134, 30, 25, 0.25);
   border-radius: 3px;
 }
 
-.reader-body .word.is-listening-segment.is-listening-active {
+.reader-body .word.is-shadowing-segment.is-shadowing-active {
   color: var(--primary-dark);
   text-shadow: 0 0 8px rgba(134, 30, 25, 0.6);
 }
 
-.reader-body.is-listening-mode .word:not(.is-listening-segment) {
+.reader-body.is-shadowing-mode .word:not(.is-shadowing-segment) {
   opacity: 0.45;
   transition: opacity 0.2s ease;
 }
@@ -2966,9 +2983,10 @@ svg {
   position: fixed;
   inset: 0;
   z-index: 80;
-  overflow-y: auto;
-  padding: 20px 18px;
-  background: var(--bg);
+}
+
+body.reader-fs-open {
+  overflow: hidden;
 }
 
 @media (max-width: 860px) {
@@ -3198,10 +3216,21 @@ svg {
     justify-content: space-between;
   }
 
-  .listening-mode-btn {
+  .listening-mode-btn,
+  .shadowing-mode-btn {
     flex: 1;
     justify-content: center;
     min-width: 0;
+  }
+
+  .reader-viewport.is-fullscreen .reader-book-page,
+  .reader-viewport:fullscreen .reader-book-page,
+  .reader-viewport:-webkit-full-screen .reader-book-page,
+  .reader-viewport.reader-fullscreen-fallback .reader-book-page {
+    max-width: 100%;
+    min-height: 85vh;
+    padding: 22px 20px 32px;
+    border-radius: var(--radius-md);
   }
 
   .player-progress {

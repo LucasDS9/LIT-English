@@ -42,6 +42,21 @@ function excerptOf(text, maxLen = 130) {
   return clean.slice(0, maxLen).trimEnd() + "…";
 }
 
+// Antecipa a marcação da palavra em relação ao áudio (compensa latência perceptiva).
+const WORD_HIGHLIGHT_LEAD_SEC = 0.15;
+
+function ttsUrl(text) {
+  return `/tts/speak?text=${encodeURIComponent(text)}`;
+}
+
+let sharedAudioCtx = null;
+function getAudioCtx() {
+  if (!sharedAudioCtx) {
+    sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return sharedAudioCtx;
+}
+
 // Divide o texto em frases (limite seguro para o TTS, que corta em ~200 chars).
 const TTS_CHUNK_MAX = 180;
 
@@ -85,7 +100,7 @@ function splitIntoChunks(text) {
 }
 
 // ---------------------------------------------------------------------------
-// Segmentação semântica para o Listening Mode (unidades naturais de sentido)
+// Segmentação semântica para o Shadowing Mode (unidades naturais de sentido)
 // ---------------------------------------------------------------------------
 
 function countWords(text) {
@@ -119,7 +134,8 @@ function splitAtNaturalBreaks(sentence) {
 
     const conjMatch = remaining.match(LISTENING_CONJ_RE);
     if (conjMatch && conjMatch.index > 0 && (bestIdx < 0 || conjMatch.index < bestIdx)) {
-      bestIdx = conjMatch.index + conjMatch[0].length;
+      // Conectores ficam no trecho seguinte (ex.: "through speaking..." junto).
+      bestIdx = conjMatch.index;
     }
 
     if (bestIdx < 0) {
@@ -197,7 +213,7 @@ function splitLongSentenceForListening(sentence) {
   return merged.filter(Boolean);
 }
 
-function splitIntoListeningSegments(text) {
+function splitIntoShadowingSegments(text) {
   const normalized = (text || "").replace(/\s+/g, " ").trim();
   if (!normalized) return [];
 
@@ -222,20 +238,12 @@ function buildSegmentTimings(segments, wordSpans, wordTimings) {
   let spanIdx = 0;
   return segments.map((segmentText) => {
     const segWords = segmentText.match(WORD_ONLY_RE) || [];
-    const spans = [];
-    segWords.forEach(() => {
-      if (spanIdx < wordSpans.length) {
-        spans.push(wordSpans[spanIdx]);
-        spanIdx += 1;
-      }
-    });
+    const spans = wordSpans.slice(spanIdx, spanIdx + segWords.length);
+    spanIdx += segWords.length;
 
-    const firstTiming = spans.length
-      ? wordTimings.find((t) => t.span === spans[0])
-      : null;
-    const lastTiming = spans.length
-      ? wordTimings.find((t) => t.span === spans[spans.length - 1])
-      : null;
+    const timingBySpan = new Map(wordTimings.map((t) => [t.span, t]));
+    const firstTiming = spans.length ? timingBySpan.get(spans[0]) : null;
+    const lastTiming = spans.length ? timingBySpan.get(spans[spans.length - 1]) : null;
 
     return {
       text: segmentText,
@@ -244,6 +252,15 @@ function buildSegmentTimings(segments, wordSpans, wordTimings) {
       end: lastTiming ? lastTiming.end : 0,
     };
   });
+}
+
+function findWordAtTime(timings, time, spanFilter) {
+  for (let i = 0; i < timings.length; i++) {
+    const t = timings[i];
+    if (spanFilter && !spanFilter.has(t.span)) continue;
+    if (time >= t.start && time < t.end) return t;
+  }
+  return null;
 }
 
 function renderStateBox(container, { icon, title, text, actionLabel, onAction }) {
@@ -357,14 +374,64 @@ async function renderTextList() {
 // Cache de áudio da pronúncia de palavras isoladas (independente da faixa
 // contínua do player principal).
 const wordAudioBlobUrls = new Map();
+let yourTurnAudioBuffer = null;
 let activeWordAudioEl = null;
+let activeCueSourceNode = null;
 
-function stopWordAudio() {
+function stopWordPronunciation() {
   if (activeWordAudioEl) {
     activeWordAudioEl.pause();
     activeWordAudioEl.currentTime = 0;
     activeWordAudioEl = null;
   }
+}
+
+function stopCueAudio() {
+  if (activeCueSourceNode) {
+    try {
+      activeCueSourceNode.stop();
+    } catch (err) {
+      // já parado
+    }
+    activeCueSourceNode = null;
+  }
+}
+
+function stopWordAudio() {
+  stopWordPronunciation();
+  stopCueAudio();
+}
+
+async function loadYourTurnAudioBuffer() {
+  if (yourTurnAudioBuffer) return yourTurnAudioBuffer;
+  const blob = await apiFetchBlob(ttsUrl("Your turn."));
+  const arrayBuffer = await blob.arrayBuffer();
+  const ctx = getAudioCtx();
+  yourTurnAudioBuffer = await ctx.decodeAudioData(arrayBuffer);
+  return yourTurnAudioBuffer;
+}
+
+function playYourTurnAudio() {
+  return loadYourTurnAudioBuffer()
+    .then((buffer) => {
+      const ctx = getAudioCtx();
+      if (ctx.state === "suspended") ctx.resume();
+      stopCueAudio();
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      activeCueSourceNode = source;
+      return new Promise((resolve) => {
+        source.onended = () => {
+          if (activeCueSourceNode === source) activeCueSourceNode = null;
+          resolve();
+        };
+        source.start(0);
+      });
+    })
+    .catch(() => {
+      showToast("Não foi possível tocar o áudio \"Your turn\".");
+    });
 }
 
 async function getWordAudioUrl(word) {
@@ -377,7 +444,7 @@ async function getWordAudioUrl(word) {
 
 async function playWordAudio(word, playBtn) {
   if (playBtn.disabled) return;
-  stopWordAudio();
+  stopWordPronunciation();
   playBtn.disabled = true;
   playBtn.classList.add("is-loading");
 
@@ -715,14 +782,6 @@ function renderClickableBody(container, rawText, textId) {
 // Leitura de um texto: conteúdo + player (play/pause)
 // ---------------------------------------------------------------------------
 
-let sharedAudioCtx = null;
-function getAudioCtx() {
-  if (!sharedAudioCtx) {
-    sharedAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  return sharedAudioCtx;
-}
-
 const player = {
   chunks: [],
   isPlaying: false,
@@ -740,142 +799,282 @@ const player = {
   isSeeking: false,
 };
 
-const listeningMode = {
+const shadowingMode = {
   active: false,
   segments: [],
   index: 0,
   timers: [],
   sourceNode: null,
   manualStop: false,
+  rafId: null,
   statusEl: null,
   bodyEl: null,
-  listeningBtn: null,
+  shadowingBtn: null,
+  syncPlayIcon: null,
+  segmentStartCtx: 0,
+  currentSegment: null,
+  currentSegmentDuration: 0,
+  isSegmentPlaying: false,
+  isPaused: false,
+  pauseState: null,
+  phase: "idle",
+  turnEndsAt: 0,
 };
 
-function clearListeningTimers() {
-  listeningMode.timers.forEach(clearTimeout);
-  listeningMode.timers = [];
+function clearShadowingTimers() {
+  shadowingMode.timers.forEach(clearTimeout);
+  shadowingMode.timers = [];
 }
 
-function clearListeningHighlight() {
-  if (!listeningMode.bodyEl) return;
-  listeningMode.bodyEl.querySelectorAll(".word").forEach((el) => {
-    el.classList.remove("is-listening-segment", "is-listening-active");
+function clearShadowingHighlight() {
+  if (!shadowingMode.bodyEl) return;
+  shadowingMode.bodyEl.querySelectorAll(".word").forEach((el) => {
+    el.classList.remove("is-shadowing-segment", "is-shadowing-active");
   });
 }
 
-function stopListeningSource() {
-  if (listeningMode.sourceNode) {
-    listeningMode.manualStop = true;
+function stopShadowingSource() {
+  if (shadowingMode.rafId) {
+    cancelAnimationFrame(shadowingMode.rafId);
+    shadowingMode.rafId = null;
+  }
+  if (shadowingMode.sourceNode) {
+    shadowingMode.manualStop = true;
     try {
-      listeningMode.sourceNode.stop();
+      shadowingMode.sourceNode.stop();
     } catch (err) {
       // já parado
     }
-    listeningMode.sourceNode = null;
+    shadowingMode.sourceNode = null;
   }
 }
 
-function setListeningStatus(text, isYourTurn) {
-  if (!listeningMode.statusEl) return;
-  listeningMode.statusEl.textContent = text;
-  listeningMode.statusEl.classList.add("is-visible");
-  listeningMode.statusEl.classList.toggle("is-your-turn", !!isYourTurn);
+function setShadowingStatus(_text) {
+  /* Sem banner visual — feedback só por áudio e destaque no texto. */
+  if (shadowingMode.statusEl) {
+    shadowingMode.statusEl.classList.remove("is-visible");
+    shadowingMode.statusEl.textContent = "";
+  }
 }
 
-function highlightListeningSegment(segment, phase) {
-  clearListeningHighlight();
+function highlightShadowingSegment(segment) {
+  clearShadowingHighlight();
   if (!segment || !segment.spans.length) return;
   segment.spans.forEach((span) => {
-    span.classList.add("is-listening-segment");
-    if (phase === "listening") span.classList.add("is-listening-active");
+    span.classList.add("is-shadowing-segment");
   });
   segment.spans[0].scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-function stopListeningMode() {
-  listeningMode.active = false;
-  clearListeningTimers();
-  stopListeningSource();
-  clearListeningHighlight();
-  if (listeningMode.bodyEl) {
-    listeningMode.bodyEl.classList.remove("is-listening-mode");
-  }
-  if (listeningMode.statusEl) {
-    listeningMode.statusEl.classList.remove("is-visible", "is-your-turn");
-    listeningMode.statusEl.textContent = "";
-  }
-  if (listeningMode.listeningBtn) {
-    listeningMode.listeningBtn.classList.remove("is-active");
-    listeningMode.listeningBtn.setAttribute("aria-pressed", "false");
-  }
-  listeningMode.segments = [];
-  listeningMode.index = 0;
+function updateShadowingWordHighlight(segment, elapsedInSegment) {
+  if (!segment || !segment.spans.length) return;
+  const spanSet = new Set(segment.spans);
+  const highlightTime = segment.start + elapsedInSegment + WORD_HIGHLIGHT_LEAD_SEC;
+  const current = findWordAtTime(player.wordTimings, highlightTime, spanSet);
+
+  segment.spans.forEach((span) => span.classList.remove("is-shadowing-active"));
+  if (current) current.span.classList.add("is-shadowing-active");
 }
 
-function onListeningSegmentEnded(segment, audioDuration) {
-  if (!listeningMode.active) return;
+function shadowingTick() {
+  if (!shadowingMode.active || !shadowingMode.currentSegment) return;
+  const ctx = getAudioCtx();
+  const elapsedInSegment = ctx.currentTime - shadowingMode.segmentStartCtx;
+  updateShadowingWordHighlight(shadowingMode.currentSegment, elapsedInSegment);
+  shadowingMode.rafId = requestAnimationFrame(shadowingTick);
+}
+
+function stopShadowingMode() {
+  shadowingMode.active = false;
+  shadowingMode.isPaused = false;
+  shadowingMode.pauseState = null;
+  shadowingMode.isSegmentPlaying = false;
+  shadowingMode.phase = "idle";
+  clearShadowingTimers();
+  stopShadowingSource();
+  clearShadowingHighlight();
+  shadowingMode.currentSegment = null;
+  if (shadowingMode.bodyEl) {
+    shadowingMode.bodyEl.classList.remove("is-shadowing-mode");
+  }
+  setShadowingStatus("");
+  if (shadowingMode.shadowingBtn) {
+    shadowingMode.shadowingBtn.classList.remove("is-active");
+    shadowingMode.shadowingBtn.setAttribute("aria-pressed", "false");
+  }
+  shadowingMode.segments = [];
+  shadowingMode.index = 0;
+  shadowingMode.syncPlayIcon?.();
+}
+
+function scheduleShadowingYourTurn(segment, audioDuration) {
+  shadowingMode.phase = "gap";
+  shadowingMode.isSegmentPlaying = false;
+  shadowingMode.syncPlayIcon?.();
 
   const gapTimer = setTimeout(() => {
-    if (!listeningMode.active) return;
-    highlightListeningSegment(segment, "your-turn");
-    setListeningStatus("🎙️ Your turn", true);
+    if (!shadowingMode.active || shadowingMode.isPaused) return;
+    shadowingMode.phase = "your-turn";
+    highlightShadowingSegment(segment);
+    playYourTurnAudio();
+
+    const repeatMs = audioDuration * 1.5 * 1000;
+    shadowingMode.turnEndsAt = Date.now() + repeatMs;
+    shadowingMode.syncPlayIcon?.();
 
     const turnTimer = setTimeout(() => {
-      if (!listeningMode.active) return;
-      playListeningSegment(listeningMode.index + 1);
-    }, audioDuration * 1.5 * 1000);
-    listeningMode.timers.push(turnTimer);
+      if (!shadowingMode.active || shadowingMode.isPaused) return;
+      playShadowingSegment(shadowingMode.index + 1);
+    }, repeatMs);
+    shadowingMode.timers.push(turnTimer);
   }, 500);
-  listeningMode.timers.push(gapTimer);
+  shadowingMode.timers.push(gapTimer);
 }
 
-function playListeningSegment(index) {
-  if (!listeningMode.active) return;
+function onShadowingSegmentEnded(segment, audioDuration) {
+  if (!shadowingMode.active) return;
 
-  if (index >= listeningMode.segments.length) {
-    stopListeningMode();
-    showToast("Listening mode concluído!");
+  stopShadowingSource();
+  shadowingMode.isSegmentPlaying = false;
+  segment.spans.forEach((span) => span.classList.remove("is-shadowing-active"));
+  setShadowingStatus("");
+  scheduleShadowingYourTurn(segment, audioDuration);
+}
+
+function startShadowingSegmentAudio(segment, elapsedInSegment) {
+  const audioDuration = shadowingMode.currentSegmentDuration;
+  const remaining = audioDuration - elapsedInSegment;
+  if (remaining <= 0.05) {
+    onShadowingSegmentEnded(segment, audioDuration);
     return;
   }
 
-  const segment = listeningMode.segments[index];
-  listeningMode.index = index;
-  highlightListeningSegment(segment, "listening");
-  setListeningStatus("🔊 Listening...", false);
+  highlightShadowingSegment(segment);
 
-  const audioDuration = Math.max(0.1, segment.end - segment.start);
   const ctx = getAudioCtx();
   if (ctx.state === "suspended") ctx.resume();
 
-  stopListeningSource();
-  listeningMode.manualStop = false;
+  stopShadowingSource();
+  shadowingMode.manualStop = false;
+  shadowingMode.phase = "listening";
+  shadowingMode.isSegmentPlaying = true;
 
   const source = ctx.createBufferSource();
   source.buffer = player.buffer;
   source.connect(ctx.destination);
   source.onended = () => {
-    if (listeningMode.manualStop || !listeningMode.active) return;
-    onListeningSegmentEnded(segment, audioDuration);
+    if (shadowingMode.manualStop || !shadowingMode.active) return;
+    onShadowingSegmentEnded(segment, audioDuration);
   };
-  listeningMode.sourceNode = source;
-  source.start(0, segment.start, audioDuration);
+  shadowingMode.sourceNode = source;
+  shadowingMode.segmentStartCtx = ctx.currentTime - elapsedInSegment;
+  source.start(0, segment.start + elapsedInSegment, remaining);
+  shadowingMode.rafId = requestAnimationFrame(shadowingTick);
+  shadowingMode.syncPlayIcon?.();
 }
 
-function startListeningMode(segments) {
-  listeningMode.segments = segments;
-  listeningMode.index = 0;
-  listeningMode.active = true;
+function pauseShadowingPlayback() {
+  if (!shadowingMode.active || shadowingMode.isPaused) return;
 
-  if (listeningMode.bodyEl) {
-    listeningMode.bodyEl.classList.add("is-listening-mode");
-  }
-  if (listeningMode.listeningBtn) {
-    listeningMode.listeningBtn.classList.add("is-active");
-    listeningMode.listeningBtn.setAttribute("aria-pressed", "true");
+  shadowingMode.isPaused = true;
+
+  if (shadowingMode.sourceNode) {
+    const ctx = getAudioCtx();
+    shadowingMode.pauseState = {
+      kind: "segment",
+      elapsed: Math.max(0, ctx.currentTime - shadowingMode.segmentStartCtx),
+    };
+    stopShadowingSource();
+    shadowingMode.isSegmentPlaying = false;
+  } else {
+    clearShadowingTimers();
+    stopCueAudio();
+    if (shadowingMode.phase === "your-turn") {
+      shadowingMode.pauseState = {
+        kind: "your-turn",
+        remainingMs: Math.max(0, shadowingMode.turnEndsAt - Date.now()),
+      };
+    } else if (shadowingMode.phase === "gap") {
+      shadowingMode.pauseState = { kind: "gap" };
+    } else {
+      shadowingMode.pauseState = { kind: "segment", elapsed: 0 };
+    }
   }
 
-  playListeningSegment(0);
+  setShadowingStatus("");
+  shadowingMode.syncPlayIcon?.();
+}
+
+function resumeShadowingPlayback() {
+  if (!shadowingMode.active || !shadowingMode.isPaused) return;
+
+  shadowingMode.isPaused = false;
+  const segment = shadowingMode.currentSegment;
+  const state = shadowingMode.pauseState;
+  shadowingMode.pauseState = null;
+
+  if (!segment || !state) {
+    playShadowingSegment(shadowingMode.index);
+    return;
+  }
+
+  if (state.kind === "segment") {
+    startShadowingSegmentAudio(segment, state.elapsed);
+    return;
+  }
+
+  if (state.kind === "gap") {
+    scheduleShadowingYourTurn(segment, shadowingMode.currentSegmentDuration);
+    return;
+  }
+
+  if (state.kind === "your-turn") {
+    shadowingMode.phase = "your-turn";
+    highlightShadowingSegment(segment);
+    shadowingMode.turnEndsAt = Date.now() + state.remainingMs;
+    shadowingMode.syncPlayIcon?.();
+    const turnTimer = setTimeout(() => {
+      if (!shadowingMode.active || shadowingMode.isPaused) return;
+      playShadowingSegment(shadowingMode.index + 1);
+    }, state.remainingMs);
+    shadowingMode.timers.push(turnTimer);
+  }
+}
+
+function playShadowingSegment(index) {
+  if (!shadowingMode.active) return;
+
+  if (index >= shadowingMode.segments.length) {
+    stopShadowingMode();
+    showToast("Shadowing mode concluído!");
+    return;
+  }
+
+  const segment = shadowingMode.segments[index];
+  shadowingMode.index = index;
+  shadowingMode.currentSegment = segment;
+  shadowingMode.currentSegmentDuration = Math.max(0.1, segment.end - segment.start);
+  shadowingMode.pauseState = null;
+  shadowingMode.isPaused = false;
+  startShadowingSegmentAudio(segment, 0);
+}
+
+function startShadowingMode(segments) {
+  shadowingMode.segments = segments;
+  shadowingMode.index = 0;
+  shadowingMode.active = true;
+
+  loadYourTurnAudioBuffer().catch(() => {});
+
+  if (shadowingMode.bodyEl) {
+    shadowingMode.bodyEl.classList.add("is-shadowing-mode");
+  }
+  if (shadowingMode.shadowingBtn) {
+    shadowingMode.shadowingBtn.classList.add("is-active");
+    shadowingMode.shadowingBtn.setAttribute("aria-pressed", "true");
+  }
+
+  playShadowingSegment(0);
 }
 
 // Contabiliza tempo ativo de leitura/escuta para a métrica "Tempo de Texto"
@@ -920,7 +1119,7 @@ function stopWordHighlight() {
 }
 
 function resetPlayer() {
-  stopListeningMode();
+  stopShadowingMode();
   stopWordAudio();
   if (player.rafId) {
     cancelAnimationFrame(player.rafId);
@@ -945,10 +1144,6 @@ function resetPlayer() {
   player.startCtxTime = 0;
   player.startOffset = 0;
   player.pausedOffset = 0;
-}
-
-function ttsUrl(text) {
-  return `/tts/speak?text=${encodeURIComponent(text)}`;
 }
 
 // Concatena vários AudioBuffers (um por trecho do TTS) em um único buffer
@@ -1071,6 +1266,7 @@ function renderReader(text) {
   backLink.addEventListener("click", () => {
     document.removeEventListener("fullscreenchange", onFullscreenChange);
     document.removeEventListener("webkitfullscreenchange", onFullscreenChange);
+    document.body.classList.remove("reader-fs-open");
     stopReadingHeartbeat();
     resetPlayer();
     closeWordPopup();
@@ -1080,6 +1276,7 @@ function renderReader(text) {
 
   const card = document.createElement("div");
   card.className = "reader-card";
+  card.dataset.readerVersion = "20260813-2";
 
   const header = document.createElement("div");
   header.className = "reader-card-header";
@@ -1095,25 +1292,28 @@ function renderReader(text) {
   const viewport = document.createElement("div");
   viewport.className = "reader-viewport";
 
+  const bookPage = document.createElement("div");
+  bookPage.className = "reader-book-page";
+
   const toolbar = document.createElement("div");
   toolbar.className = "reader-toolbar";
 
-  const listeningBtn = document.createElement("button");
-  listeningBtn.type = "button";
-  listeningBtn.className = "reader-tool-btn listening-mode-btn";
-  listeningBtn.innerHTML = `${Icons.headphones}<span>Listening Mode</span>`;
-  listeningBtn.setAttribute("aria-pressed", "false");
-  listeningBtn.setAttribute("aria-label", "Ativar Listening Mode");
-  toolbar.appendChild(listeningBtn);
+  const shadowingBtn = document.createElement("button");
+  shadowingBtn.type = "button";
+  shadowingBtn.className = "reader-tool-btn shadowing-mode-btn";
+  shadowingBtn.innerHTML = `${Icons.headphones}<span>Shadowing Mode</span>`;
+  shadowingBtn.setAttribute("aria-pressed", "false");
+  shadowingBtn.setAttribute("aria-label", "Ativar Shadowing Mode");
+  toolbar.appendChild(shadowingBtn);
 
   const fullscreenBtn = document.createElement("button");
   fullscreenBtn.type = "button";
-  fullscreenBtn.className = "reader-tool-btn";
+  fullscreenBtn.className = "reader-tool-btn reader-fullscreen-btn";
   fullscreenBtn.innerHTML = Icons.fullscreen;
   fullscreenBtn.setAttribute("aria-label", "Tela cheia");
   toolbar.appendChild(fullscreenBtn);
 
-  viewport.appendChild(toolbar);
+  bookPage.appendChild(toolbar);
 
   const playerBar = document.createElement("div");
   playerBar.className = "player-bar player-bar-top";
@@ -1152,26 +1352,27 @@ function renderReader(text) {
 
   info.appendChild(progress);
   playerBar.appendChild(info);
-  viewport.appendChild(playerBar);
+  bookPage.appendChild(playerBar);
 
-  const listeningStatus = document.createElement("div");
-  listeningStatus.className = "listening-status";
-  listeningStatus.setAttribute("aria-live", "polite");
-  viewport.appendChild(listeningStatus);
+  const shadowingStatus = document.createElement("div");
+  shadowingStatus.className = "shadowing-status";
+  shadowingStatus.setAttribute("aria-live", "polite");
+  bookPage.appendChild(shadowingStatus);
 
   const body = document.createElement("p");
   body.className = "reader-body";
   renderClickableBody(body, text.content, text.id);
-  viewport.appendChild(body);
+  bookPage.appendChild(body);
 
+  viewport.appendChild(bookPage);
   card.appendChild(viewport);
   textsArea.appendChild(card);
 
   const wordSpans = Array.from(body.querySelectorAll(".word"));
 
-  listeningMode.statusEl = listeningStatus;
-  listeningMode.bodyEl = body;
-  listeningMode.listeningBtn = listeningBtn;
+  shadowingMode.statusEl = shadowingStatus;
+  shadowingMode.bodyEl = body;
+  shadowingMode.shadowingBtn = shadowingBtn;
 
   function updateProgressUI(elapsed) {
     const duration = (player.buffer && player.buffer.duration) || 1;
@@ -1183,8 +1384,15 @@ function renderReader(text) {
 
   function setPlayIcon() {
     playBtn.classList.remove("is-loading");
-    playBtn.innerHTML = player.isPlaying ? Icons.pause : Icons.play;
+    const shadowingBusy = shadowingMode.active && !shadowingMode.isPaused && (
+      shadowingMode.isSegmentPlaying
+      || shadowingMode.phase === "gap"
+      || shadowingMode.phase === "your-turn"
+    );
+    playBtn.innerHTML = (player.isPlaying || shadowingBusy) ? Icons.pause : Icons.play;
   }
+
+  shadowingMode.syncPlayIcon = setPlayIcon;
 
   function setLoading(on, label) {
     player.isLoading = on;
@@ -1195,15 +1403,10 @@ function renderReader(text) {
 
   function updateWordHighlight(elapsed) {
     const timings = player.wordTimings;
-    if (!timings.length || listeningMode.active) return;
+    if (!timings.length || shadowingMode.active) return;
 
-    let current = null;
-    for (let i = 0; i < timings.length; i++) {
-      if (elapsed >= timings[i].start && elapsed < timings[i].end) {
-        current = timings[i];
-        break;
-      }
-    }
+    const highlightTime = elapsed + WORD_HIGHLIGHT_LEAD_SEC;
+    const current = findWordAtTime(timings, highlightTime);
 
     if (current && current.span === player.activeWordSpan) return;
 
@@ -1250,7 +1453,7 @@ function renderReader(text) {
 
   function startSourceFrom(offsetSeconds) {
     stopWordAudio();
-    if (listeningMode.active) stopListeningMode();
+    if (shadowingMode.active) stopShadowingMode();
 
     const ctx = getAudioCtx();
     if (ctx.state === "suspended") ctx.resume();
@@ -1314,7 +1517,7 @@ function renderReader(text) {
   }
 
   function seekTo(ratio) {
-    if (!player.buffer || listeningMode.active) return;
+    if (!player.buffer || shadowingMode.active) return;
     const target = Math.max(0, Math.min(player.buffer.duration, ratio * player.buffer.duration));
 
     if (player.isPlaying) {
@@ -1333,7 +1536,7 @@ function renderReader(text) {
   }
 
   function onSeekStart(clientX) {
-    if (!player.buffer || listeningMode.active) return;
+    if (!player.buffer || shadowingMode.active) return;
     player.isSeeking = true;
     progress.classList.add("is-seeking");
     seekTo(getProgressRatio(clientX));
@@ -1409,6 +1612,15 @@ function renderReader(text) {
   playBtn.addEventListener("click", async () => {
     if (player.chunks.length === 0 || player.isLoading) return;
 
+    if (shadowingMode.active) {
+      if (shadowingMode.isPaused) {
+        resumeShadowingPlayback();
+      } else {
+        pauseShadowingPlayback();
+      }
+      return;
+    }
+
     if (player.isPlaying) {
       pausePlayback();
       return;
@@ -1419,12 +1631,12 @@ function renderReader(text) {
     startSourceFrom(player.pausedOffset || 0);
   });
 
-  listeningBtn.addEventListener("click", async () => {
+  shadowingBtn.addEventListener("click", async () => {
     if (player.chunks.length === 0 || player.isLoading) return;
 
-    if (listeningMode.active) {
-      stopListeningMode();
-      status.textContent = player.isPlaying ? "Tocando áudio..." : "Pronto para tocar";
+    if (shadowingMode.active) {
+      stopShadowingMode();
+      status.textContent = "Pronto para tocar";
       return;
     }
 
@@ -1433,14 +1645,14 @@ function renderReader(text) {
     const ready = await ensureAudioLoaded();
     if (!ready) return;
 
-    const segmentTexts = splitIntoListeningSegments(text.content);
+    const segmentTexts = splitIntoShadowingSegments(text.content);
     const segments = buildSegmentTimings(segmentTexts, wordSpans, player.wordTimings);
     if (!segments.length) {
-      showToast("Não há trechos disponíveis para o Listening Mode.");
+      showToast("Não há trechos disponíveis para o Shadowing Mode.");
       return;
     }
 
-    startListeningMode(segments);
+    startShadowingMode(segments);
   });
 
   function isFullscreenActive() {
@@ -1454,6 +1666,7 @@ function renderReader(text) {
     fullscreenBtn.innerHTML = active ? Icons.fullscreenExit : Icons.fullscreen;
     fullscreenBtn.setAttribute("aria-label", active ? "Sair da tela cheia" : "Tela cheia");
     viewport.classList.toggle("is-fullscreen", active);
+    document.body.classList.toggle("reader-fs-open", active);
   }
 
   fullscreenBtn.addEventListener("click", () => {
@@ -1466,9 +1679,11 @@ function renderReader(text) {
       return;
     }
 
-    const req = viewport.requestFullscreen || viewport.webkitRequestFullscreen;
+    const req = viewport.requestFullscreen
+      || viewport.webkitRequestFullscreen
+      || viewport.msRequestFullscreen;
     if (req) {
-      req.call(viewport).catch(() => {
+      Promise.resolve(req.call(viewport)).then(syncFullscreenBtn).catch(() => {
         viewport.classList.add("reader-fullscreen-fallback");
         syncFullscreenBtn();
       });
@@ -1487,7 +1702,7 @@ function renderReader(text) {
 
   if (player.chunks.length === 0) {
     playBtn.disabled = true;
-    listeningBtn.disabled = true;
+    shadowingBtn.disabled = true;
   }
 }
 
