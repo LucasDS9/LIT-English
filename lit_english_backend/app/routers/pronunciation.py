@@ -5,9 +5,7 @@ Variáveis de ambiente (Azure Speech):
   LIT_SPEECH_API    → chave (subscription key)
   LIT_SPEECH_REGION → região (ex.: brazilsouth, eastus)
 
-`transcribe()` — speech-to-text (Azure; Whisper só como fallback em dev).
-`assess_pronunciation()` — avaliação real via Azure Pronunciation Assessment
-(Comprehensive). Nunca usa Whisper nem julgamento textual.
+`assess_pronunciation()` usa Azure Pronunciation Assessment (SDK + REST fallback).
 """
 import base64
 import json
@@ -38,15 +36,42 @@ class PronunciationAssessmentUnavailable(Exception):
 
 
 def _azure_speech_key() -> str | None:
-    key = (os.environ.get("LIT_SPEECH_API") or "").strip()
-    return key or None
+    for env_key in ("LIT_SPEECH_API", "AZURE_SPEECH_KEY", "AZURE_SPEECH_API_KEY"):
+        key = (os.environ.get(env_key) or "").strip()
+        if key and not key.startswith("http"):
+            return key
+    return None
+
+
+def _normalize_region(raw: str) -> str:
+    region = (raw or "").strip()
+    if not region:
+        return region
+
+    lowered = region.lower()
+    if lowered.startswith("http://") or lowered.startswith("https://"):
+        match = re.match(r"https?://([^./]+)", lowered)
+        if match:
+            return match.group(1)
+
+    # Usuário colou "Brazil South" ou "East US"
+    compact = re.sub(r"[^a-z0-9]", "", region.lower())
+    aliases = {
+        "brazilsouth": "brazilsouth",
+        "eastus": "eastus",
+        "eastus2": "eastus2",
+        "westus": "westus",
+        "westeurope": "westeurope",
+        "northeurope": "northeurope",
+    }
+    return aliases.get(compact, compact)
 
 
 def _azure_speech_region() -> str | None:
-    for env_key in ("LIT_SPEECH_REGION", "AZURE_SPEECH_REGION"):
-        region = (os.environ.get(env_key) or "").strip()
-        if region:
-            return region
+    for env_key in ("LIT_SPEECH_REGION", "AZURE_SPEECH_REGION", "SPEECH_REGION"):
+        raw = (os.environ.get(env_key) or "").strip()
+        if raw:
+            return _normalize_region(raw)
     return None
 
 
@@ -104,24 +129,48 @@ def convert_audio_to_wav(input_path: str) -> str:
             capture_output=True,
             timeout=30,
         )
-        return output_path if result.returncode == 0 and os.path.exists(output_path) else input_path
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        if result.returncode != 0:
+            logger.warning(
+                "ffmpeg falhou (code=%s): %s",
+                result.returncode,
+                (result.stderr or b"").decode("utf-8", errors="replace")[:400],
+            )
+            return input_path
+        return output_path if os.path.exists(output_path) else input_path
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
+        logger.warning("ffmpeg indisponível ou erro na conversão: %s", exc)
         return input_path
 
 
-def _prepare_audio_paths(audio_bytes: bytes) -> tuple[str, str]:
+def _prepare_wav_bytes(audio_bytes: bytes) -> tuple[bytes, str, list[str]]:
+    """Converte o áudio recebido do navegador para WAV PCM 16 kHz mono."""
     suffix = ".webm"
     if audio_bytes[:4] == b"OggS":
         suffix = ".ogg"
     elif audio_bytes[:4] == b"RIFF":
         suffix = ".wav"
 
+    cleanup: list[str] = []
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(audio_bytes)
         tmp_path = tmp.name
+    cleanup.append(tmp_path)
 
     wav_path = convert_audio_to_wav(tmp_path)
-    return tmp_path, wav_path
+    if wav_path != tmp_path:
+        cleanup.append(wav_path)
+
+    with open(wav_path, "rb") as wav_file:
+        wav_bytes = wav_file.read()
+
+    if wav_bytes[:4] != b"RIFF":
+        _cleanup_paths(*cleanup)
+        raise PronunciationAssessmentUnavailable(
+            "Não foi possível converter o áudio para WAV. "
+            "Verifique se o ffmpeg está instalado no servidor."
+        )
+
+    return wav_bytes, wav_path, cleanup
 
 
 def _cleanup_paths(*paths: str | None) -> None:
@@ -147,7 +196,6 @@ def _clamp_score(value: Any) -> int | None:
 
 
 def _align_word_scores(reference_text: str, azure_words: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Alinha palavras do texto esperado com AccuracyScore / ErrorType da Azure."""
     ref_words = _split_reference_words(reference_text)
     if not ref_words:
         return []
@@ -199,14 +247,26 @@ def _build_feedback(score: int, word_scores: list[dict[str, Any]]) -> tuple[str,
 
 
 def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> dict[str, Any]:
+    status = data.get("RecognitionStatus")
+    if status and status != "Success":
+        messages = {
+            "InitialSilenceTimeout": "Não detectamos sua voz. Fale assim que a gravação começar.",
+            "NoMatch": "Não conseguimos entender o áudio. Tente falar mais alto e claro.",
+            "BabbleTimeout": "Áudio confuso ou com muito ruído. Tente novamente em um lugar silencioso.",
+        }
+        raise PronunciationAssessmentUnavailable(
+            messages.get(status, f"Azure retornou status: {status}")
+        )
+
     nbest = (data.get("NBest") or [{}])[0]
-    pron = nbest.get("PronunciationAssessment") or {}
+    pron = nbest.get("PronunciationAssessment") or data.get("PronunciationAssessment") or {}
 
     transcribed_text = (
         nbest.get("Display")
         or nbest.get("Lexical")
         or nbest.get("ITN")
         or nbest.get("MaskedITN")
+        or data.get("DisplayText")
         or ""
     ).strip()
 
@@ -223,8 +283,10 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
             score = int(round(sum(scores) / len(scores)))
 
     if score is None:
+        logger.warning("Resposta Azure sem pontuação. Keys=%s", list(data.keys()))
         raise PronunciationAssessmentUnavailable(
-            "Azure Speech não retornou pontuação de pronúncia para este áudio."
+            "Azure não retornou pontuação de pronúncia. "
+            "Confirme se o recurso Speech suporta Pronunciation Assessment nesta região/idioma."
         )
 
     feedback_title, feedback_detail = _build_feedback(score, word_scores)
@@ -242,59 +304,41 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
     }
 
 
-def _azure_transcribe_wav(wav_path: str, locale: str) -> str:
-    region = _azure_speech_region()
-    key = _azure_speech_key()
-    if not region or not key:
-        raise PronunciationAssessmentUnavailable(
-            "Azure Speech não configurado. Defina LIT_SPEECH_API e LIT_SPEECH_REGION."
-        )
-
-    with open(wav_path, "rb") as audio_file:
-        wav_bytes = audio_file.read()
-
-    url = f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1"
-    response = requests.post(
-        url,
-        params={"language": locale, "format": "simple"},
-        headers={
-            "Ocp-Apim-Subscription-Key": key,
-            "Content-Type": "audio/wav; codecs=audio/pcm; samplerate=16000",
-        },
-        data=wav_bytes,
-        timeout=45,
-    )
-    if not response.ok:
-        raise RuntimeError(f"Azure Speech STT erro {response.status_code}: {response.text[:300]}")
-
-    data = response.json()
-    if data.get("RecognitionStatus") != "Success":
-        raise RuntimeError(f"Azure Speech STT falhou: {data.get('RecognitionStatus')}")
-
-    return (data.get("DisplayText") or "").strip()
-
-
-def _azure_assess_wav(wav_path: str, locale: str, reference_text: str) -> dict[str, Any]:
-    """
-    Azure Pronunciation Assessment via REST (Comprehensive + Phoneme + Miscue).
-    """
-    region = _azure_speech_region()
-    key = _azure_speech_key()
-    if not region or not key:
-        raise PronunciationAssessmentUnavailable(
-            "Azure Speech não configurado. Defina LIT_SPEECH_API e LIT_SPEECH_REGION."
-        )
-
-    assessment_header = base64.b64encode(json.dumps({
+def _build_pronunciation_header(reference_text: str) -> str:
+    # Azure espera strings "True"/"False" nos flags booleanos (documentação oficial).
+    params = {
         "ReferenceText": reference_text,
         "GradingSystem": "HundredMark",
         "Granularity": "Phoneme",
         "Dimension": "Comprehensive",
-        "EnableMiscue": True,
-    }).encode("utf-8")).decode("ascii")
+        "EnableMiscue": "True",
+        "EnableProsodyAssessment": "True",
+    }
+    return base64.b64encode(json.dumps(params, ensure_ascii=False).encode("utf-8")).decode("ascii")
 
-    with open(wav_path, "rb") as audio_file:
-        wav_bytes = audio_file.read()
+
+def _azure_http_error_detail(response: requests.Response) -> str:
+    try:
+        payload = response.json()
+        if isinstance(payload, dict):
+            err = payload.get("error") or {}
+            if isinstance(err, dict) and err.get("message"):
+                return str(err["message"])
+            if payload.get("Message"):
+                return str(payload["Message"])
+    except Exception:
+        pass
+    text = (response.text or "").strip()
+    return text[:240] if text else f"HTTP {response.status_code}"
+
+
+def _assess_with_rest(wav_bytes: bytes, locale: str, reference_text: str) -> dict[str, Any]:
+    region = _azure_speech_region()
+    key = _azure_speech_key()
+    if not region or not key:
+        raise PronunciationAssessmentUnavailable(
+            "Azure Speech não configurado. Defina LIT_SPEECH_API e LIT_SPEECH_REGION."
+        )
 
     url = f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1"
     response = requests.post(
@@ -302,23 +346,127 @@ def _azure_assess_wav(wav_path: str, locale: str, reference_text: str) -> dict[s
         params={"language": locale, "format": "detailed"},
         headers={
             "Ocp-Apim-Subscription-Key": key,
+            "Accept": "application/json",
             "Content-Type": "audio/wav; codecs=audio/pcm; samplerate=16000",
-            "Pronunciation-Assessment": assessment_header,
+            "Pronunciation-Assessment": _build_pronunciation_header(reference_text),
         },
         data=wav_bytes,
         timeout=45,
     )
     if not response.ok:
-        raise RuntimeError(
-            f"Azure Pronunciation Assessment erro {response.status_code}: {response.text[:300]}"
+        detail = _azure_http_error_detail(response)
+        raise PronunciationAssessmentUnavailable(
+            f"Azure Speech recusou a requisição ({response.status_code}): {detail}"
         )
 
-    data = response.json()
-    status = data.get("RecognitionStatus")
-    if status != "Success":
-        raise RuntimeError(f"Azure Pronunciation Assessment falhou: {status}")
+    try:
+        data = response.json()
+    except json.JSONDecodeError as exc:
+        raise PronunciationAssessmentUnavailable(
+            "Azure Speech retornou resposta inválida."
+        ) from exc
 
     return _parse_azure_assessment_json(data, reference_text)
+
+
+def _assess_with_sdk(wav_path: str, locale: str, reference_text: str) -> dict[str, Any]:
+    import azure.cognitiveservices.speech as speechsdk
+
+    region = _azure_speech_region()
+    key = _azure_speech_key()
+    if not region or not key:
+        raise PronunciationAssessmentUnavailable(
+            "Azure Speech não configurado. Defina LIT_SPEECH_API e LIT_SPEECH_REGION."
+        )
+
+    speech_config = speechsdk.SpeechConfig(subscription=key, region=region)
+    speech_config.speech_recognition_language = locale
+    speech_config.set_property(
+        speechsdk.PropertyId.SpeechServiceResponse_RequestDetailedResultTrueFalse,
+        "true",
+    )
+
+    audio_config = speechsdk.audio.AudioConfig(filename=wav_path)
+    recognizer = speechsdk.SpeechRecognizer(
+        speech_config=speech_config,
+        audio_config=audio_config,
+    )
+
+    pronunciation_config = speechsdk.PronunciationAssessmentConfig(
+        reference_text=reference_text,
+        grading_system=speechsdk.PronunciationAssessmentGradingSystem.HundredMark,
+        granularity=speechsdk.PronunciationAssessmentGranularity.Phoneme,
+        enable_miscue=True,
+    )
+    pronunciation_config.enable_prosody_assessment = True
+    pronunciation_config.apply_to(recognizer)
+
+    result = recognizer.recognize_once()
+
+    if result.reason == speechsdk.ResultReason.NoMatch:
+        raise PronunciationAssessmentUnavailable(
+            "Não conseguimos entender o áudio. Fale mais alto e claro."
+        )
+    if result.reason == speechsdk.ResultReason.Canceled:
+        cancellation = result.cancellation_details
+        detail = cancellation.error_details if cancellation else "cancelado"
+        raise PronunciationAssessmentUnavailable(f"Azure cancelou a análise: {detail}")
+    if result.reason != speechsdk.ResultReason.RecognizedSpeech:
+        raise PronunciationAssessmentUnavailable(
+            f"Azure não reconheceu o áudio ({result.reason.name})."
+        )
+
+    json_result = result.properties.get(
+        speechsdk.PropertyId.SpeechServiceResponse_JsonResult
+    )
+    if not json_result:
+        raise PronunciationAssessmentUnavailable(
+            "Azure SDK não retornou JSON detalhado de pronúncia."
+        )
+
+    data = json.loads(json_result)
+    return _parse_azure_assessment_json(data, reference_text)
+
+
+def _assess_wav(wav_bytes: bytes, wav_path: str, locale: str, reference_text: str) -> dict[str, Any]:
+    errors: list[str] = []
+
+    try:
+        return _assess_with_sdk(wav_path, locale, reference_text)
+    except PronunciationAssessmentUnavailable as exc:
+        errors.append(f"SDK: {exc}")
+        logger.warning("Azure SDK falhou, tentando REST: %s", exc)
+    except Exception as exc:
+        errors.append(f"SDK: {exc}")
+        logger.exception("Azure SDK erro inesperado")
+
+    try:
+        return _assess_with_rest(wav_bytes, locale, reference_text)
+    except PronunciationAssessmentUnavailable:
+        raise
+    except Exception as exc:
+        errors.append(f"REST: {exc}")
+        logger.exception("Azure REST erro inesperado")
+
+    raise PronunciationAssessmentUnavailable(
+        "Azure Speech falhou nas duas vias (SDK e REST). "
+        + " | ".join(errors[:2])
+    )
+
+
+def _prepare_audio_paths(audio_bytes: bytes) -> tuple[str, str]:
+    suffix = ".webm"
+    if audio_bytes[:4] == b"OggS":
+        suffix = ".ogg"
+    elif audio_bytes[:4] == b"RIFF":
+        suffix = ".wav"
+
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(audio_bytes)
+        tmp_path = tmp.name
+
+    wav_path = convert_audio_to_wav(tmp_path)
+    return tmp_path, wav_path
 
 
 def _transcribe_whisper(audio_bytes: bytes, language: str) -> str:
@@ -341,16 +489,33 @@ def _transcribe_whisper(audio_bytes: bytes, language: str) -> str:
 
 
 def transcribe(audio_bytes: bytes, language: str) -> str:
-    """Áudio → texto. Azure STT quando configurado; Whisper só como fallback."""
     locale = _resolve_locale(language)
     if _azure_available():
-        tmp_path, wav_path = _prepare_audio_paths(audio_bytes)
+        cleanup: list[str] = []
         try:
-            return _azure_transcribe_wav(wav_path, locale)
+            wav_bytes, _wav_path, cleanup = _prepare_wav_bytes(audio_bytes)
+            region = _azure_speech_region()
+            key = _azure_speech_key()
+            url = f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1"
+            response = requests.post(
+                url,
+                params={"language": locale, "format": "simple"},
+                headers={
+                    "Ocp-Apim-Subscription-Key": key,
+                    "Accept": "application/json",
+                    "Content-Type": "audio/wav; codecs=audio/pcm; samplerate=16000",
+                },
+                data=wav_bytes,
+                timeout=45,
+            )
+            if response.ok:
+                data = response.json()
+                if data.get("RecognitionStatus") == "Success":
+                    return (data.get("DisplayText") or "").strip()
         except Exception as exc:
             logger.exception("Falha no Azure Speech STT, usando Whisper: %s", exc)
         finally:
-            _cleanup_paths(tmp_path, wav_path if wav_path != tmp_path else None)
+            _cleanup_paths(*cleanup)
     elif _azure_speech_key() and not _azure_speech_region():
         logger.warning("LIT_SPEECH_API definida, mas LIT_SPEECH_REGION ausente — usando Whisper.")
 
@@ -362,10 +527,6 @@ def assess_pronunciation(
     language: str,
     reference_text: str,
 ) -> dict[str, Any]:
-    """
-    Avaliação de pronúncia exclusivamente via Azure Pronunciation Assessment.
-    Retorna score real (PronScore), word_scores e feedback natural.
-    """
     reference = (reference_text or "").strip()
     if not reference:
         raise PronunciationAssessmentUnavailable("Texto de referência vazio.")
@@ -381,15 +542,16 @@ def assess_pronunciation(
         )
 
     locale = _resolve_locale(language)
-    tmp_path, wav_path = _prepare_audio_paths(audio_bytes)
+    cleanup: list[str] = []
     try:
-        return _azure_assess_wav(wav_path, locale, reference)
+        wav_bytes, wav_path, cleanup = _prepare_wav_bytes(audio_bytes)
+        return _assess_wav(wav_bytes, wav_path, locale, reference)
     except PronunciationAssessmentUnavailable:
         raise
     except Exception as exc:
-        logger.exception("Falha na avaliação de pronúncia Azure: %s", exc)
+        logger.exception("Falha inesperada na avaliação Azure: %s", exc)
         raise PronunciationAssessmentUnavailable(
-            "Não foi possível avaliar a pronúncia com a Azure Speech. Tente novamente."
+            f"Erro ao processar áudio para a Azure: {exc}"
         ) from exc
     finally:
-        _cleanup_paths(tmp_path, wav_path if wav_path != tmp_path else None)
+        _cleanup_paths(*cleanup)
