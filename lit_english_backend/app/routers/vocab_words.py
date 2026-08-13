@@ -481,7 +481,7 @@ async def pronounce_vocab_word(
     if not assigned:
         raise HTTPException(status_code=403, detail="Esta palavra não está disponível para você.")
 
-    from app.routers.pronunciation import assess_pronunciation
+    from app.routers.pronunciation import PronunciationAssessmentUnavailable, assess_pronunciation
 
     audio_bytes = await audio.read()
     if len(audio_bytes) < 100:
@@ -492,48 +492,28 @@ async def pronounce_vocab_word(
     enforce_optional_pronunciation_limits(db, student.id, audio_bytes)
 
     lang = student_language(student)
-    whisper_map = {"ingles": "english", "italiano": "italian", "frances": "french"}
-    whisper_lang = whisper_map.get(lang, "english")
-    answer_lang_map = {"italiano": "italiano", "frances": "francês", "ingles": "inglês"}
+    speech_lang_map = {"ingles": "english", "italiano": "italian", "frances": "french"}
+    speech_lang = speech_lang_map.get(lang, "english")
     expected = word.word
 
     try:
-        assessment = assess_pronunciation(audio_bytes, whisper_lang, expected)
+        assessment = assess_pronunciation(audio_bytes, speech_lang, expected)
+    except PronunciationAssessmentUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Erro na transcrição: {exc}")
+        raise HTTPException(status_code=500, detail=f"Erro na avaliação de pronúncia: {exc}") from exc
 
-    transcribed_text = assessment.get("transcribed_text") or ""
-    score = assessment.get("score")
-    word_scores = assessment.get("word_scores")
-    reason = assessment.get("reason")
-
-    if score is not None:
-        is_correct = score >= 60
-        reason = reason or "Avaliação de pronúncia concluída."
-    elif lang in ("italiano", "frances"):
-        result = judge_flashcard_answer(
-            expected=expected,
-            given=transcribed_text,
-            target_language=lang,
-            answer_language=answer_lang_map[lang],
-            context=word.translation,
-        )
-        is_correct = result["correct"]
-        reason = result["reason"]
-    else:
-        result = judge_answer(expected=expected, given=transcribed_text, context=word.translation)
-        is_correct = result["correct"]
-        reason = result["reason"]
-
+    score = assessment["score"]
     log_pronunciation_attempt(db, student.id)
 
     return FlashcardPronunciationResult(
-        correct=is_correct,
+        correct=score >= 60,
         correct_answer=expected,
-        transcribed_text=transcribed_text or None,
-        reason=reason,
+        transcribed_text=assessment.get("transcribed_text") or None,
+        feedback_title=assessment.get("feedback_title"),
+        reason=assessment.get("feedback_detail"),
         score=score,
-        word_scores=word_scores,
+        word_scores=assessment.get("word_scores"),
     )
 
 

@@ -142,9 +142,10 @@ class ReviewResultOut(BaseModel):
 
 
 class WordPronunciationScore(BaseModel):
-    """Pontuação por palavra/frase — preenchido pela API de pronúncia (futuro)."""
+    """Pontuação por palavra — Azure Pronunciation Assessment."""
     word: str
     score: int = Field(ge=0, le=100)
+    error_type: Optional[str] = None
 
 
 class FlashcardPronunciationResult(BaseModel):
@@ -153,6 +154,7 @@ class FlashcardPronunciationResult(BaseModel):
     correct_answer: str
     transcribed_text: Optional[str] = None
     reason: Optional[str] = None
+    feedback_title: Optional[str] = None
     score: Optional[int] = Field(default=None, ge=0, le=100)
     word_scores: Optional[List[WordPronunciationScore]] = None
 

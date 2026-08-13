@@ -54,74 +54,73 @@ const FlashcardPronounce = (() => {
     return LANGUAGE_META[code] || LANGUAGE_META.ingles;
   }
 
-  function buildWordScoresFromText(text, overallScore, isCorrect) {
-    const words = (text || "").trim().split(/\s+/).filter(Boolean);
-    if (words.length === 0) return [];
-    if (words.length === 1) {
-      return [{ word: words[0], score: overallScore }];
+  function buildWordScoresFromReference(referenceText, wordScores) {
+    const refWords = (referenceText || "").trim().split(/\s+/).filter(Boolean);
+    if (refWords.length === 0) return wordScores || [];
+
+    if (!wordScores || wordScores.length === 0) {
+      return refWords.map((word) => ({ word, score: 0 }));
     }
-    if (isCorrect) {
-      return words.map((word) => ({ word, score: Math.min(100, overallScore + 2) }));
-    }
-    const last = Math.max(15, overallScore - 5);
-    const first = Math.min(92, overallScore + 38);
-    const mid = Math.min(76, overallScore + 18);
-    return words.map((word, index) => {
-      if (index === 0) return { word, score: first };
-      if (index === words.length - 1) return { word, score: last };
-      return { word, score: mid };
+
+    return refWords.map((word, index) => {
+      const direct = wordScores[index];
+      if (direct) {
+        return {
+          word,
+          score: Math.max(0, Math.min(100, Number(direct.score))),
+        };
+      }
+      const match = wordScores.find(
+        (entry) => entry.word.toLowerCase() === word.toLowerCase()
+      );
+      if (match) {
+        return {
+          word,
+          score: Math.max(0, Math.min(100, Number(match.score))),
+        };
+      }
+      return { word, score: 0 };
     });
   }
 
-  /** Normaliza resposta da API (ou fallback Whisper) para score + cores por palavra. */
+  /** Usa apenas score e word_scores reais da Azure — sem estimativas. */
   function normalizePronunciationResult(result) {
-    const isCorrect = Boolean(result.correct);
     const score = result.score != null
       ? Math.max(0, Math.min(100, Number(result.score)))
-      : (isCorrect ? 88 : 42);
+      : null;
 
-    const wordScores = Array.isArray(result.word_scores) && result.word_scores.length
+    const rawWordScores = Array.isArray(result.word_scores)
       ? result.word_scores.map((item) => ({
         word: item.word,
         score: Math.max(0, Math.min(100, Number(item.score))),
       }))
-      : buildWordScoresFromText(result.correct_answer, score, isCorrect);
+      : [];
+
+    const wordScores = buildWordScoresFromReference(result.correct_answer, rawWordScores);
+    const effectiveScore = score != null ? score : 0;
 
     return {
       score,
       wordScores,
+      feedbackTitle: result.feedback_title || "",
       reason: result.reason || "",
       transcribedText: result.transcribed_text || "",
-      tier: getScoreTier(score),
+      tier: getScoreTier(effectiveScore),
+      hasAssessment: score != null,
     };
   }
 
   function colorizePhrase(text, wordScores) {
-    if (!wordScores || wordScores.length === 0) {
+    const refWords = (text || "").trim().split(/\s+/).filter(Boolean);
+    if (refWords.length === 0) {
       return escapeHtml(text);
     }
 
-    let html = "";
-    let remaining = text || "";
-
-    wordScores.forEach((entry, index) => {
-      const word = entry.word;
-      const pos = remaining.toLowerCase().indexOf(word.toLowerCase());
-      if (pos === -1) return;
-
-      html += escapeHtml(remaining.slice(0, pos));
+    const aligned = buildWordScoresFromReference(text, wordScores);
+    return aligned.map((entry) => {
       const tier = getScoreTier(entry.score);
-      html += `<span class="pronunciation-word ${tier.className}">${escapeHtml(remaining.slice(pos, pos + word.length))}</span>`;
-      remaining = remaining.slice(pos + word.length);
-
-      if (index < wordScores.length - 1 && remaining.startsWith(" ")) {
-        html += " ";
-        remaining = remaining.slice(1);
-      }
-    });
-
-    html += escapeHtml(remaining);
-    return html;
+      return `<span class="pronunciation-word ${tier.className}">${escapeHtml(entry.word)}</span>`;
+    }).join(" ");
   }
 
   function buildLangBadge(languageCode) {
@@ -180,7 +179,7 @@ const FlashcardPronounce = (() => {
 
   function feedbackHeadline(tier) {
     if (tier.id === "good") return "Ótima pronúncia!";
-    if (tier.id === "medium") return "Quase lá!";
+    if (tier.id === "medium") return "Boa pronúncia!";
     return "Tente novamente!";
   }
 
@@ -219,6 +218,7 @@ const FlashcardPronounce = (() => {
   }) {
     const normalized = normalizePronunciationResult(pronunciationResult);
     const usageText = learnResult.explanation || card.tip || "";
+    const displayScore = normalized.score != null ? normalized.score : 0;
 
     const back = document.createElement("div");
     back.className = "learn-card-back-pronunciation";
@@ -259,15 +259,16 @@ const FlashcardPronounce = (() => {
     const scoreSection = document.createElement("div");
     scoreSection.className = "pronunciation-score-section";
     scoreSection.innerHTML = `<p class="pronunciation-score-label">Sua pronúncia</p>`;
-    scoreSection.appendChild(buildScoreRing(normalized.score, normalized.tier));
+    scoreSection.appendChild(buildScoreRing(displayScore, normalized.tier));
 
     const feedback = document.createElement("div");
     feedback.className = `pronunciation-ai-feedback ${normalized.tier.className}`;
+    const headline = normalized.feedbackTitle || feedbackHeadline(normalized.tier);
     const detail = normalized.reason || defaultFeedbackDetail(normalized.tier, normalized.wordScores);
     feedback.innerHTML = `
       <span class="pronunciation-ai-icon">${feedbackIcon(normalized.tier)}</span>
       <div class="pronunciation-ai-text">
-        <strong>${feedbackHeadline(normalized.tier)}</strong>
+        <strong>${escapeHtml(headline)}</strong>
         <p>${escapeHtml(detail)}</p>
       </div>
     `;

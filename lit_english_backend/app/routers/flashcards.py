@@ -53,7 +53,7 @@ from app.schemas import (
     ReviewSubmit,
     VocabularyItemOut,
 )
-from app.routers.pronunciation import assess_pronunciation, transcribe
+from app.routers.pronunciation import PronunciationAssessmentUnavailable, assess_pronunciation, transcribe
 from app.sm2 import calculate_sm2
 
 router = APIRouter(prefix="/flashcards", tags=["Flashcards"])
@@ -756,41 +756,28 @@ async def pronounce_flashcard(
     enforce_optional_pronunciation_limits(db, student.id, audio_bytes)
 
     lang = student_language(student)
-    whisper_lang = _WHISPER_LANGUAGE.get(lang, "english")
+    speech_lang = _WHISPER_LANGUAGE.get(lang, "english")
     expected = flashcard.front
 
     try:
-        assessment = assess_pronunciation(audio_bytes, whisper_lang, expected)
+        assessment = assess_pronunciation(audio_bytes, speech_lang, expected)
+    except PronunciationAssessmentUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
-        logger.exception("Erro na transcrição de pronúncia de flashcard")
-        raise HTTPException(status_code=500, detail=f"Erro na transcrição: {exc}")
+        logger.exception("Erro na avaliação de pronúncia de flashcard")
+        raise HTTPException(status_code=500, detail=f"Erro na avaliação de pronúncia: {exc}") from exc
 
-    transcribed_text = assessment.get("transcribed_text") or ""
-    score = assessment.get("score")
-    word_scores = assessment.get("word_scores")
-
-    if score is not None:
-        is_correct = score >= 60
-        reason = assessment.get("reason") or "Avaliação de pronúncia concluída."
-    else:
-        judge_result = _judge_spoken_answer(
-            student=student,
-            expected=expected,
-            given=transcribed_text,
-            context=flashcard.back,
-        )
-        is_correct = judge_result["correct"]
-        reason = judge_result["reason"]
-
+    score = assessment["score"]
     log_pronunciation_attempt(db, student.id)
 
     return FlashcardPronunciationResult(
-        correct=is_correct,
+        correct=score >= 60,
         correct_answer=expected,
-        transcribed_text=transcribed_text or None,
-        reason=reason,
+        transcribed_text=assessment.get("transcribed_text") or None,
+        feedback_title=assessment.get("feedback_title"),
+        reason=assessment.get("feedback_detail"),
         score=score,
-        word_scores=word_scores,
+        word_scores=assessment.get("word_scores"),
     )
 
 
