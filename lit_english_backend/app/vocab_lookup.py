@@ -41,12 +41,22 @@ _MAX_RETRIES = 1
 _SYSTEM_PROMPT = """Você é um assistente de vocabulário para alunos brasileiros aprendendo inglês.
 Você recebe:
 - "word": uma palavra (ou expressão curta) em inglês, clicada pelo aluno dentro de um texto.
-- "sentence": a frase completa do texto onde essa palavra aparece (contexto).
+- "sentence": a frase COMPLETA do texto onde essa palavra aparece — este é o contexto principal.
+- "context_before" (opcional): ~3 palavras imediatamente antes de "word" dentro de "sentence".
+- "context_after" (opcional): ~3 palavras imediatamente depois de "word" dentro de "sentence".
+
+Use "sentence" como fonte primária para determinar o sentido. "context_before" e "context_after"
+são apoio adicional — NÃO os substituam pela frase inteira.
+
+Exemplos:
+- sentence "I need to book a room for tomorrow." + word "book" → translation "reservar" (NÃO "livro").
+- sentence "I read an interesting book yesterday." + word "book" → translation "livro".
 
 Sua tarefa é devolver, em JSON, exatamente estes campos:
 - "translation": a tradução de "word" para português, no sentido em que ela é usada em
   "sentence" (não uma lista de significados — apenas a tradução certa para esse contexto).
-  Minúsculas, sem artigo, a não ser que o artigo seja parte do sentido (ex.: "the" -> "o/a").
+  Se um único sentido claramente se encaixa, devolva só esse. Minúsculas, sem artigo, a não ser
+  que o artigo seja parte do sentido (ex.: "the" -> "o/a").
 - "example_en": UMA frase nova e natural em inglês, DIFERENTE de "sentence", usando "word"
   (pode flexionar a palavra — plural, tempo verbal, etc. — se necessário para a frase ficar
   natural). A frase deve ser simples, curta (até ~12 palavras) e apropriada para estudante
@@ -64,12 +74,21 @@ class VocabLookupUnavailable(Exception):
     """Erro ao consultar a API de vocabulário (sem chave, rede, resposta inválida etc.)."""
 
 
-def _call_groq(word: str, sentence: str) -> dict:
+def _call_groq(
+    word: str,
+    sentence: str,
+    context_before: str | None = None,
+    context_after: str | None = None,
+) -> dict:
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         raise VocabLookupUnavailable("GROQ_API_KEY não configurada.")
 
-    user_payload = {"word": word, "sentence": sentence}
+    user_payload: dict[str, str] = {"word": word, "sentence": sentence}
+    if context_before:
+        user_payload["context_before"] = context_before
+    if context_after:
+        user_payload["context_after"] = context_after
 
     payload = {
         "model": GROQ_MODEL,
@@ -121,7 +140,12 @@ def _call_groq(word: str, sentence: str) -> dict:
     raise VocabLookupUnavailable(f"Falha ao consultar a API da Groq: {last_error}") from last_error
 
 
-def lookup_word(word: str, sentence: str) -> dict:
+def lookup_word(
+    word: str,
+    sentence: str,
+    context_before: str | None = None,
+    context_after: str | None = None,
+) -> dict:
     """
     Consulta a tradução contextual de `word` (dado `sentence` como contexto)
     e gera uma frase de exemplo nova em inglês + sua tradução.
@@ -138,7 +162,12 @@ def lookup_word(word: str, sentence: str) -> dict:
     if not word_clean:
         raise ValueError("Palavra vazia.")
 
-    result = _call_groq(word_clean, sentence_clean)
+    result = _call_groq(
+        word_clean,
+        sentence_clean,
+        (context_before or "").strip() or None,
+        (context_after or "").strip() or None,
+    )
     return {
         "word": word_clean,
         "translation": result["translation"],

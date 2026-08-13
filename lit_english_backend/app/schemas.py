@@ -277,6 +277,8 @@ class WordLookupRequest(BaseModel):
     word: str
     sentence: str
     text_id: Optional[int] = None
+    context_before: Optional[str] = None  # ~3 palavras antes da palavra clicada
+    context_after: Optional[str] = None   # ~3 palavras depois da palavra clicada
 
 
 class WordLookupOut(BaseModel):

@@ -58,6 +58,10 @@ const Icons = {
 
   pause: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6.5" y="5" width="4.2" height="14" rx="1"/><rect x="13.3" y="5" width="4.2" height="14" rx="1"/></svg>`,
 
+  fullscreen: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 9.5V4.5h5M14.5 4.5h5v5M19.5 14.5v5h-5M9.5 19.5h-5v-5"/></svg>`,
+
+  fullscreenExit: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 4.5H4.5v5M19.5 9.5V4.5h-5M14.5 19.5h5v-5M4.5 14.5v5h5"/></svg>`,
+
   translate: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6h8"/><path d="M7.2 4v2.3c0 3.1-1.9 5.7-4.7 7.1"/><path d="M4 9.3c1 1.9 2.7 3.2 4.7 3.9"/><path d="M13 20l4-9.5L21 20"/><path d="M14.3 17h5.4"/></svg>`,
 
   target: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.6" fill="currentColor" stroke="none"/><path d="M17 3.5 20.5 3.5 20.5 7 14 13.5"/></svg>`,

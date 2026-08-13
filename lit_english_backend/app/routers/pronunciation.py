@@ -35,16 +35,39 @@ class PronunciationAssessmentUnavailable(Exception):
     """Azure Speech indisponível ou resposta sem pontuação de pronúncia."""
 
 
-def _azure_speech_key() -> str | None:
-    for env_key in ("LIT_SPEECH_API", "AZURE_SPEECH_KEY", "AZURE_SPEECH_API_KEY"):
-        key = (os.environ.get(env_key) or "").strip()
-        if key and not key.startswith("http"):
-            return key
-    return None
+_CREDENTIALS_CACHE: tuple[str, str] | None = None
+
+
+def _clean_env(value: str) -> str:
+    value = (value or "").strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+        value = value[1:-1].strip()
+    return value
+
+
+def _parse_connection_string(raw: str) -> tuple[str | None, str | None]:
+    """Aceita string do portal Azure: Endpoint=...;Key=..."""
+    if "key=" not in raw.lower():
+        return None, None
+
+    key: str | None = None
+    region: str | None = None
+    for part in raw.split(";"):
+        part = part.strip()
+        if not part or "=" not in part:
+            continue
+        name, value = part.split("=", 1)
+        name = name.strip().lower()
+        value = _clean_env(value)
+        if name == "key" and value:
+            key = value
+        elif name == "endpoint" and value:
+            region = _normalize_region(value)
+    return key, region
 
 
 def _normalize_region(raw: str) -> str:
-    region = (raw or "").strip()
+    region = _clean_env(raw)
     if not region:
         return region
 
@@ -54,7 +77,6 @@ def _normalize_region(raw: str) -> str:
         if match:
             return match.group(1)
 
-    # Usuário colou "Brazil South" ou "East US"
     compact = re.sub(r"[^a-z0-9]", "", region.lower())
     aliases = {
         "brazilsouth": "brazilsouth",
@@ -63,20 +85,94 @@ def _normalize_region(raw: str) -> str:
         "westus": "westus",
         "westeurope": "westeurope",
         "northeurope": "northeurope",
+        "centralus": "centralus",
+        "southcentralus": "southcentralus",
     }
     return aliases.get(compact, compact)
 
 
+def _get_azure_credentials() -> tuple[str, str]:
+    global _CREDENTIALS_CACHE
+    if _CREDENTIALS_CACHE:
+        return _CREDENTIALS_CACHE
+
+    key: str | None = None
+    region: str | None = None
+
+    for env_key in ("LIT_SPEECH_API", "AZURE_SPEECH_KEY", "AZURE_SPEECH_API_KEY"):
+        raw = _clean_env(os.environ.get(env_key) or "")
+        if not raw:
+            continue
+
+        conn_key, conn_region = _parse_connection_string(raw)
+        if conn_key:
+            key = conn_key
+            if conn_region:
+                region = conn_region
+            break
+
+        if raw.lower().startswith("key="):
+            key = raw.split("=", 1)[1].strip()
+            break
+
+        if not raw.lower().startswith("http") and len(raw) >= 20:
+            key = raw
+            break
+
+    if not region:
+        for env_key in ("LIT_SPEECH_REGION", "AZURE_SPEECH_REGION", "SPEECH_REGION"):
+            raw = _clean_env(os.environ.get(env_key) or "")
+            if raw:
+                region = _normalize_region(raw)
+                break
+
+    if not key or not region:
+        missing = []
+        if not key:
+            missing.append("LIT_SPEECH_API (Key 1 do recurso Speech)")
+        if not region:
+            missing.append("LIT_SPEECH_REGION (ex.: brazilsouth)")
+        raise PronunciationAssessmentUnavailable(
+            f"Azure Speech não configurado. Faltando: {', '.join(missing)}."
+        )
+
+    _CREDENTIALS_CACHE = (key, region)
+    return _CREDENTIALS_CACHE
+
+
+def _azure_speech_key() -> str | None:
+    try:
+        return _get_azure_credentials()[0]
+    except PronunciationAssessmentUnavailable:
+        return None
+
+
 def _azure_speech_region() -> str | None:
-    for env_key in ("LIT_SPEECH_REGION", "AZURE_SPEECH_REGION", "SPEECH_REGION"):
-        raw = (os.environ.get(env_key) or "").strip()
-        if raw:
-            return _normalize_region(raw)
-    return None
+    try:
+        return _get_azure_credentials()[1]
+    except PronunciationAssessmentUnavailable:
+        return None
 
 
 def _azure_available() -> bool:
-    return bool(_azure_speech_key() and _azure_speech_region())
+    try:
+        _get_azure_credentials()
+        return True
+    except PronunciationAssessmentUnavailable:
+        return False
+
+
+def _azure_auth_error_message(status_code: int, detail: str, region: str) -> str:
+    if status_code != 401:
+        return f"Azure Speech recusou a requisição ({status_code}): {detail}"
+
+    return (
+        "Autenticação Azure recusada (401). A chave ou a região está incorreta. "
+        "No portal Azure, abra seu recurso Speech → Keys and Endpoint: "
+        "copie Key 1 para LIT_SPEECH_API e a Location/Region (ex.: brazilsouth) "
+        f"para LIT_SPEECH_REGION. Ambos precisam ser do MESMO recurso. "
+        f"Região usada agora: {region}."
+    )
 
 
 def _resolve_locale(language: str) -> str:
@@ -333,12 +429,7 @@ def _azure_http_error_detail(response: requests.Response) -> str:
 
 
 def _assess_with_rest(wav_bytes: bytes, locale: str, reference_text: str) -> dict[str, Any]:
-    region = _azure_speech_region()
-    key = _azure_speech_key()
-    if not region or not key:
-        raise PronunciationAssessmentUnavailable(
-            "Azure Speech não configurado. Defina LIT_SPEECH_API e LIT_SPEECH_REGION."
-        )
+    key, region = _get_azure_credentials()
 
     url = f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1"
     response = requests.post(
@@ -356,7 +447,7 @@ def _assess_with_rest(wav_bytes: bytes, locale: str, reference_text: str) -> dic
     if not response.ok:
         detail = _azure_http_error_detail(response)
         raise PronunciationAssessmentUnavailable(
-            f"Azure Speech recusou a requisição ({response.status_code}): {detail}"
+            _azure_auth_error_message(response.status_code, detail, region)
         )
 
     try:
@@ -372,12 +463,7 @@ def _assess_with_rest(wav_bytes: bytes, locale: str, reference_text: str) -> dic
 def _assess_with_sdk(wav_path: str, locale: str, reference_text: str) -> dict[str, Any]:
     import azure.cognitiveservices.speech as speechsdk
 
-    region = _azure_speech_region()
-    key = _azure_speech_key()
-    if not region or not key:
-        raise PronunciationAssessmentUnavailable(
-            "Azure Speech não configurado. Defina LIT_SPEECH_API e LIT_SPEECH_REGION."
-        )
+    key, region = _get_azure_credentials()
 
     speech_config = speechsdk.SpeechConfig(subscription=key, region=region)
     speech_config.speech_recognition_language = locale

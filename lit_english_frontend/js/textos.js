@@ -45,6 +45,9 @@ function excerptOf(text, maxLen = 130) {
 // Divide o texto em frases (limite seguro para o TTS, que corta em ~200 chars).
 const TTS_CHUNK_MAX = 180;
 
+// Regex de palavra — usada na segmentação, no player e no corpo clicável.
+const WORD_ONLY_RE = /[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’-][A-Za-zÀ-ÖØ-öø-ÿ]+)*/g;
+
 function splitIntoChunks(text) {
   const normalized = (text || "").replace(/\s+/g, " ").trim();
   if (!normalized) return [];
@@ -79,6 +82,168 @@ function splitIntoChunks(text) {
   });
 
   return chunks;
+}
+
+// ---------------------------------------------------------------------------
+// Segmentação semântica para o Listening Mode (unidades naturais de sentido)
+// ---------------------------------------------------------------------------
+
+function countWords(text) {
+  return (text.match(WORD_ONLY_RE) || []).length;
+}
+
+const LISTENING_CONJ_RE = /\s+(?:and|but|or|nor|yet|so|through|because|although|while|when|if|that|which|who|where|as|before|after|until|since|though|even though|in order to|so that)\s+/i;
+
+function splitAtNaturalBreaks(sentence) {
+  const parts = [];
+  let remaining = sentence.trim();
+  if (!remaining) return parts;
+
+  while (remaining) {
+    let bestIdx = -1;
+
+    const commaMatch = remaining.match(/,\s+/);
+    if (commaMatch && commaMatch.index > 0) {
+      bestIdx = commaMatch.index + commaMatch[0].length;
+    }
+
+    const semiMatch = remaining.match(/;\s+/);
+    if (semiMatch && semiMatch.index > 0 && (bestIdx < 0 || semiMatch.index < bestIdx)) {
+      bestIdx = semiMatch.index + semiMatch[0].length;
+    }
+
+    const dashMatch = remaining.match(/\s+[—–]\s+/);
+    if (dashMatch && dashMatch.index > 0 && (bestIdx < 0 || dashMatch.index < bestIdx)) {
+      bestIdx = dashMatch.index + dashMatch[0].length;
+    }
+
+    const conjMatch = remaining.match(LISTENING_CONJ_RE);
+    if (conjMatch && conjMatch.index > 0 && (bestIdx < 0 || conjMatch.index < bestIdx)) {
+      bestIdx = conjMatch.index + conjMatch[0].length;
+    }
+
+    if (bestIdx < 0) {
+      parts.push(remaining.trim());
+      break;
+    }
+
+    parts.push(remaining.slice(0, bestIdx).trim());
+    remaining = remaining.slice(bestIdx).trim();
+  }
+
+  return parts.filter(Boolean);
+}
+
+function splitByWordCount(text, minWords, maxWords) {
+  const words = text.match(WORD_ONLY_RE) || [];
+  if (words.length <= maxWords) return [text.trim()];
+
+  const result = [];
+  let i = 0;
+  while (i < words.length) {
+    let take = Math.min(maxWords, words.length - i);
+    const remaining = words.length - i - take;
+    if (remaining > 0 && remaining < minWords) {
+      take = words.length - i - minWords;
+      if (take < minWords) take = words.length - i;
+    }
+    result.push(words.slice(i, i + take).join(" "));
+    i += take;
+  }
+  return result;
+}
+
+function splitLongSentenceForListening(sentence) {
+  const trimmed = sentence.trim();
+  const wordCount = countWords(trimmed);
+  if (wordCount <= 12) return [trimmed];
+
+  const clauses = splitAtNaturalBreaks(trimmed);
+  const merged = [];
+  let buffer = "";
+  let bufferWords = 0;
+
+  clauses.forEach((clause) => {
+    const cw = countWords(clause);
+    if (!buffer) {
+      buffer = clause;
+      bufferWords = cw;
+      return;
+    }
+
+    if (bufferWords + cw <= 12 && bufferWords < 6) {
+      buffer = `${buffer} ${clause}`.replace(/\s+/g, " ").trim();
+      bufferWords += cw;
+      return;
+    }
+
+    if (bufferWords > 12) {
+      merged.push(...splitByWordCount(buffer, 6, 12));
+    } else {
+      merged.push(buffer);
+    }
+    buffer = clause;
+    bufferWords = cw;
+  });
+
+  if (buffer) {
+    if (bufferWords > 12) {
+      merged.push(...splitByWordCount(buffer, 6, 12));
+    } else {
+      merged.push(buffer);
+    }
+  }
+
+  return merged.filter(Boolean);
+}
+
+function splitIntoListeningSegments(text) {
+  const normalized = (text || "").replace(/\s+/g, " ").trim();
+  if (!normalized) return [];
+
+  const sentences = normalized.match(/[^.!?]+[.!?]*\s*/g) || [normalized];
+  const segments = [];
+
+  sentences.forEach((sentence) => {
+    const trimmed = sentence.trim();
+    if (!trimmed) return;
+
+    if (countWords(trimmed) <= 12) {
+      segments.push(trimmed);
+    } else {
+      segments.push(...splitLongSentenceForListening(trimmed));
+    }
+  });
+
+  return segments;
+}
+
+function buildSegmentTimings(segments, wordSpans, wordTimings) {
+  let spanIdx = 0;
+  return segments.map((segmentText) => {
+    const segWords = segmentText.match(WORD_ONLY_RE) || [];
+    const spans = [];
+    segWords.forEach(() => {
+      if (spanIdx < wordSpans.length) {
+        spans.push(wordSpans[spanIdx]);
+        spanIdx += 1;
+      }
+    });
+
+    const firstTiming = spans.length
+      ? wordTimings.find((t) => t.span === spans[0])
+      : null;
+    const lastTiming = spans.length
+      ? wordTimings.find((t) => t.span === spans[spans.length - 1])
+      : null;
+
+    return {
+      text: segmentText,
+      spans,
+      start: firstTiming ? firstTiming.start : 0,
+      end: lastTiming ? lastTiming.end : 0,
+    };
+  });
 }
 
 function renderStateBox(container, { icon, title, text, actionLabel, onAction }) {
@@ -192,6 +357,15 @@ async function renderTextList() {
 // Cache de áudio da pronúncia de palavras isoladas (independente da faixa
 // contínua do player principal).
 const wordAudioBlobUrls = new Map();
+let activeWordAudioEl = null;
+
+function stopWordAudio() {
+  if (activeWordAudioEl) {
+    activeWordAudioEl.pause();
+    activeWordAudioEl.currentTime = 0;
+    activeWordAudioEl = null;
+  }
+}
 
 async function getWordAudioUrl(word) {
   if (wordAudioBlobUrls.has(word)) return wordAudioBlobUrls.get(word);
@@ -201,22 +375,26 @@ async function getWordAudioUrl(word) {
   return url;
 }
 
-async function playWordAudio(word, speakerBtn) {
-  if (speakerBtn.disabled) return;
-  speakerBtn.disabled = true;
-  speakerBtn.classList.add("is-loading");
+async function playWordAudio(word, playBtn) {
+  if (playBtn.disabled) return;
+  stopWordAudio();
+  playBtn.disabled = true;
+  playBtn.classList.add("is-loading");
 
   try {
     const url = await getWordAudioUrl(word);
     const audio = new Audio(url);
-    await audio.play();
+    activeWordAudioEl = audio;
     audio.addEventListener("ended", () => {
-      speakerBtn.disabled = false;
-      speakerBtn.classList.remove("is-loading");
+      activeWordAudioEl = null;
+      playBtn.disabled = false;
+      playBtn.classList.remove("is-loading");
     });
+    await audio.play();
   } catch (err) {
-    speakerBtn.disabled = false;
-    speakerBtn.classList.remove("is-loading");
+    activeWordAudioEl = null;
+    playBtn.disabled = false;
+    playBtn.classList.remove("is-loading");
     showToast(err.message || "Não foi possível tocar o áudio da palavra.");
   }
 }
@@ -292,15 +470,15 @@ function buildWordPopupShell(word) {
   title.textContent = word.toLowerCase();
   header.appendChild(title);
 
-  const speakerBtn = document.createElement("button");
-  speakerBtn.type = "button";
-  speakerBtn.className = "word-popup-speaker";
-  speakerBtn.innerHTML = Icons.volume;
-  speakerBtn.setAttribute("aria-label", "Ouvir pronúncia");
-  speakerBtn.addEventListener("click", () => {
-    playWordAudio(word, speakerBtn);
+  const playBtn = document.createElement("button");
+  playBtn.type = "button";
+  playBtn.className = "word-popup-play";
+  playBtn.innerHTML = Icons.play;
+  playBtn.setAttribute("aria-label", "Ouvir pronúncia da palavra");
+  playBtn.addEventListener("click", () => {
+    playWordAudio(word, playBtn);
   });
-  header.appendChild(speakerBtn);
+  header.appendChild(playBtn);
 
   popup.appendChild(header);
 
@@ -410,7 +588,24 @@ function saveWordAsFlashcard(saveBtn, front, back) {
     });
 }
 
-function openWordPopup(wordSpan, word, sentence, textId) {
+function getWordContext(wordSpan, container) {
+  const allWords = Array.from(container.querySelectorAll(".word"));
+  const idx = allWords.indexOf(wordSpan);
+  const contextBefore = allWords
+    .slice(Math.max(0, idx - 3), idx)
+    .map((s) => s.textContent)
+    .join(" ");
+  const contextAfter = allWords
+    .slice(idx + 1, idx + 4)
+    .map((s) => s.textContent)
+    .join(" ");
+  return {
+    context_before: contextBefore || undefined,
+    context_after: contextAfter || undefined,
+  };
+}
+
+function openWordPopup(wordSpan, word, sentence, textId, contextBefore, contextAfter) {
   closeWordPopup();
   wordSpan.classList.add("is-active");
 
@@ -435,7 +630,13 @@ function openWordPopup(wordSpan, word, sentence, textId) {
     apiFetch("/texts/word-lookup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ word, sentence, text_id: textId }),
+      body: JSON.stringify({
+        word,
+        sentence,
+        text_id: textId,
+        context_before: contextBefore,
+        context_after: contextAfter,
+      }),
     })
       .then((data) => {
         if (!activeWordPopup || activeWordPopup.wordSpan !== wordSpan) return;
@@ -505,18 +706,14 @@ function renderClickableBody(container, rawText, textId) {
     if (!span || !container.contains(span)) return;
     const word = span.textContent;
     const sentence = sentences[Number(span.dataset.sentenceIdx)] || word;
-    openWordPopup(span, word, sentence, textId);
+    const { context_before, context_after } = getWordContext(span, container);
+    openWordPopup(span, word, sentence, textId, context_before, context_after);
   });
 }
 
 // ---------------------------------------------------------------------------
 // Leitura de um texto: conteúdo + player (play/pause)
 // ---------------------------------------------------------------------------
-
-// Regex de palavra (idêntica à usada em renderClickableBody) — garante que a
-// contagem de palavras por trecho bate exatamente com os <span class="word">
-// já renderizados no corpo do texto, na mesma ordem.
-const WORD_ONLY_RE = /[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’-][A-Za-zÀ-ÖØ-öø-ÿ]+)*/g;
 
 let sharedAudioCtx = null;
 function getAudioCtx() {
@@ -540,7 +737,146 @@ const player = {
   pausedOffset: 0, // posição (s) guardada ao pausar
   rafId: null,
   activeWordSpan: null,
+  isSeeking: false,
 };
+
+const listeningMode = {
+  active: false,
+  segments: [],
+  index: 0,
+  timers: [],
+  sourceNode: null,
+  manualStop: false,
+  statusEl: null,
+  bodyEl: null,
+  listeningBtn: null,
+};
+
+function clearListeningTimers() {
+  listeningMode.timers.forEach(clearTimeout);
+  listeningMode.timers = [];
+}
+
+function clearListeningHighlight() {
+  if (!listeningMode.bodyEl) return;
+  listeningMode.bodyEl.querySelectorAll(".word").forEach((el) => {
+    el.classList.remove("is-listening-segment", "is-listening-active");
+  });
+}
+
+function stopListeningSource() {
+  if (listeningMode.sourceNode) {
+    listeningMode.manualStop = true;
+    try {
+      listeningMode.sourceNode.stop();
+    } catch (err) {
+      // já parado
+    }
+    listeningMode.sourceNode = null;
+  }
+}
+
+function setListeningStatus(text, isYourTurn) {
+  if (!listeningMode.statusEl) return;
+  listeningMode.statusEl.textContent = text;
+  listeningMode.statusEl.classList.add("is-visible");
+  listeningMode.statusEl.classList.toggle("is-your-turn", !!isYourTurn);
+}
+
+function highlightListeningSegment(segment, phase) {
+  clearListeningHighlight();
+  if (!segment || !segment.spans.length) return;
+  segment.spans.forEach((span) => {
+    span.classList.add("is-listening-segment");
+    if (phase === "listening") span.classList.add("is-listening-active");
+  });
+  segment.spans[0].scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function stopListeningMode() {
+  listeningMode.active = false;
+  clearListeningTimers();
+  stopListeningSource();
+  clearListeningHighlight();
+  if (listeningMode.bodyEl) {
+    listeningMode.bodyEl.classList.remove("is-listening-mode");
+  }
+  if (listeningMode.statusEl) {
+    listeningMode.statusEl.classList.remove("is-visible", "is-your-turn");
+    listeningMode.statusEl.textContent = "";
+  }
+  if (listeningMode.listeningBtn) {
+    listeningMode.listeningBtn.classList.remove("is-active");
+    listeningMode.listeningBtn.setAttribute("aria-pressed", "false");
+  }
+  listeningMode.segments = [];
+  listeningMode.index = 0;
+}
+
+function onListeningSegmentEnded(segment, audioDuration) {
+  if (!listeningMode.active) return;
+
+  const gapTimer = setTimeout(() => {
+    if (!listeningMode.active) return;
+    highlightListeningSegment(segment, "your-turn");
+    setListeningStatus("🎙️ Your turn", true);
+
+    const turnTimer = setTimeout(() => {
+      if (!listeningMode.active) return;
+      playListeningSegment(listeningMode.index + 1);
+    }, audioDuration * 1.5 * 1000);
+    listeningMode.timers.push(turnTimer);
+  }, 500);
+  listeningMode.timers.push(gapTimer);
+}
+
+function playListeningSegment(index) {
+  if (!listeningMode.active) return;
+
+  if (index >= listeningMode.segments.length) {
+    stopListeningMode();
+    showToast("Listening mode concluído!");
+    return;
+  }
+
+  const segment = listeningMode.segments[index];
+  listeningMode.index = index;
+  highlightListeningSegment(segment, "listening");
+  setListeningStatus("🔊 Listening...", false);
+
+  const audioDuration = Math.max(0.1, segment.end - segment.start);
+  const ctx = getAudioCtx();
+  if (ctx.state === "suspended") ctx.resume();
+
+  stopListeningSource();
+  listeningMode.manualStop = false;
+
+  const source = ctx.createBufferSource();
+  source.buffer = player.buffer;
+  source.connect(ctx.destination);
+  source.onended = () => {
+    if (listeningMode.manualStop || !listeningMode.active) return;
+    onListeningSegmentEnded(segment, audioDuration);
+  };
+  listeningMode.sourceNode = source;
+  source.start(0, segment.start, audioDuration);
+}
+
+function startListeningMode(segments) {
+  listeningMode.segments = segments;
+  listeningMode.index = 0;
+  listeningMode.active = true;
+
+  if (listeningMode.bodyEl) {
+    listeningMode.bodyEl.classList.add("is-listening-mode");
+  }
+  if (listeningMode.listeningBtn) {
+    listeningMode.listeningBtn.classList.add("is-active");
+    listeningMode.listeningBtn.setAttribute("aria-pressed", "true");
+  }
+
+  playListeningSegment(0);
+}
 
 // Contabiliza tempo ativo de leitura/escuta para a métrica "Tempo de Texto"
 // e os LIT Points correspondentes (POST /dashboard/reading-heartbeat a cada
@@ -584,6 +920,8 @@ function stopWordHighlight() {
 }
 
 function resetPlayer() {
+  stopListeningMode();
+  stopWordAudio();
   if (player.rafId) {
     cancelAnimationFrame(player.rafId);
     player.rafId = null;
@@ -731,6 +1069,8 @@ function renderReader(text) {
   backLink.className = "btn btn-outline reader-back";
   backLink.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l-6 6 6 6"/></svg><span>Voltar</span>`;
   backLink.addEventListener("click", () => {
+    document.removeEventListener("fullscreenchange", onFullscreenChange);
+    document.removeEventListener("webkitfullscreenchange", onFullscreenChange);
     stopReadingHeartbeat();
     resetPlayer();
     closeWordPopup();
@@ -752,7 +1092,28 @@ function renderReader(text) {
   header.appendChild(levelBadge);
   card.appendChild(header);
 
-  // ---------- Player (play / pause) — fica acima do texto ----------
+  const viewport = document.createElement("div");
+  viewport.className = "reader-viewport";
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "reader-toolbar";
+
+  const listeningBtn = document.createElement("button");
+  listeningBtn.type = "button";
+  listeningBtn.className = "reader-tool-btn listening-mode-btn";
+  listeningBtn.innerHTML = `${Icons.headphones}<span>Listening Mode</span>`;
+  listeningBtn.setAttribute("aria-pressed", "false");
+  listeningBtn.setAttribute("aria-label", "Ativar Listening Mode");
+  toolbar.appendChild(listeningBtn);
+
+  const fullscreenBtn = document.createElement("button");
+  fullscreenBtn.type = "button";
+  fullscreenBtn.className = "reader-tool-btn";
+  fullscreenBtn.innerHTML = Icons.fullscreen;
+  fullscreenBtn.setAttribute("aria-label", "Tela cheia");
+  toolbar.appendChild(fullscreenBtn);
+
+  viewport.appendChild(toolbar);
 
   const playerBar = document.createElement("div");
   playerBar.className = "player-bar player-bar-top";
@@ -773,29 +1134,51 @@ function renderReader(text) {
 
   const progress = document.createElement("div");
   progress.className = "player-progress";
+  progress.setAttribute("role", "slider");
+  progress.setAttribute("aria-label", "Progresso do áudio");
+  progress.setAttribute("aria-valuemin", "0");
+  progress.setAttribute("aria-valuemax", "100");
+
+  const progressTrack = document.createElement("div");
+  progressTrack.className = "player-progress-track";
   const progressFill = document.createElement("div");
   progressFill.className = "player-progress-fill";
-  progress.appendChild(progressFill);
+  progressTrack.appendChild(progressFill);
+  progress.appendChild(progressTrack);
+
+  const progressThumb = document.createElement("div");
+  progressThumb.className = "player-progress-thumb";
+  progress.appendChild(progressThumb);
+
   info.appendChild(progress);
-
   playerBar.appendChild(info);
-  card.appendChild(playerBar);
+  viewport.appendChild(playerBar);
 
-  // ---------- Texto ----------
+  const listeningStatus = document.createElement("div");
+  listeningStatus.className = "listening-status";
+  listeningStatus.setAttribute("aria-live", "polite");
+  viewport.appendChild(listeningStatus);
 
   const body = document.createElement("p");
   body.className = "reader-body";
   renderClickableBody(body, text.content, text.id);
-  card.appendChild(body);
+  viewport.appendChild(body);
 
+  card.appendChild(viewport);
   textsArea.appendChild(card);
 
   const wordSpans = Array.from(body.querySelectorAll(".word"));
 
-  function updateProgressByTime(elapsed) {
+  listeningMode.statusEl = listeningStatus;
+  listeningMode.bodyEl = body;
+  listeningMode.listeningBtn = listeningBtn;
+
+  function updateProgressUI(elapsed) {
     const duration = (player.buffer && player.buffer.duration) || 1;
     const pct = Math.min(100, Math.max(0, (elapsed / duration) * 100));
     progressFill.style.width = `${pct}%`;
+    progressThumb.style.left = `${pct}%`;
+    progress.setAttribute("aria-valuenow", String(Math.round(pct)));
   }
 
   function setPlayIcon() {
@@ -810,12 +1193,9 @@ function renderReader(text) {
     if (on) status.textContent = label || "Carregando áudio...";
   }
 
-  // Encontra e marca com a sombra vermelha a palavra correspondente ao
-  // instante atual da faixa (busca sequencial simples, robusta o bastante
-  // para textos deste tamanho, e evita reprocessar quando a palavra não mudou).
   function updateWordHighlight(elapsed) {
     const timings = player.wordTimings;
-    if (!timings.length) return;
+    if (!timings.length || listeningMode.active) return;
 
     let current = null;
     for (let i = 0; i < timings.length; i++) {
@@ -844,28 +1224,46 @@ function renderReader(text) {
     player.pausedOffset = 0;
     setPlayIcon();
     status.textContent = "Pronto para tocar";
-    progressFill.style.width = "0%";
+    updateProgressUI(0);
     stopWordHighlight();
+  }
+
+  function getElapsedTime() {
+    if (!player.isPlaying || !player.buffer) return player.pausedOffset || 0;
+    const ctx = getAudioCtx();
+    return ctx.currentTime - player.startCtxTime + player.startOffset;
   }
 
   function tick() {
     if (!player.isPlaying) return;
-    const ctx = getAudioCtx();
-    const elapsed = ctx.currentTime - player.startCtxTime + player.startOffset;
+    const elapsed = getElapsedTime();
 
     if (elapsed >= player.buffer.duration) {
-      updateProgressByTime(player.buffer.duration);
-      return; // o "ended" do sourceNode cuida do estado final
+      updateProgressUI(player.buffer.duration);
+      return;
     }
 
-    updateProgressByTime(elapsed);
+    updateProgressUI(elapsed);
     updateWordHighlight(elapsed);
     player.rafId = requestAnimationFrame(tick);
   }
 
   function startSourceFrom(offsetSeconds) {
+    stopWordAudio();
+    if (listeningMode.active) stopListeningMode();
+
     const ctx = getAudioCtx();
     if (ctx.state === "suspended") ctx.resume();
+
+    if (player.sourceNode) {
+      player.manualStop = true;
+      try {
+        player.sourceNode.stop();
+      } catch (err) {
+        // já parado
+      }
+      player.sourceNode = null;
+    }
 
     const source = ctx.createBufferSource();
     source.buffer = player.buffer;
@@ -874,7 +1272,7 @@ function renderReader(text) {
     source.onended = () => {
       if (player.manualStop) {
         player.manualStop = false;
-        return; // pausa manual: não é o fim natural da faixa
+        return;
       }
       finishPlayback();
     };
@@ -892,8 +1290,7 @@ function renderReader(text) {
   }
 
   function pausePlayback() {
-    const ctx = getAudioCtx();
-    const elapsed = ctx.currentTime - player.startCtxTime + player.startOffset;
+    const elapsed = getElapsedTime();
     player.pausedOffset = Math.min(elapsed, player.buffer ? player.buffer.duration : elapsed);
 
     player.isPlaying = false;
@@ -912,7 +1309,101 @@ function renderReader(text) {
     }
     setPlayIcon();
     status.textContent = "Pausado";
-    // O áudio permanece parado até o usuário apertar em tocar novamente.
+    updateProgressUI(player.pausedOffset);
+    updateWordHighlight(player.pausedOffset);
+  }
+
+  function seekTo(ratio) {
+    if (!player.buffer || listeningMode.active) return;
+    const target = Math.max(0, Math.min(player.buffer.duration, ratio * player.buffer.duration));
+
+    if (player.isPlaying) {
+      startSourceFrom(target);
+    } else {
+      player.pausedOffset = target;
+      updateProgressUI(target);
+      updateWordHighlight(target);
+    }
+  }
+
+  function getProgressRatio(clientX) {
+    const rect = progress.getBoundingClientRect();
+    if (rect.width <= 0) return 0;
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  }
+
+  function onSeekStart(clientX) {
+    if (!player.buffer || listeningMode.active) return;
+    player.isSeeking = true;
+    progress.classList.add("is-seeking");
+    seekTo(getProgressRatio(clientX));
+  }
+
+  function onSeekMove(clientX) {
+    if (!player.isSeeking) return;
+    seekTo(getProgressRatio(clientX));
+  }
+
+  function onSeekEnd() {
+    if (!player.isSeeking) return;
+    player.isSeeking = false;
+    progress.classList.remove("is-seeking");
+    window.removeEventListener("mousemove", onWindowSeekMove);
+    window.removeEventListener("mouseup", onWindowSeekEnd);
+    window.removeEventListener("touchmove", onWindowSeekTouchMove);
+    window.removeEventListener("touchend", onWindowSeekEnd);
+  }
+
+  function onWindowSeekMove(e) {
+    onSeekMove(e.clientX);
+  }
+
+  function onWindowSeekTouchMove(e) {
+    if (e.touches[0]) onSeekMove(e.touches[0].clientX);
+  }
+
+  function onWindowSeekEnd() {
+    onSeekEnd();
+  }
+
+  function bindSeekWindowListeners() {
+    window.addEventListener("mousemove", onWindowSeekMove);
+    window.addEventListener("mouseup", onWindowSeekEnd);
+    window.addEventListener("touchmove", onWindowSeekTouchMove, { passive: true });
+    window.addEventListener("touchend", onWindowSeekEnd);
+  }
+
+  progress.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    onSeekStart(e.clientX);
+    bindSeekWindowListeners();
+  });
+
+  progress.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    onSeekStart(e.touches[0].clientX);
+    bindSeekWindowListeners();
+  }, { passive: false });
+
+  async function ensureAudioLoaded() {
+    if (player.isReady && player.buffer) return true;
+
+    setLoading(true, "Carregando áudio...");
+    try {
+      const { fullBuffer, wordTimings } = await loadFullTrack(wordSpans, (loaded, total) => {
+        status.textContent = `Carregando áudio... (${loaded}/${total})`;
+      });
+      player.buffer = fullBuffer;
+      player.wordTimings = wordTimings;
+      player.isReady = true;
+      setLoading(false);
+      return true;
+    } catch (err) {
+      setLoading(false);
+      status.textContent = "Não foi possível tocar o áudio. Tente novamente.";
+      showToast(err.message || "Não foi possível carregar o áudio.");
+      return false;
+    }
   }
 
   playBtn.addEventListener("click", async () => {
@@ -923,33 +1414,80 @@ function renderReader(text) {
       return;
     }
 
-    // Já carregado: apenas retoma de onde pausou.
-    if (player.isReady && player.buffer) {
-      startSourceFrom(player.pausedOffset || 0);
+    const ready = await ensureAudioLoaded();
+    if (!ready) return;
+    startSourceFrom(player.pausedOffset || 0);
+  });
+
+  listeningBtn.addEventListener("click", async () => {
+    if (player.chunks.length === 0 || player.isLoading) return;
+
+    if (listeningMode.active) {
+      stopListeningMode();
+      status.textContent = player.isPlaying ? "Tocando áudio..." : "Pronto para tocar";
       return;
     }
 
-    // Primeira vez: carrega a faixa inteira (contínua) antes de tocar.
-    setLoading(true, "Carregando áudio...");
-    try {
-      const { fullBuffer, wordTimings } = await loadFullTrack(wordSpans, (loaded, total) => {
-        status.textContent = `Carregando áudio... (${loaded}/${total})`;
-      });
-      player.buffer = fullBuffer;
-      player.wordTimings = wordTimings;
-      player.isReady = true;
-    } catch (err) {
-      setLoading(false);
-      status.textContent = "Não foi possível tocar o áudio. Tente novamente.";
-      showToast(err.message || "Não foi possível carregar o áudio.");
+    if (player.isPlaying) pausePlayback();
+
+    const ready = await ensureAudioLoaded();
+    if (!ready) return;
+
+    const segmentTexts = splitIntoListeningSegments(text.content);
+    const segments = buildSegmentTimings(segmentTexts, wordSpans, player.wordTimings);
+    if (!segments.length) {
+      showToast("Não há trechos disponíveis para o Listening Mode.");
       return;
     }
-    setLoading(false);
-    startSourceFrom(0);
+
+    startListeningMode(segments);
   });
+
+  function isFullscreenActive() {
+    return document.fullscreenElement === viewport
+      || document.webkitFullscreenElement === viewport
+      || viewport.classList.contains("reader-fullscreen-fallback");
+  }
+
+  function syncFullscreenBtn() {
+    const active = isFullscreenActive();
+    fullscreenBtn.innerHTML = active ? Icons.fullscreenExit : Icons.fullscreen;
+    fullscreenBtn.setAttribute("aria-label", active ? "Sair da tela cheia" : "Tela cheia");
+    viewport.classList.toggle("is-fullscreen", active);
+  }
+
+  fullscreenBtn.addEventListener("click", () => {
+    if (isFullscreenActive()) {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+      }
+      viewport.classList.remove("reader-fullscreen-fallback");
+      syncFullscreenBtn();
+      return;
+    }
+
+    const req = viewport.requestFullscreen || viewport.webkitRequestFullscreen;
+    if (req) {
+      req.call(viewport).catch(() => {
+        viewport.classList.add("reader-fullscreen-fallback");
+        syncFullscreenBtn();
+      });
+    } else {
+      viewport.classList.add("reader-fullscreen-fallback");
+      syncFullscreenBtn();
+    }
+  });
+
+  function onFullscreenChange() {
+    syncFullscreenBtn();
+  }
+
+  document.addEventListener("fullscreenchange", onFullscreenChange);
+  document.addEventListener("webkitfullscreenchange", onFullscreenChange);
 
   if (player.chunks.length === 0) {
     playBtn.disabled = true;
+    listeningBtn.disabled = true;
   }
 }
 

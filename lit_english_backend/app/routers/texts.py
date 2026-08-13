@@ -191,7 +191,12 @@ def word_lookup(
         raise HTTPException(status_code=422, detail="Palavra vazia.")
 
     try:
-        result = lookup_word(word, data.sentence)
+        result = lookup_word(
+            word,
+            data.sentence,
+            data.context_before,
+            data.context_after,
+        )
     except VocabLookupUnavailable as e:
         logger.warning("Lookup de vocabulário indisponível: %s", e)
         raise HTTPException(
