@@ -44,11 +44,6 @@ function excerptOf(text, maxLen = 130) {
 
 // Antecipa a marcação da palavra em relação ao áudio (compensa latência perceptiva).
 const WORD_HIGHLIGHT_LEAD_SEC = 0.22;
-// Pequeno avanço no início do trecho shadowing (evita começar “no meio” da 1ª palavra).
-const SHADOWING_AUDIO_START_PAD_SEC = 0.035;
-// Pequena margem no FIM do trecho — só o suficiente para não cortar a última
-// consoante da última palavra; nunca deixa o áudio invadir o próximo trecho.
-const SHADOWING_AUDIO_END_PAD_SEC = 0.08;
 
 function ttsUrl(text) {
   return `/tts/speak?text=${encodeURIComponent(text)}`;
@@ -239,37 +234,19 @@ function splitIntoShadowingSegments(text) {
   return segments;
 }
 
-function buildSegmentTimings(segments, wordSpans, wordTimings, totalDuration) {
+// Liga cada trecho do Shadowing Mode aos <span class="word"> correspondentes
+// no texto renderizado (mesma ordem/tokenização). O áudio de cada trecho é
+// buscado à parte (ver loadShadowingSegmentAudios) — não é mais recortado do
+// áudio contínuo do modo normal, então não existe estimativa de onde o
+// trecho começa/termina: o próprio áudio É exatamente o trecho marcado.
+function buildShadowingSegmentSpans(segmentTexts, wordSpans) {
   let spanIdx = 0;
-  const built = segments.map((segmentText) => {
-    const segWords = segmentText.match(WORD_ONLY_RE) || [];
-    const spans = wordSpans.slice(spanIdx, spanIdx + segWords.length);
-    spanIdx += segWords.length;
-
-    const timingBySpan = new Map(wordTimings.map((t) => [t.span, t]));
-    const firstTiming = spans.length ? timingBySpan.get(spans[0]) : null;
-    const lastTiming = spans.length ? timingBySpan.get(spans[spans.length - 1]) : null;
-
-    return {
-      text: segmentText,
-      spans,
-      start: firstTiming ? firstTiming.start : 0,
-      end: lastTiming ? lastTiming.end : 0,
-      audioEnd: lastTiming ? lastTiming.end : 0,
-    };
+  return segmentTexts.map((segText) => {
+    const words = segText.match(WORD_ONLY_RE) || [];
+    const spans = wordSpans.slice(spanIdx, spanIdx + words.length);
+    spanIdx += words.length;
+    return { text: segText, spans, buffer: null, wordTimings: [] };
   });
-
-  // O áudio de cada trecho para logo após a última palavra marcada — nunca
-  // avança até o início do próximo trecho (isso fazia o áudio "continuar
-  // falando" um pouco além do que estava destacado no texto).
-  for (let i = 0; i < built.length; i++) {
-    const seg = built[i];
-    const naturalEnd = (seg.end || 0) + SHADOWING_AUDIO_END_PAD_SEC;
-    const nextStart = i < built.length - 1 ? built[i + 1].start : (totalDuration || naturalEnd);
-    seg.audioEnd = Math.min(naturalEnd, nextStart);
-  }
-
-  return built;
 }
 
 function findWordAtTime(timings, time, spanFilter, maxEnd) {
@@ -936,15 +913,11 @@ function updateShadowingWordHighlight(segment, elapsedInSegment) {
     return;
   }
 
-  const spanSet = new Set(segment.spans);
-  const audioEnd = segment.audioEnd ?? segment.end;
-  const highlightTime = Math.min(
-    segment.start + elapsedInSegment + WORD_HIGHLIGHT_LEAD_SEC,
-    audioEnd - 0.001,
-  );
-  let current = findWordAtTime(player.wordTimings, highlightTime, spanSet, audioEnd);
+  const duration = segment.buffer ? segment.buffer.duration : 0;
+  const highlightTime = Math.min(elapsedInSegment + WORD_HIGHLIGHT_LEAD_SEC, duration - 0.001);
+  let current = findWordAtTime(segment.wordTimings, highlightTime, null, duration);
 
-  if (!current && highlightTime >= audioEnd - 0.05) {
+  if (!current && highlightTime >= duration - 0.05) {
     current = { span: segment.spans[segment.spans.length - 1] };
   }
 
@@ -1017,13 +990,10 @@ function onShadowingSegmentEnded(segment, audioDuration) {
 }
 
 function startShadowingSegmentAudio(segment, elapsedInSegment) {
-  const audioEnd = segment.audioEnd ?? segment.end;
-  const audioStart = Math.max(0, segment.start - (elapsedInSegment <= 0 ? SHADOWING_AUDIO_START_PAD_SEC : 0));
-  const audioDuration = Math.max(0.1, audioEnd - segment.start);
-  const playOffset = audioStart + elapsedInSegment;
-  const remaining = Math.max(0.05, audioEnd - playOffset);
+  const audioDuration = segment.buffer ? segment.buffer.duration : 0;
+  const remaining = Math.max(0.05, audioDuration - elapsedInSegment);
 
-  if (remaining <= 0.05) {
+  if (!segment.buffer || remaining <= 0.05) {
     onShadowingSegmentEnded(segment, audioDuration);
     return;
   }
@@ -1039,8 +1009,12 @@ function startShadowingSegmentAudio(segment, elapsedInSegment) {
   shadowingMode.phase = "listening";
   shadowingMode.isSegmentPlaying = true;
 
+  // O buffer É o trecho exato marcado — nada de recorte estimado de uma
+  // faixa maior, então toca do offset atual até o fim natural do próprio
+  // áudio, sem risco de parar cedo demais ou continuar falando além da
+  // marcação.
   const source = ctx.createBufferSource();
-  source.buffer = player.buffer;
+  source.buffer = segment.buffer;
   source.connect(ctx.destination);
   source.onended = () => {
     if (shadowingMode.manualStop || !shadowingMode.active) return;
@@ -1048,7 +1022,7 @@ function startShadowingSegmentAudio(segment, elapsedInSegment) {
   };
   shadowingMode.sourceNode = source;
   shadowingMode.segmentStartCtx = ctx.currentTime - elapsedInSegment;
-  source.start(0, playOffset, remaining);
+  source.start(0, elapsedInSegment);
   shadowingMode.rafId = requestAnimationFrame(shadowingTick);
   shadowingMode.syncPlayIcon?.();
 }
@@ -1133,10 +1107,7 @@ function playShadowingSegment(index) {
   const segment = shadowingMode.segments[index];
   shadowingMode.index = index;
   shadowingMode.currentSegment = segment;
-  shadowingMode.currentSegmentDuration = Math.max(
-    0.1,
-    (segment.audioEnd ?? segment.end) - segment.start,
-  );
+  shadowingMode.currentSegmentDuration = segment.buffer ? segment.buffer.duration : 0.1;
   shadowingMode.pauseState = null;
   shadowingMode.isPaused = false;
   startShadowingSegmentAudio(segment, 0);
@@ -1395,6 +1366,39 @@ function computeWordTimingsForChunk(chunkText, chunkWordSpans, buffer) {
   });
 
   return timings;
+}
+
+// Busca e decodifica um áudio TTS dedicado para CADA trecho do Shadowing
+// Mode (em vez de recortar do áudio contínuo do modo normal). Assim o áudio
+// tocado é exatamente o texto marcado — nunca fala "a mais" nem corta
+// palavra "a menos", porque não existe estimativa de onde o trecho começa/
+// termina dentro de uma faixa maior: o buffer inteiro É o trecho.
+async function loadShadowingSegmentAudios(segments, onProgress) {
+  const ctx = getAudioCtx();
+  const total = segments.length;
+  let loaded = 0;
+  const CONCURRENCY = 3;
+  let nextIdx = 0;
+
+  async function worker() {
+    while (nextIdx < total) {
+      const idx = nextIdx;
+      nextIdx += 1;
+      const segment = segments[idx];
+      const blob = await apiFetchBlob(ttsUrl(segment.text));
+      const arrayBuffer = await blob.arrayBuffer();
+      segment.buffer = await ctx.decodeAudioData(arrayBuffer);
+      // Mesma técnica de ancoragem por silêncio real usada no modo normal,
+      // aplicada ao próprio trecho — útil quando o trecho tem vírgula/pausa
+      // interna, pra marcar as palavras com precisão dentro dele também.
+      segment.wordTimings = computeWordTimingsForChunk(segment.text, segment.spans, segment.buffer);
+      loaded += 1;
+      if (onProgress) onProgress(loaded, total);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(CONCURRENCY, total) }, worker);
+  await Promise.all(workers);
 }
 
 // Busca e decodifica TODOS os trechos do texto antes de tocar, para formar
@@ -1851,20 +1855,25 @@ function renderReader(text) {
 
     if (player.isPlaying) pausePlayback();
 
-    const ready = await ensureAudioLoaded();
-    if (!ready) return;
-
     const segmentTexts = splitIntoShadowingSegments(text.content);
-    const segments = buildSegmentTimings(
-      segmentTexts,
-      wordSpans,
-      player.wordTimings,
-      player.buffer.duration,
-    );
+    const segments = buildShadowingSegmentSpans(segmentTexts, wordSpans);
     if (!segments.length) {
       showToast("Não há trechos disponíveis para o Shadowing Mode.");
       return;
     }
+
+    setLoading(true, "Carregando áudio...");
+    try {
+      await loadShadowingSegmentAudios(segments, (loaded, total) => {
+        status.textContent = `Carregando áudio... (${loaded}/${total})`;
+      });
+    } catch (err) {
+      setLoading(false);
+      status.textContent = "Não foi possível tocar o áudio. Tente novamente.";
+      showToast(err.message || "Não foi possível carregar o áudio do Shadowing.");
+      return;
+    }
+    setLoading(false);
 
     startShadowingMode(segments);
   });
