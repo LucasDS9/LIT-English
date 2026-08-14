@@ -46,6 +46,9 @@ function excerptOf(text, maxLen = 130) {
 const WORD_HIGHLIGHT_LEAD_SEC = 0.22;
 // Pequeno avanço no início do trecho shadowing (evita começar “no meio” da 1ª palavra).
 const SHADOWING_AUDIO_START_PAD_SEC = 0.035;
+// Pequena margem no FIM do trecho — só o suficiente para não cortar a última
+// consoante da última palavra; nunca deixa o áudio invadir o próximo trecho.
+const SHADOWING_AUDIO_END_PAD_SEC = 0.08;
 
 function ttsUrl(text) {
   return `/tts/speak?text=${encodeURIComponent(text)}`;
@@ -256,12 +259,14 @@ function buildSegmentTimings(segments, wordSpans, wordTimings, totalDuration) {
     };
   });
 
-  // O áudio de cada trecho vai até o início do próximo (corte exato no buffer).
-  for (let i = 0; i < built.length - 1; i++) {
-    built[i].audioEnd = built[i + 1].start;
-  }
-  if (built.length && totalDuration) {
-    built[built.length - 1].audioEnd = totalDuration;
+  // O áudio de cada trecho para logo após a última palavra marcada — nunca
+  // avança até o início do próximo trecho (isso fazia o áudio "continuar
+  // falando" um pouco além do que estava destacado no texto).
+  for (let i = 0; i < built.length; i++) {
+    const seg = built[i];
+    const naturalEnd = (seg.end || 0) + SHADOWING_AUDIO_END_PAD_SEC;
+    const nextStart = i < built.length - 1 ? built[i + 1].start : (totalDuration || naturalEnd);
+    seg.audioEnd = Math.min(naturalEnd, nextStart);
   }
 
   return built;
@@ -401,9 +406,31 @@ async function renderTextList() {
 // Cache de áudio da pronúncia de palavras isoladas (independente da faixa
 // contínua do player principal).
 const wordAudioBlobUrls = new Map();
-let yourTurnAudioBuffer = null;
 let activeWordAudioEl = null;
 let activeCueSourceNode = null;
+
+// Frases curtas de "sua vez" — sorteadas aleatoriamente a cada trecho do
+// Shadowing Mode, sem repetir a mesma duas vezes seguidas.
+const YOUR_TURN_PHRASES = [
+  "Your turn.",
+  "Now you.",
+  "Repeat.",
+  "You try.",
+  "Go ahead.",
+  "Say it.",
+];
+const yourTurnAudioBuffers = new Map();
+let lastYourTurnPhrase = null;
+
+function pickYourTurnPhrase() {
+  if (YOUR_TURN_PHRASES.length <= 1) return YOUR_TURN_PHRASES[0];
+  let phrase = lastYourTurnPhrase;
+  while (phrase === lastYourTurnPhrase) {
+    phrase = YOUR_TURN_PHRASES[Math.floor(Math.random() * YOUR_TURN_PHRASES.length)];
+  }
+  lastYourTurnPhrase = phrase;
+  return phrase;
+}
 
 function stopWordPronunciation() {
   if (activeWordAudioEl) {
@@ -429,17 +456,23 @@ function stopWordAudio() {
   stopCueAudio();
 }
 
-async function loadYourTurnAudioBuffer() {
-  if (yourTurnAudioBuffer) return yourTurnAudioBuffer;
-  const blob = await apiFetchBlob(ttsUrl("Your turn."));
+async function loadYourTurnAudioBuffer(phrase) {
+  if (yourTurnAudioBuffers.has(phrase)) return yourTurnAudioBuffers.get(phrase);
+  const blob = await apiFetchBlob(ttsUrl(phrase));
   const arrayBuffer = await blob.arrayBuffer();
   const ctx = getAudioCtx();
-  yourTurnAudioBuffer = await ctx.decodeAudioData(arrayBuffer);
-  return yourTurnAudioBuffer;
+  const buffer = await ctx.decodeAudioData(arrayBuffer);
+  yourTurnAudioBuffers.set(phrase, buffer);
+  return buffer;
+}
+
+function preloadYourTurnAudioBuffers() {
+  return Promise.all(YOUR_TURN_PHRASES.map((phrase) => loadYourTurnAudioBuffer(phrase).catch(() => {})));
 }
 
 function playYourTurnAudio() {
-  return loadYourTurnAudioBuffer()
+  const phrase = pickYourTurnPhrase();
+  return loadYourTurnAudioBuffer(phrase)
     .then((buffer) => {
       const ctx = getAudioCtx();
       if (ctx.state === "suspended") ctx.resume();
@@ -1110,11 +1143,19 @@ function playShadowingSegment(index) {
 }
 
 function startShadowingMode(segments) {
+  // O Shadowing Mode não tem nada a ver com a leitura/escuta normal: limpa
+  // qualquer palavra que tenha ficado marcada (ex.: pausada no meio) para
+  // não misturar o destaque de um modo com o do outro.
+  if (player.activeWordSpan) {
+    player.activeWordSpan.classList.remove("is-reading");
+    player.activeWordSpan = null;
+  }
+
   shadowingMode.segments = segments;
   shadowingMode.index = 0;
   shadowingMode.active = true;
 
-  loadYourTurnAudioBuffer().catch(() => {});
+  preloadYourTurnAudioBuffers();
 
   if (shadowingMode.bodyEl) {
     shadowingMode.bodyEl.classList.add("is-shadowing-mode");
