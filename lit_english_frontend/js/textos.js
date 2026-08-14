@@ -1257,39 +1257,143 @@ function concatAudioBuffers(ctx, buffers) {
   return output;
 }
 
-// Agrupa as palavras de cada trecho (mesma ordem/tokenização dos <span
-// class="word"> já renderizados) para depois distribuir a duração real de
-// cada trecho proporcionalmente ao tamanho de cada palavra.
-function groupWordsByChunk(chunks, wordSpans) {
-  let wordCursor = 0;
-  return chunks.map((chunkText) => {
-    const words = chunkText.match(WORD_ONLY_RE) || [];
-    const group = [];
-    words.forEach((w) => {
-      const span = wordSpans[wordCursor];
-      wordCursor += 1;
-      if (span) group.push({ span, weight: w.length + 1 });
-    });
-    return group;
-  });
+// ---------------------------------------------------------------------------
+// Ancoragem de tempo por detecção de silêncio real no áudio
+// ---------------------------------------------------------------------------
+// O TTS (Google Translate, via backend) não devolve timestamp por palavra —
+// só o MP3. Antes, o tempo de cada palavra era 100% estimado por tamanho de
+// caractere, distribuído de forma linear dentro do trecho inteiro. Isso só
+// ficava preciso nas fronteiras REAIS (entre frases, onde cada uma vem de
+// uma chamada de áudio separada); no meio da frase (vírgulas, conectores)
+// o erro ia acumulando e o destaque atrasava.
+//
+// Aqui a gente analisa a energia (RMS) do próprio áudio já decodificado pra
+// achar as pausas de verdade dentro do trecho, e usa essas pausas como
+// âncoras extra — só dentro de cada pedaço ancorado (entre uma pausa real e
+// a próxima) é que ainda se estima por tamanho de palavra, então o erro fica
+// pequeno e localizado em vez de se espalhar pela frase toda.
+const SILENCE_FRAME_SEC = 0.02;      // janela de análise (20ms)
+const SILENCE_MIN_GAP_SEC = 0.06;    // pausa mínima pra contar como corte real
+const SILENCE_REL_THRESHOLD = 0.15;  // % do pico de energia do trecho
+
+function detectSilenceGaps(buffer) {
+  const data = buffer.getChannelData(0);
+  const frameSize = Math.max(1, Math.round(buffer.sampleRate * SILENCE_FRAME_SEC));
+  const frameCount = Math.ceil(data.length / frameSize);
+  const energies = new Array(frameCount);
+  let peak = 0;
+
+  for (let f = 0; f < frameCount; f++) {
+    const start = f * frameSize;
+    const end = Math.min(data.length, start + frameSize);
+    let sum = 0;
+    for (let i = start; i < end; i++) sum += data[i] * data[i];
+    const rms = Math.sqrt(sum / Math.max(1, end - start));
+    energies[f] = rms;
+    if (rms > peak) peak = rms;
+  }
+  if (peak <= 0) return [];
+
+  const threshold = peak * SILENCE_REL_THRESHOLD;
+  const minGapFrames = Math.max(1, Math.round(SILENCE_MIN_GAP_SEC / SILENCE_FRAME_SEC));
+
+  const gaps = [];
+  let runStart = -1;
+  for (let f = 0; f < frameCount; f++) {
+    const silent = energies[f] < threshold;
+    if (silent && runStart < 0) {
+      runStart = f;
+    } else if (!silent && runStart >= 0) {
+      if (f - runStart >= minGapFrames) {
+        const startSec = runStart * SILENCE_FRAME_SEC;
+        const endSec = f * SILENCE_FRAME_SEC;
+        gaps.push({ start: startSec, end: endSec, mid: (startSec + endSec) / 2, duration: endSec - startSec });
+      }
+      runStart = -1;
+    }
+  }
+  return gaps;
 }
 
-function computeWordTimings(chunkWordGroups, chunkDurations) {
+// Pontos de pausa esperados no TEXTO (vírgula, ponto e vírgula, dois-pontos,
+// travessão) — usados só pra saber QUANTAS pausas reais procurar no áudio.
+const PAUSE_PUNCT_RE = /[,;:]\s+|\s*[—–]\s*/g;
+
+function splitChunkTextForTiming(chunkText) {
+  const parts = [];
+  let last = 0;
+  const re = new RegExp(PAUSE_PUNCT_RE);
+  let m;
+  while ((m = re.exec(chunkText))) {
+    parts.push(chunkText.slice(last, m.index + m[0].length));
+    last = m.index + m[0].length;
+  }
+  parts.push(chunkText.slice(last));
+  return parts.map((p) => p.trim()).filter(Boolean);
+}
+
+// Casa as pausas de texto (vírgulas etc.) com as pausas reais detectadas no
+// áudio. Se o TTS não pausou em alguma vírgula, funde os pedaços em vez de
+// inventar um corte que não existe na faixa.
+function alignChunkTimings(chunkText, buffer) {
+  const duration = buffer.duration;
+  let parts = splitChunkTextForTiming(chunkText);
+  if (parts.length <= 1) return [{ text: chunkText, start: 0, end: duration }];
+
+  const gaps = detectSilenceGaps(buffer).filter(
+    (g) => g.start > 0.03 && g.end < duration - 0.03,
+  );
+
+  while (parts.length - 1 > gaps.length) {
+    const last = parts.pop();
+    parts[parts.length - 1] = `${parts[parts.length - 1]} ${last}`;
+  }
+
+  const needed = parts.length - 1;
+  const boundaries = gaps
+    .slice()
+    .sort((a, b) => b.duration - a.duration)
+    .slice(0, needed)
+    .sort((a, b) => a.mid - b.mid)
+    .map((g) => g.mid);
+
+  const segments = [];
+  let segStart = 0;
+  parts.forEach((text, i) => {
+    const segEnd = i < boundaries.length ? boundaries[i] : duration;
+    segments.push({ text, start: segStart, end: segEnd });
+    segStart = segEnd;
+  });
+  return segments;
+}
+
+// Distribui os tempos das palavras de UM trecho (chunk), usando as pausas
+// reais detectadas para ancorar sub-blocos, e só estimando por tamanho de
+// palavra dentro de cada sub-bloco (erro pequeno e local, não acumulado).
+function computeWordTimingsForChunk(chunkText, chunkWordSpans, buffer) {
+  const alignedSegments = alignChunkTimings(chunkText, buffer);
   const timings = [];
-  let cursor = 0;
-  chunkWordGroups.forEach((group, i) => {
-    const duration = chunkDurations[i] || 0;
-    const totalWeight = group.reduce((sum, w) => sum + w.weight, 0) || 1;
+  let wordIdx = 0;
+
+  alignedSegments.forEach((seg) => {
+    const segWords = seg.text.match(WORD_ONLY_RE) || [];
+    const spans = chunkWordSpans.slice(wordIdx, wordIdx + segWords.length);
+    wordIdx += segWords.length;
+
+    const weights = segWords.map((w) => w.length + 1);
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0) || 1;
+    const segDuration = Math.max(0, seg.end - seg.start);
+
     let localCursor = 0;
-    group.forEach(({ span, weight }) => {
-      const wordDuration = (weight / totalWeight) * duration;
-      const start = cursor + localCursor;
+    spans.forEach((span, i) => {
+      const wordDuration = (weights[i] / totalWeight) * segDuration;
+      const start = seg.start + localCursor;
       const end = start + wordDuration;
-      timings.push({ span, start, end });
+      if (span) timings.push({ span, start, end });
       localCursor += wordDuration;
     });
-    cursor += duration;
   });
+
   return timings;
 }
 
@@ -1321,12 +1425,26 @@ async function loadFullTrack(wordSpans, onProgress) {
   await Promise.all(workers);
 
   const fullBuffer = concatAudioBuffers(ctx, buffers);
-  const chunkDurations = buffers.map((b) => b.duration);
-  const chunkWordGroups = groupWordsByChunk(player.chunks, wordSpans);
-  const wordTimings = computeWordTimings(chunkWordGroups, chunkDurations);
+
+  const wordTimings = [];
+  let wordCursor = 0;
+  let chunkOffset = 0;
+  player.chunks.forEach((chunkText, i) => {
+    const buffer = buffers[i];
+    const chunkWordCount = (chunkText.match(WORD_ONLY_RE) || []).length;
+    const chunkWordSpans = wordSpans.slice(wordCursor, wordCursor + chunkWordCount);
+    wordCursor += chunkWordCount;
+
+    const localTimings = computeWordTimingsForChunk(chunkText, chunkWordSpans, buffer);
+    localTimings.forEach((t) => {
+      wordTimings.push({ span: t.span, start: chunkOffset + t.start, end: chunkOffset + t.end });
+    });
+    chunkOffset += buffer.duration;
+  });
 
   return { fullBuffer, wordTimings };
 }
+
 
 async function openText(textId) {
   textsArea.innerHTML = '<div class="skeleton">Carregando texto...</div>';
