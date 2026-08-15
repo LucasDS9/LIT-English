@@ -934,6 +934,25 @@ svg {
   max-width: 100%;
 }
 
+/* Rótulo de tópico gramatical opcional (ex: "Future:" antes da frase de um
+   flashcard do professor) — exibido pequeno e em preto, acima da frase. */
+.review-card .prompt-text-holder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.review-card .front-topic-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0;
+}
+
 .review-card .back-text {
   font-size: clamp(18px, 3.2vw, 26px);
   font-weight: 700;

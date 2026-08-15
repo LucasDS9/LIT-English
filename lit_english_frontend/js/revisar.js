@@ -429,6 +429,44 @@ function promptText(card) {
   return card.front;
 }
 
+// ---------------------------------------------------------------------------
+// Flashcards do professor às vezes trazem um rótulo de tópico gramatical
+// antes da frase, ex: "Future: I will go to the store". Em vez de mostrar
+// isso tudo junto como frase, separamos o rótulo (ex: "Future") pra exibir
+// pequeno e em preto acima, e deixamos só a frase em si no destaque grande.
+// ---------------------------------------------------------------------------
+
+function splitTopicLabel(text) {
+  const raw = (text || "").trim();
+  const match = /^([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s\-]{1,29})\s*:\s*(.+)$/s.exec(raw);
+  if (!match) return { label: null, text: raw };
+  return { label: match[1].trim(), text: match[2].trim() };
+}
+
+// Cria (e anexa em `container`) o parágrafo de frase principal, com o
+// rótulo de tópico (se houver) num parágrafo pequeno e preto logo acima.
+// `className` é a classe do texto principal (ex: "front-text").
+function appendPromptText(container, text, className) {
+  const { label, text: mainText } = splitTopicLabel(text);
+  const holder = document.createElement("div");
+  holder.className = "prompt-text-holder";
+
+  if (label) {
+    const labelEl = document.createElement("p");
+    labelEl.className = "front-topic-label";
+    labelEl.textContent = label;
+    holder.appendChild(labelEl);
+  }
+
+  const mainEl = document.createElement("p");
+  mainEl.className = className;
+  mainEl.textContent = mainText;
+  holder.appendChild(mainEl);
+
+  container.appendChild(holder);
+  return mainEl;
+}
+
 function updateStatusLegend(status) {
   document.querySelectorAll(".vocab-status-item").forEach((item) => {
     const dot = item.querySelector(".vocab-status-dot");
@@ -483,10 +521,7 @@ function renderTypeCard(card) {
   const body = document.createElement("div");
   body.className = "card-body";
 
-  const prompt = document.createElement("p");
-  prompt.className = "front-text";
-  prompt.textContent = promptText(card);
-  body.appendChild(prompt);
+  appendPromptText(body, promptText(card), "front-text");
 
   const hint = document.createElement("p");
   hint.className = "review-hint";
@@ -552,10 +587,7 @@ function renderSpeakCard(card) {
   const body = document.createElement("div");
   body.className = "card-body";
 
-  const prompt = document.createElement("p");
-  prompt.className = "front-text";
-  prompt.textContent = card.back;
-  body.appendChild(prompt);
+  appendPromptText(body, card.back, "front-text");
 
   const hint = document.createElement("p");
   hint.className = "review-hint";
@@ -695,10 +727,7 @@ function renderFlipCard(card) {
     const backWrap = document.createElement("div");
     backWrap.className = "review-card-back card-flip-anim";
 
-    const word = document.createElement("p");
-    word.className = `review-back-word ${statusClassName(card)}`.trim();
-    word.textContent = card.front;
-    backWrap.appendChild(word);
+    appendPromptText(backWrap, card.front, `review-back-word ${statusClassName(card)}`.trim());
 
     const answer = document.createElement("p");
     answer.className = "learn-back-answer";
@@ -718,10 +747,7 @@ function renderFlipCard(card) {
 
     body.appendChild(backWrap);
   } else {
-    const front = document.createElement("p");
-    front.className = "front-text";
-    front.textContent = card.front;
-    body.appendChild(front);
+    appendPromptText(body, card.front, "front-text");
   }
 
   const { listenBtn } = buildReviewAudioControls(card, body);
@@ -814,6 +840,19 @@ async function submitTypedAnswer(card, input, feedback, submitBtn) {
       feedback.textContent = `Resposta correta: ${result.correct_answer}. ${result.reason}`;
     } else {
       feedback.textContent = `Resposta correta: ${result.correct_answer}`;
+    }
+
+    // Prévia do Dominando: ao acertar a digitação, o próprio card já
+    // avança pro exercício de pronúncia (type_speak) na hora, sem esperar
+    // o aluno terminar o lote inteiro pra fila recarregar do servidor —
+    // assim ele sente o fluxo completo (digitar -> falar) de cada palavra
+    // da prévia de uma vez só.
+    if (card.is_showcase && result.correct && result.review_mode === "type_speak") {
+      card.mode = result.review_mode;
+      card.status = result.review_status;
+      session.typingLocked = false;
+      setTimeout(() => renderCard(), 900);
+      return;
     }
 
     setTimeout(() => advanceToNextCard(), 900);
