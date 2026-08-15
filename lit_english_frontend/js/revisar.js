@@ -833,11 +833,21 @@ async function submitReview(flashcardId, quality, qualityRow) {
 
 function renderFinished() {
   SFX.play("finish");
+
+  // Terminou o lote inteiro que veio do servidor (até `limit` cards, hoje
+  // 15) e ainda sobra espaço na janela de revisão: provavelmente há mais
+  // cards devidos esperando, então oferece "Continuar" em vez de dar a
+  // sessão por encerrada.
+  const finishedFullBatch = session.cards.length >= session.limit;
+  const canContinue = finishedFullBatch && session.remaining > 0;
+
   renderStateBox({
     icon: Icons.checkCircle,
-    title: "Revisão concluída! 🎉",
-    text: "Você revisou todos os cards disponíveis por agora. Volte mais tarde para continuar fortalecendo sua memória.",
-    actionLabel: "Verificar novamente",
+    title: canContinue ? `Você revisou ${session.cards.length} flashcards! 🎉` : "Revisão concluída! 🎉",
+    text: canContinue
+      ? "Mandou bem! Ainda há mais cards esperando por você agora — quer continuar revisando?"
+      : "Você revisou todos os cards disponíveis por agora. Volte mais tarde para continuar fortalecendo sua memória.",
+    actionLabel: canContinue ? "Continuar" : "Verificar novamente",
     onAction: loadQueue,
   });
 }
@@ -857,6 +867,8 @@ function renderLimitReached() {
     icon: Icons.clock,
     title: "Limite de revisões atingido",
     text: `Você já revisou o máximo de ${session.limit} cards nas últimas 12 horas. Volte mais tarde para continuar.`,
+    actionLabel: "Verificar novamente",
+    onAction: loadQueue,
   });
 }
 

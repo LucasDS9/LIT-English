@@ -366,6 +366,33 @@ def run_migrations():
                     )
                     conn.rollback()
 
+            # Revisar: origem do flashcard (professor x aluno), usada para
+            # priorizar os cards do professor na fila de revisão.
+            if _table_exists(conn, "flashcards"):
+                try:
+                    conn.execute(text(
+                        "DO $$ BEGIN "
+                        "CREATE TYPE flashcardsource AS ENUM ('professor', 'aluno'); "
+                        "EXCEPTION WHEN duplicate_object THEN NULL; END $$;"
+                    ))
+                    conn.commit()
+                    if not _col_exists(conn, "flashcards", "source"):
+                        conn.execute(text(
+                            "ALTER TABLE flashcards ADD COLUMN source flashcardsource "
+                            "NOT NULL DEFAULT 'professor'"
+                        ))
+                        conn.commit()
+                        # Cards criados pelo botão "Adicionar flashcard" do aluno ou pelo
+                        # popup de vocabulário/Q&A não tinham essa distinção antes — como
+                        # não dá pra saber a origem retroativamente, tratamos os já
+                        # existentes como 'professor' (mesmo comportamento de fila que
+                        # tinham até aqui, sem perder prioridade nem criar regressão).
+                except Exception:
+                    logger.exception(
+                        "Falha ao migrar flashcards (coluna source), ignorando."
+                    )
+                    conn.rollback()
+
             # Acesso Especial: colunas novas em `users` (access_type,
             # native_language, target_language) — cadastro pela tela
             # "Acesso Especial" (Nome, e-mail @litstudent, senha, língua

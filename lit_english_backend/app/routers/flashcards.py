@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from sqlalchemy import nullsfirst
+from sqlalchemy import case, nullsfirst
 from sqlalchemy.orm import Session
 
 from app.activity_queue import should_defer_flashcards
@@ -25,6 +25,7 @@ from app.models import (
     FlashcardBatch,
     FlashcardBatchItem,
     FlashcardBatchStudent,
+    FlashcardSource,
     QAAnswerLog,
     ReviewCardStatus,
     ReviewMode,
@@ -192,7 +193,7 @@ def create_flashcard(
 ):
     _validate_student_ids(data.student_ids, db)
 
-    card = Flashcard(front=data.front, back=data.back)
+    card = Flashcard(front=data.front, back=data.back, source=FlashcardSource.professor)
     db.add(card)
     db.flush()
 
@@ -336,7 +337,11 @@ def create_flashcard_batch(
     student_ids = set(payload.student_ids)
     created_cards = []
     for card_in in payload.cards:
-        card = Flashcard(front=card_in.front.strip(), back=card_in.back.strip())
+        card = Flashcard(
+            front=card_in.front.strip(),
+            back=card_in.back.strip(),
+            source=FlashcardSource.professor,
+        )
         db.add(card)
         db.flush()  # gera card.id
         db.add(FlashcardBatchItem(batch_id=batch.id, flashcard_id=card.id))
@@ -520,7 +525,7 @@ def self_add_flashcard(
                 detail="Não foi possível gerar a tradução automaticamente agora. Preencha o verso e tente de novo.",
             )
 
-    card = Flashcard(front=front, back=back)
+    card = Flashcard(front=front, back=back, source=FlashcardSource.aluno)
     db.add(card)
     db.flush()
     db.add(FlashcardAssignment(flashcard_id=card.id, student_id=student.id))
@@ -589,6 +594,10 @@ def get_review_queue(
         CardProgress.next_review > now,
     )
 
+    # Flashcards do professor entram primeiro na fila — dentro de cada grupo
+    # (professor / aluno), a ordem continua sendo por vencimento (SM-2).
+    source_priority = case((Flashcard.source == FlashcardSource.professor, 0), else_=1)
+
     due_cards = (
         db.query(Flashcard, CardProgress)
         .outerjoin(
@@ -597,7 +606,7 @@ def get_review_queue(
         )
         .filter(Flashcard.id.in_(assigned_subquery))
         .filter(~Flashcard.id.in_(not_due_subquery))
-        .order_by(nullsfirst(CardProgress.next_review))
+        .order_by(source_priority, nullsfirst(CardProgress.next_review))
         .limit(remaining)
         .all()
     )

@@ -56,12 +56,28 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class FlashcardSource(str, enum.Enum):
+    """
+    Quem originou o flashcard:
+      - professor: criado pelo professor (CRUD manual, decks em lote, ou
+        gerado a partir de uma palavra de "Aprender" curada por ele) — tem
+        prioridade na fila de revisão.
+      - aluno: criado pelo próprio aluno (botão "Adicionar flashcard",
+        popup de vocabulário do Read and Listen, ou resposta salva em Q&A).
+    """
+    professor = "professor"
+    aluno = "aluno"
+
+
 class Flashcard(Base):
     __tablename__ = "flashcards"
 
     id = Column(Integer, primary_key=True, index=True)
     front = Column(Text, nullable=False)
     back = Column(Text, nullable=False)
+    # Origem do card — usada para priorizar os flashcards do professor na
+    # fila de revisão (ver get_review_queue em routers/flashcards.py).
+    source = Column(Enum(FlashcardSource), nullable=False, default=FlashcardSource.professor, server_default="professor")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     assignments = relationship(
