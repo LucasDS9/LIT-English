@@ -54,6 +54,10 @@ class User(Base):
     native_language = Column(String, nullable=True)   # só preenchido quando access_type == especial
     target_language = Column(String, nullable=True)   # idem — ver ALLOWED_TARGET_LANGUAGES em schemas.py
     created_at = Column(DateTime, default=datetime.utcnow)
+    # Já rodou (ou não é mais elegível para) a "prévia do Dominando" nas
+    # primeiras sessões de Aprender — ver get_review_queue em
+    # routers/flashcards.py. Uma vez True, nunca mais seleciona a prévia.
+    dominando_showcase_done = Column(Boolean, default=False, nullable=False, server_default="false")
 
 
 class FlashcardSource(str, enum.Enum):
@@ -173,6 +177,13 @@ class CardProgress(Base):
     # Qual exercício mostrar quando o card estiver devido (flip ou digitação).
     review_mode = Column(Enum(ReviewMode), nullable=False, default=ReviewMode.flip, server_default="flip")
     correct_streak = Column(Integer, default=0, nullable=False)
+    # "Prévia do Dominando" (ver get_review_queue em routers/flashcards.py):
+    # card puxado direto pra Dominando fora da agenda do SM-2, pra um aluno
+    # novo ver o potencial da plataforma nas primeiras sessões de Aprender.
+    # Enquanto True, esse card fica fora do SM-2 (não afeta repetitions/
+    # interval/ease_factor); volta ao normal assim que ele acerta o
+    # type_speak e vira "concluido".
+    is_showcase = Column(Boolean, default=False, nullable=False, server_default="false")
     flashcard = relationship("Flashcard")
 
 

@@ -424,6 +424,37 @@ def run_migrations():
                     )
                     conn.rollback()
 
+            # "Prévia do Dominando": card_progress.is_showcase e
+            # users.dominando_showcase_done — ver get_review_queue em
+            # routers/flashcards.py.
+            if _table_exists(conn, "card_progress"):
+                try:
+                    if not _col_exists(conn, "card_progress", "is_showcase"):
+                        conn.execute(text(
+                            "ALTER TABLE card_progress ADD COLUMN is_showcase "
+                            "BOOLEAN NOT NULL DEFAULT FALSE"
+                        ))
+                        conn.commit()
+                except Exception:
+                    logger.exception(
+                        "Falha ao migrar card_progress (coluna is_showcase), ignorando."
+                    )
+                    conn.rollback()
+
+            if _table_exists(conn, "users"):
+                try:
+                    if not _col_exists(conn, "users", "dominando_showcase_done"):
+                        conn.execute(text(
+                            "ALTER TABLE users ADD COLUMN dominando_showcase_done "
+                            "BOOLEAN NOT NULL DEFAULT FALSE"
+                        ))
+                        conn.commit()
+                except Exception:
+                    logger.exception(
+                        "Falha ao migrar users (coluna dominando_showcase_done), ignorando."
+                    )
+                    conn.rollback()
+
             for enum_name, value in _ENUM_VALUE_FIXES:
                 try:
                     _add_enum_value(conn, enum_name, value)

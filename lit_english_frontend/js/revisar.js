@@ -491,7 +491,9 @@ function renderTypeCard(card) {
   const hint = document.createElement("p");
   hint.className = "review-hint";
   hint.style.margin = "0";
-  hint.textContent = "Digite a tradução em português";
+  hint.textContent = card.is_showcase
+    ? "Prévia do Dominando — digite a tradução em português"
+    : "Digite a tradução em português";
   body.appendChild(hint);
 
   const input = document.createElement("input");
@@ -558,7 +560,9 @@ function renderSpeakCard(card) {
   const hint = document.createElement("p");
   hint.className = "review-hint";
   hint.style.margin = "0";
-  hint.textContent = "Fale a frase na língua-alvo";
+  hint.textContent = card.is_showcase
+    ? "Prévia do Dominando — fale a frase na língua-alvo"
+    : "Fale a frase na língua-alvo";
   body.appendChild(hint);
 
   const feedback = document.createElement("div");
@@ -630,20 +634,35 @@ async function submitSpeakAnswer(card, getBlob, feedback, submitBtn, getLocked, 
 
     SFX.play(result.correct ? "correct" : "wrong");
 
-    if (result.correct) {
+    // Quando a Azure Pronunciation Assessment está disponível, mostra o
+    // mesmo analisador visual (score + palavra por palavra) usado em
+    // Aprender — tanto no acerto quanto no erro, pra o aluno entender ONDE
+    // errou antes de tentar de novo.
+    if (result.score != null) {
+      FlashcardPronounce.renderAnalyzerPanel(feedback, {
+        phraseText: card.front,
+        translationText: card.back,
+        pronunciationResult: result,
+        onListen: (btn) => speak(listenTextForCard(card), btn),
+      });
+    } else if (result.correct) {
       FlashcardPronounce.showFeedback(feedback, {
         correct: true,
         correct_answer: result.correct_answer,
         transcribed_text: result.transcribed_text,
         reason: result.reason,
       });
-      setTimeout(() => advanceToNextCard(), 900);
     } else {
       feedback.hidden = false;
       feedback.className = "review-type-feedback is-wrong";
       feedback.textContent = result.reason
         ? `Resposta correta: ${result.correct_answer}. ${result.reason}`
         : `Resposta correta: ${result.correct_answer}`;
+    }
+
+    if (result.correct) {
+      setTimeout(() => advanceToNextCard(), result.score != null ? 2200 : 900);
+    } else {
       setLocked(false);
       submitBtn.disabled = false;
     }
@@ -909,6 +928,10 @@ async function loadQueue() {
     session.flipped = false;
     session.remaining = data.remaining_in_window;
     session.limit = data.limit_per_window;
+
+    if (data.showcase_started) {
+      showToast("Prévia especial: 3 palavras foram direto pro Dominando! 🚀");
+    }
 
     if (data.blocked_by === "exercises") {
       renderStateBox({

@@ -115,6 +115,10 @@ class ReviewCardOut(BaseModel):
     status: Optional[ReviewCardStatus] = None
     mode: ReviewMode = ReviewMode.flip
     explanation: Optional[str] = None
+    # True para os 3 cards da "prévia do Dominando" (ver flashcards.py) —
+    # puxados direto pra Dominando fora da agenda normal do SM-2, pra um
+    # aluno novo já sentir o potencial da plataforma nas primeiras sessões.
+    is_showcase: bool = False
 
 
 class ReviewQueueOut(BaseModel):
@@ -123,11 +127,21 @@ class ReviewQueueOut(BaseModel):
     limit_per_window: int
     blocked_by: Optional[str] = None
     blocked_message: Optional[str] = None
+    # True só na consulta em que a prévia do Dominando acabou de ser
+    # selecionada — o frontend usa isso pra mostrar um aviso único.
+    showcase_started: bool = False
 
 
 class ReviewSubmit(BaseModel):
     quality: Optional[int] = Field(default=None, ge=0, le=5)
     typed_answer: Optional[str] = None
+
+
+class WordPronunciationScore(BaseModel):
+    """Pontuação por palavra — Azure Pronunciation Assessment."""
+    word: str
+    score: int = Field(ge=0, le=100)
+    error_type: Optional[str] = None
 
 
 class ReviewResultOut(BaseModel):
@@ -139,13 +153,12 @@ class ReviewResultOut(BaseModel):
     reason: Optional[str] = None
     confidence: Optional[float] = None
     transcribed_text: Optional[str] = None
-
-
-class WordPronunciationScore(BaseModel):
-    """Pontuação por palavra — Azure Pronunciation Assessment."""
-    word: str
-    score: int = Field(ge=0, le=100)
-    error_type: Optional[str] = None
+    # Preenchidos best-effort no exercício de falar (type_speak) quando o
+    # Azure Pronunciation Assessment está disponível — mesmo analisador
+    # visual (score + palavra por palavra) usado em Aprender.
+    score: Optional[int] = Field(default=None, ge=0, le=100)
+    word_scores: Optional[List["WordPronunciationScore"]] = None
+    feedback_title: Optional[str] = None
 
 
 class FlashcardPronunciationResult(BaseModel):

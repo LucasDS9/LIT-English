@@ -285,6 +285,71 @@ const FlashcardPronounce = (() => {
     return back;
   }
 
+  /**
+   * Painel de análise de pronúncia genérico (mesmo visual de
+   * buildPronunciationBack, usado em Aprender) — pra encaixar dentro de um
+   * container já existente, como o verso do exercício de falar em Revisar.
+   * Ao contrário de buildPronunciationBack, não assume os campos de um
+   * card de Aprender (word/tip) — recebe o texto da frase e da tradução
+   * prontos.
+   */
+  function renderAnalyzerPanel(container, {
+    phraseText,
+    translationText,
+    pronunciationResult,
+    onListen,
+  }) {
+    if (!container) return;
+    const normalized = normalizePronunciationResult(pronunciationResult);
+    const displayScore = normalized.score != null ? normalized.score : 0;
+
+    container.hidden = false;
+    container.innerHTML = "";
+    container.className = "review-pronunciation-feedback pronunciation-analyzer-panel";
+
+    container.appendChild(buildLegend());
+
+    const phrase = document.createElement("p");
+    phrase.className = "pronunciation-phrase";
+    phrase.innerHTML = colorizePhrase(phraseText, normalized.wordScores);
+    container.appendChild(phrase);
+
+    if (translationText) {
+      const translation = document.createElement("p");
+      translation.className = "pronunciation-translation";
+      translation.textContent = translationText;
+      container.appendChild(translation);
+    }
+
+    const scoreSection = document.createElement("div");
+    scoreSection.className = "pronunciation-score-section";
+    scoreSection.innerHTML = `<p class="pronunciation-score-label">Sua pronúncia</p>`;
+    scoreSection.appendChild(buildScoreRing(displayScore, normalized.tier));
+
+    const feedback = document.createElement("div");
+    feedback.className = `pronunciation-ai-feedback ${normalized.tier.className}`;
+    const headline = normalized.feedbackTitle || feedbackHeadline(normalized.tier);
+    const detail = normalized.reason || defaultFeedbackDetail(normalized.tier, normalized.wordScores);
+    feedback.innerHTML = `
+      <span class="pronunciation-ai-icon">${feedbackIcon(normalized.tier)}</span>
+      <div class="pronunciation-ai-text">
+        <strong>${escapeHtml(headline)}</strong>
+        <p>${escapeHtml(detail)}</p>
+      </div>
+    `;
+    scoreSection.appendChild(feedback);
+    container.appendChild(scoreSection);
+
+    if (onListen) {
+      const listenBtn = document.createElement("button");
+      listenBtn.type = "button";
+      listenBtn.className = "btn btn-outline pronunciation-listen-btn";
+      listenBtn.innerHTML = `${Icons.volume}<span>Ouvir pronúncia correta</span>`;
+      listenBtn.addEventListener("click", () => onListen(listenBtn));
+      container.appendChild(listenBtn);
+    }
+  }
+
   function showFeedback(container, result) {
     if (!container) return;
     container.hidden = false;
@@ -507,6 +572,7 @@ const FlashcardPronounce = (() => {
     buildLangBadge,
     buildLegend,
     buildPronunciationBack,
+    renderAnalyzerPanel,
     getLanguageMeta,
     getScoreTier,
     normalizePronunciationResult,
