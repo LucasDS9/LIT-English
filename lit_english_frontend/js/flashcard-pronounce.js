@@ -27,7 +27,7 @@ const FlashcardPronounce = (() => {
     },
     italiano: {
       label: "Italiano",
-      flag: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#fff"/><rect x="8" width="8" height="16" fill="#CE2B37"/><rect width="8" height="16" fill="#009246"/></svg>`,
+      flag: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#fff"/><rect x="16" width="8" height="16" fill="#CE2B37"/><rect width="8" height="16" fill="#009246"/></svg>`,
     },
     frances: {
       label: "Francês",

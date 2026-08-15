@@ -1495,6 +1495,8 @@ svg {
 .learn-card-back .learn-card-header {
   justify-content: space-between;
   margin-bottom: 4px;
+  align-self: flex-start;
+  width: calc(100% + 56px);
 }
 
 .learn-back-answer {
