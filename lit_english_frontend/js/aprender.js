@@ -13,6 +13,14 @@ const learnArea = document.getElementById("learn-area");
 const studentNameEl = document.getElementById("student-name");
 const roleLabelEl = document.getElementById("role-label");
 const toastEl = document.getElementById("toast");
+const pageSubtitleEl = document.getElementById("page-subtitle");
+
+const SUBTITLE_CATEGORIES = "Escolha uma categoria para começar a estudar.";
+const SUBTITLE_LEARNING = "Aprenda palavras novas e expanda seu vocabulário.";
+
+function setSubtitle(text) {
+  if (pageSubtitleEl) pageSubtitleEl.textContent = text;
+}
 
 let toastTimer = null;
 function showToast(message) {
@@ -249,6 +257,7 @@ function renderEmpty() {
 }
 
 function renderPendingApproval() {
+  setSubtitle("");
   renderStateBox({
     icon: Icons.lock,
     title: "Conta aguardando aprovação",
@@ -257,6 +266,7 @@ function renderPendingApproval() {
 }
 
 function renderNotStudent() {
+  setSubtitle("");
   renderStateBox({
     icon: Icons.alert,
     title: "Área exclusiva para alunos",
@@ -264,19 +274,157 @@ function renderNotStudent() {
   });
 }
 
-function renderError(message) {
+function renderError(message, retryFn) {
   renderStateBox({
     icon: Icons.alert,
     title: "Algo deu errado",
     text: message || "Não foi possível carregar suas palavras. Tente novamente.",
     actionLabel: "Tentar novamente",
-    onAction: loadQueue,
+    onAction: retryFn || loadQueue,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Tela de categorias ("Aprender" — escolha do que estudar)
+//
+// Por enquanto só a categoria "Saudações e frases essenciais" está
+// funcional (é o conteúdo já servido por /vocab-words/learn/next). As
+// demais aparecem como "Em breve" — vêm depois.
+// ---------------------------------------------------------------------------
+
+function renderCategories(data) {
+  setSubtitle(SUBTITLE_CATEGORIES);
+  learnArea.innerHTML = "";
+  learnArea.classList.add("categories-area");
+
+  const totalAssigned = data.total_assigned || 0;
+  const totalLearned = Math.min(data.total_learned || 0, totalAssigned);
+  const percent = totalAssigned > 0 ? Math.round((totalLearned / totalAssigned) * 100) : 0;
+
+  const grid = document.createElement("div");
+  grid.className = "categories-grid";
+
+  // ---- Categoria 1: Saudações e frases essenciais (ativa) ----
+  const activeCard = document.createElement("button");
+  activeCard.type = "button";
+  activeCard.className = "category-card";
+
+  const activeIllustration = document.createElement("div");
+  activeIllustration.className = "category-illustration category-illustration--greetings";
+  activeIllustration.innerHTML = `
+    <div class="category-bubble">Hello!</div>
+    <div class="category-illustration-icon">${Icons.message}</div>
+  `;
+  activeCard.appendChild(activeIllustration);
+
+  const activeTitle = document.createElement("h3");
+  activeTitle.className = "category-title";
+  activeTitle.textContent = "Saudações e frases essenciais";
+  activeCard.appendChild(activeTitle);
+
+  const activeDesc = document.createElement("p");
+  activeDesc.className = "category-desc";
+  activeDesc.textContent = "Frases básicas para cumprimentar, se apresentar e se comunicar no dia a dia.";
+  activeCard.appendChild(activeDesc);
+
+  const progressTrack = document.createElement("div");
+  progressTrack.className = "category-progress-track";
+  const progressFill = document.createElement("div");
+  progressFill.className = "category-progress-fill";
+  progressFill.style.width = `${percent}%`;
+  progressTrack.appendChild(progressFill);
+  activeCard.appendChild(progressTrack);
+
+  const statsRow = document.createElement("div");
+  statsRow.className = "category-stats-row";
+  statsRow.innerHTML = `
+    <span class="category-stats-icon">${Icons.cards}</span>
+    <span class="category-stats-text">
+      <span class="category-stats-label">Cartões estudados</span>
+      <span class="category-stats-value">${totalLearned} / ${totalAssigned}</span>
+    </span>
+    <span class="category-stats-percent">${percent}%</span>
+  `;
+  activeCard.appendChild(statsRow);
+
+  activeCard.addEventListener("click", () => {
+    setSubtitle(SUBTITLE_LEARNING);
+    learnArea.classList.remove("categories-area");
+    loadQueue();
+  });
+  grid.appendChild(activeCard);
+
+  // ---- Categoria 2: Verbos essenciais (em breve) ----
+  const lockedCard = document.createElement("div");
+  lockedCard.className = "category-card category-card--locked";
+  lockedCard.innerHTML = `
+    <div class="category-illustration category-illustration--verbs">
+      <div class="category-illustration-icon">${Icons.bookOpen}</div>
+    </div>
+    <h3 class="category-title">Verbos essenciais</h3>
+    <p class="category-desc">Os verbos mais importantes para começar a formar frases em inglês.</p>
+    <div class="category-soon-badge">${Icons.lock}<span>Em breve</span></div>
+  `;
+  grid.appendChild(lockedCard);
+
+  // ---- Demais categorias: placeholders "Em breve" ----
+  for (let i = 0; i < 4; i++) {
+    const empty = document.createElement("div");
+    empty.className = "category-card category-card--empty";
+    empty.innerHTML = `<div class="category-empty-plus">${Icons.plus}</div><span>Em breve</span>`;
+    grid.appendChild(empty);
+  }
+
+  learnArea.appendChild(grid);
+}
+
+async function loadCategoriesScreen() {
+  learnArea.classList.add("categories-area");
+  learnArea.innerHTML = '<div class="skeleton">Carregando suas categorias...</div>';
+
+  try {
+    const data = await apiFetch("/vocab-words/learn/next");
+    renderCategories(data);
+  } catch (err) {
+    learnArea.classList.remove("categories-area");
+    if (err.status === 403) {
+      renderNotStudent();
+    } else {
+      renderError(err.message, loadCategoriesScreen);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Card de aprendizado
 // ---------------------------------------------------------------------------
+
+// Header do card (badge de idioma + contador), com um link pra voltar
+// à tela de categorias sem sair da página.
+function buildLearnHeader(counterText) {
+  const header = document.createElement("div");
+  header.className = "learn-card-header";
+
+  const left = document.createElement("div");
+  left.className = "learn-header-left";
+
+  const backBtn = document.createElement("button");
+  backBtn.type = "button";
+  backBtn.className = "learn-back-btn";
+  backBtn.innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H4.5"/><path d="M10.5 5.5 4 12l6.5 6.5"/></svg><span>Categorias</span>';
+  backBtn.addEventListener("click", () => loadCategoriesScreen());
+  left.appendChild(backBtn);
+  left.appendChild(FlashcardPronounce.buildLangBadge(studentLanguage(currentUser)));
+  header.appendChild(left);
+
+  const counter = document.createElement("span");
+  counter.className = "learn-card-counter";
+  counter.textContent = counterText;
+  header.appendChild(counter);
+
+  return header;
+}
 
 function renderCard() {
   const card = session.cards[session.index];
@@ -286,14 +434,7 @@ function renderCard() {
   const cardBox = document.createElement("div");
   cardBox.className = "review-card learn-card";
 
-  const header = document.createElement("div");
-  header.className = "learn-card-header";
-  header.appendChild(FlashcardPronounce.buildLangBadge(studentLanguage(currentUser)));
-  const counter = document.createElement("span");
-  counter.className = "learn-card-counter";
-  counter.textContent = `${session.index + 1} / ${session.cards.length}`;
-  header.appendChild(counter);
-  cardBox.appendChild(header);
+  cardBox.appendChild(buildLearnHeader(`${session.index + 1} / ${session.cards.length}`));
 
   const body = document.createElement("div");
   body.className = "card-body";
@@ -459,14 +600,7 @@ function renderCardBack(cardBox, card, result) {
   const back = document.createElement("div");
   back.className = "learn-card-back";
 
-  const header = document.createElement("div");
-  header.className = "learn-card-header";
-  header.appendChild(FlashcardPronounce.buildLangBadge(studentLanguage(currentUser)));
-  const counter = document.createElement("span");
-  counter.className = "learn-card-counter";
-  counter.textContent = `${session.index + 1} / ${session.cards.length}`;
-  header.appendChild(counter);
-  back.appendChild(header);
+  back.appendChild(buildLearnHeader(`${session.index + 1} / ${session.cards.length}`));
 
   // Conteúdo centralizado do verso, separado do header: assim a
   // bandeirinha do idioma fica fixa no topo do card, e só este bloco
@@ -599,7 +733,7 @@ async function init() {
     return;
   }
 
-  loadQueue();
+  loadCategoriesScreen();
 }
 
 init();
