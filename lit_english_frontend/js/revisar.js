@@ -175,7 +175,10 @@ function shouldShowPronounce(card) {
 }
 
 function listenTextForCard(card) {
-  return card.front;
+  // Sem isso, quando o professor usa o formato "Tópico: frase" no front do
+  // flashcard, o áudio lia o rótulo em voz alta junto com a frase (ex: "Future,
+  // I will go to the store").
+  return splitTopicLabel(card.front).text;
 }
 
 function buildReviewAudioControls(card, body, { listenLabel = "Ouvir novamente" } = {}) {
@@ -672,6 +675,9 @@ async function submitSpeakAnswer(card, getBlob, feedback, submitBtn, getLocked, 
     // errou antes de tentar de novo.
     if (result.score != null) {
       FlashcardPronounce.renderAnalyzerPanel(feedback, {
+        // renderAnalyzerPanel já separa o rótulo de tópico (ex: "Future:")
+        // da frase e mostra os dois: rótulo pequeno em preto acima, frase
+        // normal embaixo — então passamos o texto completo, sem cortar nada.
         phraseText: card.front,
         translationText: card.back,
         pronunciationResult: result,

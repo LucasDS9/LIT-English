@@ -41,6 +41,18 @@ const FlashcardPronounce = (() => {
     ));
   }
 
+  // Flashcards do professor às vezes trazem um rótulo de tópico gramatical
+  // antes da frase, ex: "Future: I will go to the store". Separamos o
+  // rótulo (ex: "Future") pra exibir pequeno e em preto acima, e deixamos
+  // só a frase em si no destaque grande — mesma regra usada em revisar.js
+  // pros modos "virar" e "digitar".
+  function splitTopicLabel(text) {
+    const raw = (text || "").trim();
+    const match = /^([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s\-]{1,29})\s*:\s*(.+)$/s.exec(raw);
+    if (!match) return { label: null, text: raw };
+    return { label: match[1].trim(), text: match[2].trim() };
+  }
+
   function getScoreTier(score) {
     const value = Number(score) || 0;
     for (const tier of SCORE_TIERS) {
@@ -234,7 +246,14 @@ const FlashcardPronounce = (() => {
 
     const phrase = document.createElement("p");
     phrase.className = "pronunciation-phrase";
-    phrase.innerHTML = colorizePhrase(card.word, normalized.wordScores);
+    const wordSplit = splitTopicLabel(card.word);
+    if (wordSplit.label) {
+      const topicLabel = document.createElement("p");
+      topicLabel.className = "pronunciation-topic-label";
+      topicLabel.textContent = wordSplit.label;
+      back.appendChild(topicLabel);
+    }
+    phrase.innerHTML = colorizePhrase(wordSplit.text, normalized.wordScores);
     back.appendChild(phrase);
 
     const divider = document.createElement("div");
@@ -311,7 +330,14 @@ const FlashcardPronounce = (() => {
 
     const phrase = document.createElement("p");
     phrase.className = "pronunciation-phrase";
-    phrase.innerHTML = colorizePhrase(phraseText, normalized.wordScores);
+    const phraseSplit = splitTopicLabel(phraseText);
+    if (phraseSplit.label) {
+      const topicLabel = document.createElement("p");
+      topicLabel.className = "pronunciation-topic-label";
+      topicLabel.textContent = phraseSplit.label;
+      container.appendChild(topicLabel);
+    }
+    phrase.innerHTML = colorizePhrase(phraseSplit.text, normalized.wordScores);
     container.appendChild(phrase);
 
     if (translationText) {

@@ -468,26 +468,35 @@ function renderCardBack(cardBox, card, result) {
   header.appendChild(counter);
   back.appendChild(header);
 
+  // Conteúdo centralizado do verso, separado do header: assim a
+  // bandeirinha do idioma fica fixa no topo do card, e só este bloco
+  // (palavra + resposta + explicação) é centralizado verticalmente no
+  // espaço restante.
+  const content = document.createElement("div");
+  content.className = "learn-card-back-content";
+
   const phrase = document.createElement("p");
   phrase.className = "front-text";
   phrase.textContent = card.word;
-  back.appendChild(phrase);
+  content.appendChild(phrase);
 
   const answer = document.createElement("p");
   answer.className = "learn-back-answer";
   answer.textContent = result.correct_answer;
-  back.appendChild(answer);
+  content.appendChild(answer);
 
   if (result.explanation) {
     const dot = document.createElement("span");
     dot.className = "learn-back-dot";
-    back.appendChild(dot);
+    content.appendChild(dot);
 
     const explanation = document.createElement("p");
     explanation.className = "learn-back-explanation";
     explanation.textContent = result.explanation;
-    back.appendChild(explanation);
+    content.appendChild(explanation);
   }
+
+  back.appendChild(content);
 
   cardBox.appendChild(back);
   appendContinueFab(cardBox, card, result);

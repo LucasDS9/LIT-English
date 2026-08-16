@@ -98,6 +98,14 @@ async function init() {
 
   if (user.role === "professor") { window.location.href = "professor.html"; return; }
 
+  // Alunos de Acesso Especial não têm exercícios: mesma regra usada em
+  // applyAccessRestrictions (api.js), mas checada aqui também porque um
+  // redirecionamento via window.location.href não interrompe a execução
+  // do script — sem este retorno antecipado, loadExercises() ainda roda
+  // e chega a desenhar a tela de exercícios por um instante antes da
+  // navegação para home.html se completar.
+  if (user.access_type === "especial") { window.location.href = "home.html"; return; }
+
   document.getElementById("student-name").textContent = user.name;
   document.getElementById("logout-btn").addEventListener("click", () => Auth.logout());
 

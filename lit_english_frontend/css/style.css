@@ -1482,7 +1482,13 @@ svg {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  /* Antes era "center", o que centralizava verticalmente TODOS os filhos
+     do verso como um único grupo — incluindo o header com a bandeirinha
+     do idioma, que assim descia para o meio do card ao virar. Com
+     "flex-start" o header permanece fixo no topo, e quem centraliza
+     verticalmente o restante do conteúdo é o .learn-card-back-content
+     logo abaixo (que ocupa o espaço restante via flex: 1). */
+  justify-content: flex-start;
   gap: 18px;
   text-align: center;
   animation: cardFlipReveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -1497,6 +1503,18 @@ svg {
   margin-bottom: 4px;
   align-self: flex-start;
   width: calc(100% + 56px);
+  flex-shrink: 0;
+}
+
+.learn-card-back-content {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  text-align: center;
 }
 
 .learn-back-answer {
@@ -1629,6 +1647,15 @@ svg {
   animation: cardFlipReveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
   padding-right: 56px;
   box-sizing: border-box;
+}
+
+.pronunciation-topic-label {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .pronunciation-phrase {
