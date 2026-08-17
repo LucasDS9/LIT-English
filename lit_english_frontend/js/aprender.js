@@ -42,6 +42,7 @@ document.getElementById("logout-btn").addEventListener("click", () => {
 // ---------------------------------------------------------------------------
 
 const session = {
+  category: "saudacoes",
   cards: [],
   index: 0,
   answered: false,
@@ -292,37 +293,83 @@ function renderError(message, retryFn) {
 // demais aparecem como "Em breve" — vêm depois.
 // ---------------------------------------------------------------------------
 
-function renderCategories(data) {
-  setSubtitle(SUBTITLE_CATEGORIES);
-  learnArea.innerHTML = "";
-  learnArea.classList.add("categories-area");
+const CATEGORY_META = {
+  saudacoes: {
+    title: "Saudações e frases essenciais",
+    desc: "Frases básicas para cumprimentar, se apresentar e se comunicar no dia a dia.",
+    icon: "greetings",
+  },
+  verbos_essenciais_pt1: {
+    title: "Verbos essenciais — Parte 1",
+    desc: "Os verbos mais importantes para começar a formar frases em inglês.",
+    icon: "verbs",
+  },
+  verbos_essenciais_pt2: {
+    title: "Verbos essenciais — Parte 2",
+    desc: "Continue aprendendo verbos e chunks essenciais para se comunicar.",
+    icon: "verbs",
+  },
+  pronomes: {
+    title: "Pronomes essenciais",
+    desc: "Pronomes que você precisa dominar para montar frases naturalmente.",
+    icon: "pronouns",
+  },
+  verbos_pt3: {
+    title: "Outras expressões e verbos",
+    desc: "Mais expressões e verbos para ampliar seu repertório em inglês.",
+    icon: "expressions",
+  },
+};
 
-  const totalAssigned = data.total_assigned || 0;
-  const totalLearned = Math.min(data.total_learned || 0, totalAssigned);
+const CATEGORY_ICON = {
+  verbs: Icons.bookOpen,
+  pronouns: Icons.user,
+  expressions: Icons.sparkles || Icons.bookOpen,
+};
+
+function categoryMeta(category) {
+  return CATEGORY_META[category] || {
+    title: category.replaceAll("_", " "),
+    desc: "Vocabulário para ampliar seu inglês.",
+    icon: "default",
+  };
+}
+
+function buildCategoryIllustration(category) {
+  const meta = categoryMeta(category);
+  const illustration = document.createElement("div");
+  illustration.className = `category-illustration category-illustration--${meta.icon}`;
+
+  if (category === "saudacoes") {
+    illustration.innerHTML = `<img src="img/category-saudacoes-v2.png" width="385" height="360" alt="Duas pessoas se cumprimentando em inglês" class="category-illustration-img" />`;
+  } else {
+    illustration.innerHTML = `<div class="category-illustration-icon">${CATEGORY_ICON[meta.icon] || Icons.bookOpen}</div>`;
+  }
+  return illustration;
+}
+
+function buildCategoryCard(item) {
+  const category = item.category;
+  const meta = categoryMeta(category);
+  const totalAssigned = item.total_assigned || 0;
+  const totalLearned = Math.min(item.total_learned || 0, totalAssigned);
   const percent = totalAssigned > 0 ? Math.round((totalLearned / totalAssigned) * 100) : 0;
 
-  const grid = document.createElement("div");
-  grid.className = "categories-grid";
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = "category-card";
 
-  // ---- Categoria 1: Saudações e frases essenciais (ativa) ----
-  const activeCard = document.createElement("button");
-  activeCard.type = "button";
-  activeCard.className = "category-card";
+  card.appendChild(buildCategoryIllustration(category));
 
-  const activeIllustration = document.createElement("div");
-  activeIllustration.className = "category-illustration category-illustration--greetings";
-  activeIllustration.innerHTML = `<img src="img/category-saudacoes-v2.png" width="385" height="360" alt="Duas pessoas se cumprimentando em inglês" class="category-illustration-img" />`;
-  activeCard.appendChild(activeIllustration);
+  const title = document.createElement("h3");
+  title.className = "category-title";
+  title.textContent = meta.title;
+  card.appendChild(title);
 
-  const activeTitle = document.createElement("h3");
-  activeTitle.className = "category-title";
-  activeTitle.textContent = "Saudações e frases essenciais";
-  activeCard.appendChild(activeTitle);
-
-  const activeDesc = document.createElement("p");
-  activeDesc.className = "category-desc";
-  activeDesc.textContent = "Frases básicas para cumprimentar, se apresentar e se comunicar no dia a dia.";
-  activeCard.appendChild(activeDesc);
+  const desc = document.createElement("p");
+  desc.className = "category-desc";
+  desc.textContent = meta.desc;
+  card.appendChild(desc);
 
   const progressTrack = document.createElement("div");
   progressTrack.className = "category-progress-track";
@@ -330,7 +377,7 @@ function renderCategories(data) {
   progressFill.className = "category-progress-fill";
   progressFill.style.width = `${percent}%`;
   progressTrack.appendChild(progressFill);
-  activeCard.appendChild(progressTrack);
+  card.appendChild(progressTrack);
 
   const statsRow = document.createElement("div");
   statsRow.className = "category-stats-row";
@@ -342,35 +389,29 @@ function renderCategories(data) {
     </span>
     <span class="category-stats-percent">${percent}%</span>
   `;
-  activeCard.appendChild(statsRow);
+  card.appendChild(statsRow);
 
-  activeCard.addEventListener("click", () => {
+  card.addEventListener("click", () => {
+    session.category = category;
     setSubtitle(SUBTITLE_LEARNING);
     learnArea.classList.remove("categories-area");
-    loadQueue();
+    loadQueue(category);
   });
-  grid.appendChild(activeCard);
 
-  // ---- Categoria 2: Verbos essenciais (em breve) ----
-  const lockedCard = document.createElement("div");
-  lockedCard.className = "category-card category-card--locked";
-  lockedCard.innerHTML = `
-    <div class="category-illustration category-illustration--verbs">
-      <div class="category-illustration-icon">${Icons.bookOpen}</div>
-    </div>
-    <h3 class="category-title">Verbos essenciais</h3>
-    <p class="category-desc">Os verbos mais importantes para começar a formar frases em inglês.</p>
-    <div class="category-soon-badge">${Icons.lock}<span>Em breve</span></div>
-  `;
-  grid.appendChild(lockedCard);
+  return card;
+}
 
-  // ---- Demais categorias: placeholders "Em breve" ----
-  for (let i = 0; i < 4; i++) {
-    const empty = document.createElement("div");
-    empty.className = "category-card category-card--empty";
-    empty.innerHTML = `<div class="category-empty-plus">${Icons.plus}</div><span>Em breve</span>`;
-    grid.appendChild(empty);
-  }
+function renderCategories(data) {
+  setSubtitle(SUBTITLE_CATEGORIES);
+  learnArea.innerHTML = "";
+  learnArea.classList.add("categories-area");
+
+  const grid = document.createElement("div");
+  grid.className = "categories-grid";
+
+  data.forEach((item) => {
+    grid.appendChild(buildCategoryCard(item));
+  });
 
   learnArea.appendChild(grid);
 }
@@ -380,7 +421,7 @@ async function loadCategoriesScreen() {
   learnArea.innerHTML = '<div class="skeleton">Carregando suas categorias...</div>';
 
   try {
-    const data = await apiFetch("/vocab-words/learn/next");
+    const data = await apiFetch("/vocab-words/learn/categories");
     renderCategories(data);
   } catch (err) {
     learnArea.classList.remove("categories-area");
@@ -674,11 +715,12 @@ async function selectOption(card, selectedOption, btn, optionsGrid) {
   }
 }
 
-async function loadQueue() {
+async function loadQueue(category = session.category) {
+  session.category = category || "saudacoes";
   learnArea.innerHTML = '<div class="skeleton">Carregando suas palavras...</div>';
 
   try {
-    const data = await apiFetch("/vocab-words/learn/next");
+    const data = await apiFetch(`/vocab-words/learn/next?category=${encodeURIComponent(session.category)}`);
 
     session.cards = data.cards;
     session.index = 0;
@@ -694,7 +736,7 @@ async function loadQueue() {
     if (err.status === 403) {
       renderNotStudent();
     } else {
-      renderError(err.message);
+      renderError(err.message, () => loadQueue(session.category));
     }
   }
 }
