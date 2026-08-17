@@ -293,25 +293,25 @@ const CATEGORY_META = {
   saudacoes: {
     title: "Saudações e frases essenciais",
     desc: "Frases básicas para cumprimentar, se apresentar e se comunicar no dia a dia.",
-    image: "img/category-saudacoes-v3.png",
+    image: "img/category-saudacoes-template.png",
     alt: "Duas pessoas se cumprimentando em inglês",
   },
   verbos_essenciais_pt1: {
     title: "Verbos essenciais — Parte 1",
     desc: "Os verbos mais importantes para começar a formar frases em inglês.",
-    image: "img/category-verbos-pt1.png",
+    image: "img/category-verbos-pt1-template.png",
     alt: "Pessoa aprendendo verbos essenciais em inglês",
   },
   verbos_essenciais_pt2: {
     title: "Verbos essenciais — Parte 2",
     desc: "Continue aprendendo verbos e chunks essenciais para se comunicar.",
-    image: "img/category-verbos-pt2.png",
+    image: "img/category-verbos-pt2-template.png",
     alt: "Pessoa estudando verbos essenciais em inglês",
   },
   pronomes: {
     title: "Pronomes essenciais",
     desc: "Pronomes que você precisa dominar para montar frases naturalmente.",
-    image: "img/category-pronomes.png",
+    image: "img/category-pronomes-template.png",
     alt: "Pessoa estudando inglês",
   },
 };

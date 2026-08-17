@@ -3311,10 +3311,10 @@ body.reader-fs-open {
 .categories-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px;
+  gap: 16px 22px;
   width: 100%;
-  max-width: none;
-  margin: 0;
+  max-width: 964px;
+  margin: 0 auto;
   align-items: start;
 }
 
@@ -3324,12 +3324,11 @@ body.reader-fs-open {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  min-height: 520px;
-  width: 100%;
+  min-height: 456px;
   background: #fff;
   border: 1px solid #E8E8E8;
   border-radius: 18px;
-  padding: 30px 32px 26px;
+  padding: 24px 26px 22px;
   font-family: inherit;
   cursor: pointer;
   box-shadow: 0 3px 12px rgba(20, 20, 30, 0.045);
@@ -3348,8 +3347,8 @@ button.category-card:active {
 
 .category-illustration {
   position: relative;
-  width: 300px;
-  height: 225px;
+  width: 220px;
+  height: 165px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3378,8 +3377,8 @@ button.category-card:active {
 .category-illustration-img {
   position: relative;
   z-index: 1;
-  width: 300px;
-  height: 225px;
+  width: 220px;
+  height: 165px;
   object-fit: contain;
   border-radius: 0;
   image-rendering: auto;
@@ -3387,20 +3386,20 @@ button.category-card:active {
 }
 
 .category-title {
-  font-size: 22px;
+  font-size: 19px;
   line-height: 1.25;
   font-weight: 800;
   color: var(--primary);
   margin: 0 0 10px;
-  max-width: 340px;
+  max-width: 270px;
 }
 
 .category-desc {
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.55;
   color: #33363B;
-  margin: 0 0 24px;
-  max-width: 360px;
+  margin: 0 0 22px;
+  max-width: 275px;
 }
 
 .category-progress-track {
@@ -3604,3 +3603,28 @@ button.category-card:active {
     display: none;
   }
 }
+
+/* LIT category artwork: same square reference format, title embedded in the artwork. */
+.categories-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 1180px;
+  gap: 22px;
+}
+.category-card {
+  min-height: 0;
+  padding: 18px 20px 20px;
+}
+.category-illustration {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1600 / 1276;
+  margin: 0 0 8px;
+}
+.category-illustration-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+.category-title { display: none; }
+.category-desc { margin-top: 0; }
