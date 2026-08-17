@@ -311,10 +311,7 @@ function renderCategories(data) {
 
   const activeIllustration = document.createElement("div");
   activeIllustration.className = "category-illustration category-illustration--greetings";
-  activeIllustration.innerHTML = `
-    <div class="category-bubble">Hello!</div>
-    <div class="category-illustration-icon">${Icons.message}</div>
-  `;
+  activeIllustration.innerHTML = `<img src="img/category-saudacoes.png" alt="Duas pessoas se cumprimentando em inglês" class="category-illustration-img" />`;
   activeCard.appendChild(activeIllustration);
 
   const activeTitle = document.createElement("h3");
@@ -399,24 +396,12 @@ async function loadCategoriesScreen() {
 // Card de aprendizado
 // ---------------------------------------------------------------------------
 
-// Header do card (badge de idioma + contador), com um link pra voltar
-// à tela de categorias sem sair da página.
+// Header do card (badge de idioma + contador).
 function buildLearnHeader(counterText) {
   const header = document.createElement("div");
   header.className = "learn-card-header";
 
-  const left = document.createElement("div");
-  left.className = "learn-header-left";
-
-  const backBtn = document.createElement("button");
-  backBtn.type = "button";
-  backBtn.className = "learn-back-btn";
-  backBtn.innerHTML =
-    '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H4.5"/><path d="M10.5 5.5 4 12l6.5 6.5"/></svg><span>Categorias</span>';
-  backBtn.addEventListener("click", () => loadCategoriesScreen());
-  left.appendChild(backBtn);
-  left.appendChild(FlashcardPronounce.buildLangBadge(studentLanguage(currentUser)));
-  header.appendChild(left);
+  header.appendChild(FlashcardPronounce.buildLangBadge(studentLanguage(currentUser)));
 
   const counter = document.createElement("span");
   counter.className = "learn-card-counter";
@@ -426,10 +411,24 @@ function buildLearnHeader(counterText) {
   return header;
 }
 
+// Botão "Voltar", fora do card, pra sair da sessão de flashcards e
+// retornar à tela de categorias.
+function buildBackToCategoriesBtn() {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "learn-back-outside-btn";
+  btn.innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12H4.5"/><path d="M10.5 5.5 4 12l6.5 6.5"/></svg><span>Voltar</span>';
+  btn.addEventListener("click", () => loadCategoriesScreen());
+  return btn;
+}
+
 function renderCard() {
   const card = session.cards[session.index];
   session.answered = false;
   learnArea.innerHTML = "";
+
+  learnArea.appendChild(buildBackToCategoriesBtn());
 
   const cardBox = document.createElement("div");
   cardBox.className = "review-card learn-card";
@@ -569,6 +568,7 @@ function renderCardBack(cardBox, card, result) {
 
   if (pronunciationResult) {
     learnArea.innerHTML = "";
+    learnArea.appendChild(buildBackToCategoriesBtn());
 
     const view = document.createElement("div");
     view.className = "learn-pronunciation-view";

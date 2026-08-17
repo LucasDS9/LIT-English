@@ -331,8 +331,16 @@ def get_learn_queue(
       2) palavras erradas anteriormente (sem primeiro acerto) — aparecem
          depois das novas; o frontend também pode recolocá-las ao fim da
          sessão atual quando o aluno erra de novo.
+
+    Só entram palavras da língua-alvo do próprio aluno (`student_language`).
+    Sem esse filtro, um aluno com palavras atribuídas em mais de uma língua
+    (ex.: dados de teste com Inglês, Italiano, Francês etc.) via um único
+    `student_id` acabava puxando a fila e as contagens de TODAS as línguas
+    misturadas — inflando o total exibido bem além do que existe na
+    categoria em questão.
     """
     _require_student(student)
+    language = student_language(student)
 
     assigned_subquery = db.query(VocabWordAssignment.word_id).filter(
         VocabWordAssignment.student_id == student.id
@@ -344,6 +352,7 @@ def get_learn_queue(
     new_words = (
         db.query(VocabWord)
         .filter(VocabWord.id.in_(assigned_subquery))
+        .filter(VocabWord.language == language)
         .filter(~VocabWord.id.in_(attempted_subquery))
         .order_by(VocabWord.created_at.asc())
         .limit(NEW_WORDS_PER_CYCLE)
@@ -356,6 +365,7 @@ def get_learn_queue(
         .join(VocabWordProgress, VocabWordProgress.word_id == VocabWord.id)
         .filter(VocabWordProgress.student_id == student.id)
         .filter(VocabWordProgress.first_correct_at.is_(None))
+        .filter(VocabWord.language == language)
         .filter(~VocabWord.id.in_(already_in_cycle_ids))
         .order_by(VocabWordProgress.last_reviewed.asc())
         .all()
@@ -374,14 +384,22 @@ def get_learn_queue(
         for w in cycle_words
     ]
 
-    total_assigned = db.query(VocabWordAssignment).filter(
-        VocabWordAssignment.student_id == student.id
-    ).count()
+    total_assigned = (
+        db.query(VocabWordAssignment)
+        .join(VocabWord, VocabWord.id == VocabWordAssignment.word_id)
+        .filter(
+            VocabWordAssignment.student_id == student.id,
+            VocabWord.language == language,
+        )
+        .count()
+    )
     total_learned = (
         db.query(VocabWordProgress)
+        .join(VocabWord, VocabWord.id == VocabWordProgress.word_id)
         .filter(
             VocabWordProgress.student_id == student.id,
             VocabWordProgress.first_correct_at.isnot(None),
+            VocabWord.language == language,
         )
         .count()
     )
