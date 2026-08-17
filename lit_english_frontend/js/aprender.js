@@ -399,8 +399,26 @@ function renderCategories(data) {
   const grid = document.createElement("div");
   grid.className = "categories-grid";
 
+  // Mantém a ordem visual fixa da tela: Saudações → Verbos PT1 → Verbos PT2 → Pronomes.
+  // O backend pode devolver as categorias em outra ordem dependendo do banco.
+  const order = [
+    "saudacoes",
+    "verbos_essenciais_pt1",
+    "verbos_essenciais_pt2",
+    "pronomes",
+  ];
+  const byCategory = new Map(data.map((item) => [item.category, item]));
+
+  order.forEach((category) => {
+    const item = byCategory.get(category);
+    if (item) grid.appendChild(buildCategoryCard(item));
+  });
+
+  // Mantém categorias futuras sem quebrar a tela, depois das quatro principais.
   data.forEach((item) => {
-    grid.appendChild(buildCategoryCard(item));
+    if (!order.includes(item.category)) {
+      grid.appendChild(buildCategoryCard(item));
+    }
   });
 
   learnArea.appendChild(grid);

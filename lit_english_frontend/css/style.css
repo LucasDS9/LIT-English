@@ -3306,12 +3306,16 @@ body.reader-fs-open {
   width: 100%;
 }
 
+/* Layout igual à referência: conteúdo compacto, 3 cards na primeira linha
+   e o quarto card iniciando a segunda linha pela esquerda. */
 .categories-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 30px;
+  gap: 16px 22px;
   width: 100%;
-  align-items: stretch;
+  max-width: 964px;
+  margin: 0 auto;
+  align-items: start;
 }
 
 .category-card {
@@ -3320,7 +3324,7 @@ body.reader-fs-open {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  min-height: 435px;
+  min-height: 456px;
   background: #fff;
   border: 1px solid #E8E8E8;
   border-radius: 18px;
@@ -3341,11 +3345,10 @@ button.category-card:active {
   transform: translateY(-1px);
 }
 
-/* Área da ilustração: sem círculo/crop, preservando a composição original. */
 .category-illustration {
   position: relative;
   width: 220px;
-  height: 170px;
+  height: 165px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3355,23 +3358,7 @@ button.category-card:active {
 
 .category-illustration::before,
 .category-illustration::after {
-  content: "";
-  position: absolute;
-  width: 112px;
-  height: 82px;
-  border: 1.5px solid #6F161B;
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 3px 7px rgba(40, 15, 20, 0.06);
-  z-index: 0;
-}
-
-.category-illustration::before {
-  transform: translate(-16px, 5px) rotate(-8deg);
-}
-
-.category-illustration::after {
-  transform: translate(15px, 5px) rotate(7deg);
+  content: none;
 }
 
 .category-illustration-icon {
@@ -3390,8 +3377,8 @@ button.category-card:active {
 .category-illustration-img {
   position: relative;
   z-index: 1;
-  width: 185px;
-  height: 155px;
+  width: 220px;
+  height: 165px;
   object-fit: contain;
   border-radius: 0;
   image-rendering: auto;
