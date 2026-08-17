@@ -3311,10 +3311,10 @@ body.reader-fs-open {
 .categories-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px 22px;
+  gap: 22px;
   width: 100%;
-  max-width: 964px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   align-items: start;
 }
 
@@ -3324,11 +3324,12 @@ body.reader-fs-open {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  min-height: 456px;
+  min-height: 520px;
+  width: 100%;
   background: #fff;
   border: 1px solid #E8E8E8;
   border-radius: 18px;
-  padding: 24px 26px 22px;
+  padding: 30px 32px 26px;
   font-family: inherit;
   cursor: pointer;
   box-shadow: 0 3px 12px rgba(20, 20, 30, 0.045);
@@ -3347,8 +3348,8 @@ button.category-card:active {
 
 .category-illustration {
   position: relative;
-  width: 220px;
-  height: 165px;
+  width: 300px;
+  height: 225px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3377,8 +3378,8 @@ button.category-card:active {
 .category-illustration-img {
   position: relative;
   z-index: 1;
-  width: 220px;
-  height: 165px;
+  width: 300px;
+  height: 225px;
   object-fit: contain;
   border-radius: 0;
   image-rendering: auto;
@@ -3386,20 +3387,20 @@ button.category-card:active {
 }
 
 .category-title {
-  font-size: 19px;
+  font-size: 22px;
   line-height: 1.25;
   font-weight: 800;
   color: var(--primary);
   margin: 0 0 10px;
-  max-width: 270px;
+  max-width: 340px;
 }
 
 .category-desc {
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.55;
   color: #33363B;
-  margin: 0 0 22px;
-  max-width: 275px;
+  margin: 0 0 24px;
+  max-width: 360px;
 }
 
 .category-progress-track {
