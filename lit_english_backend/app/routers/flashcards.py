@@ -110,26 +110,18 @@ def _check_typed_answer(
     flashcard: Flashcard,
 ) -> dict:
     """
-    Verifica resposta digitada. Inglês mantém comparação simples; francês/
-    italiano usam normalização básica + IA semântica.
+    Verifica resposta digitada em português.
+    Todos os idiomas-alvo usam comparação semântica com IA, para aceitar
+    traduções naturais equivalentes (não apenas a tradução cadastrada).
     """
     lang = student_language(student)
-    if lang in ("italiano", "frances"):
-        return judge_flashcard_answer(
-            expected=expected,
-            given=given,
-            target_language=lang,
-            answer_language="português",
-            context=flashcard.front,
-        )
-
-    is_correct = _normalize_answer(given) == _normalize_answer(expected)
-    return {
-        "correct": is_correct,
-        "confidence": 1.0,
-        "reason": None,
-        "ai_used": False,
-    }
+    return judge_flashcard_answer(
+        expected=expected,
+        given=given,
+        target_language=lang,
+        answer_language="português",
+        context=flashcard.front,
+    )
 
 
 def _require_assigned_flashcard(flashcard_id: int, student_id: int, db: Session) -> Flashcard:

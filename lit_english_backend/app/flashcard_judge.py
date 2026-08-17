@@ -1,12 +1,10 @@
 """
 Julgamento semântico de respostas de flashcards — francês e italiano.
 
-Usado por app/routers/flashcards.py para TYPE_PT e TYPE_TARGET quando o aluno
-estuda italiano ou francês. Complementa a normalização básica (mesma ideia do
-inglês em ai_judge.py) com equivalência semântica via Groq.
-
-Inglês continua com comparação simples (strip + lower) — este módulo não é
-chamado para alunos do curso normal.
+Usado por app/routers/flashcards.py para TYPE_PT e TYPE_TARGET.
+Complementa a normalização básica com equivalência semântica via Groq, inclusive
+para inglês. Assim, TYPE_PT aceita traduções naturais equivalentes em português,
+em vez de exigir uma única tradução literal.
 """
 import json
 import logging
@@ -40,8 +38,8 @@ _SYSTEM_PROMPT = """Você é um corretor de flashcards de idiomas para alunos br
 Recebe um JSON com:
 - "expected": resposta esperada (referência correta).
 - "given": resposta do aluno.
-- "answer_language": idioma em que a resposta do aluno deveria estar (ex.: "português", "italiano", "francês").
-- "target_language": língua-alvo do curso (ex.: "italiano", "francês").
+- "answer_language": idioma em que a resposta do aluno deveria estar (normalmente "português").
+- "target_language": língua-alvo do curso (ex.: "inglês", "italiano", "francês").
 - "context": frase original ou tradução de referência (pode estar vazio).
 
 Decida se "given" é ACEITÁVEL em relação a "expected".
@@ -57,12 +55,17 @@ NÍVEL 2 — EQUIVALÊNCIA SEMÂNTICA (aceitar):
 - palavras diferentes, mas mesmo significado prático para um falante nativo.
 
 NÃO aceitar:
-- respostas apenas relacionadas semanticamente, mas com significado diferente;
-- traduções que omitam informação essencial;
+- respostas apenas relacionadas semanticamente, mas com significado realmente diferente;
+- traduções que omitam informação essencial ou mudam a intenção da frase;
 - respostas em idioma errado;
 - respostas vazias ou incompreensíveis.
 
-Seja CONSERVADOR: em dúvida real, marque como incorreto.
+IMPORTANTE: NÃO seja excessivamente rígido. O objetivo é avaliar se o aluno entendeu e expressou a mesma ideia, não se ele reproduziu uma única tradução "oficial".
+Aceite equivalentes naturais que um professor de inglês aceitaria em uma conversa real.
+Exemplo: "See you later" pode ser "te vejo mais tarde", "até mais tarde", "a gente se vê mais tarde" e outras formas naturais com o mesmo sentido.
+Diferenças de registro, escolha de palavras, artigos, ordem natural das palavras e pequenas paráfrases não devem causar erro quando a mensagem e a intenção permanecem as mesmas.
+Se houver mais de uma tradução natural possível, não penalize o aluno por escolher outra opção correta.
+Só marque como incorreto quando houver mudança relevante de sentido, informação essencial ausente, idioma errado ou resposta sem sentido.
 
 Responda APENAS com JSON válido, sem texto extra:
 {"correct": true ou false, "confidence": número entre 0 e 1, "reason": "explicação curta em português"}
