@@ -2695,16 +2695,58 @@ for _i, _item in enumerate(WORDS):
 def _fetch_existing_words(api_base_url: str, headers: dict) -> dict:
     """
     Busca todas as palavras já cadastradas (GET /vocab-words, visão do
-    professor) e devolve um dicionário {(word_lower, language, translation_lower): word_dict},
-    pra decidir rapidamente se cada item de WORDS já existe ou não.
+    professor) e devolve um dicionário {(word_lower, language): [word_dict, ...]},
+    agrupando por palavra+língua (SEM a tradução na chave).
+
+    Por quê: se a tradução entrar na chave de busca, editar a tradução de
+    uma palavra que já existe (ex.: melhorar "Boa noite" -> "Boa noite (ao
+    chegar)") faz o script deixar de "achar" o registro antigo e CRIAR um
+    novo — a palavra antiga fica órfã no banco pra sempre, ainda atribuída
+    aos alunos, inflando a contagem e nunca mais sendo atualizada. Foi
+    isso que aconteceu com boa parte da Parte 1 e com toda a Parte 2 (essa
+    ficou presa com category="saudacoes" porque a run que corrigiu a
+    categoria não achou o registro antigo pra atualizar).
+
+    Agrupar só por (word, language) resolve o caso comum (uma palavra, uma
+    tradução, que evolui com o tempo) sem perder o caso raro de verdade
+    (uma mesma palavra com DOIS sentidos diferentes, tipo "Ciao" em
+    italiano = Oi/Tchau) — esse caso é resolvido em _match_existing, que
+    usa a tradução só como desempate quando há mais de um candidato.
     """
     resp = requests.get(f"{api_base_url}/vocab-words", headers=headers)
     resp.raise_for_status()
-    existing = {}
+    existing_by_word: dict[tuple[str, str], list[dict]] = {}
     for w in resp.json():
-        key = (w["word"].strip().lower(), w["language"].strip().lower(), w["translation"].strip().lower())
-        existing[key] = w
-    return existing
+        key = (w["word"].strip().lower(), w["language"].strip().lower())
+        existing_by_word.setdefault(key, []).append(w)
+    return existing_by_word
+
+
+def _match_existing(existing_by_word: dict, item: dict, language: str) -> dict | None:
+    """
+    Acha o registro existente (se houver) que corresponde a este item de
+    WORDS, pra decidir CRIAR vs ATUALIZAR.
+
+    - 0 candidatos com essa palavra+língua        -> None (cria).
+    - 1 candidato                                  -> é ele, mesmo que a
+      tradução tenha mudado (é uma atualização de tradução, não uma
+      palavra nova).
+    - 2+ candidatos (mesma palavra, sentidos
+      diferentes, ex. "Ciao")                      -> tenta achar o que
+      já tem a MESMA tradução (pra não misturar sentidos); se nenhum
+      bater, trata como palavra nova de fato (cria mais um sentido).
+    """
+    key = (item["word"].strip().lower(), language.strip().lower())
+    candidates = existing_by_word.get(key, [])
+    if not candidates:
+        return None
+    if len(candidates) == 1:
+        return candidates[0]
+    target_translation = item["translation"].strip().lower()
+    for c in candidates:
+        if c["translation"].strip().lower() == target_translation:
+            return c
+    return None
 
 
 def _norm(value: str | None) -> str | None:
@@ -2761,8 +2803,7 @@ def main():
     summary = {"Criado": 0, "Atualizado": 0, "Inalterado": 0}
 
     for item in WORDS:
-        key = (item["word"].strip().lower(), LANGUAGE.strip().lower(), item["translation"].strip().lower())
-        existing = existing_words.get(key)
+        existing = _match_existing(existing_words, item, LANGUAGE)
 
         # Sem `student_ids`: na CRIAÇÃO, a API atribui automaticamente a
         # TODOS os alunos aprovados agora (e aos aprovados depois) que
