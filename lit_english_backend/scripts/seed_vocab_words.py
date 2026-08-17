@@ -2676,6 +2676,21 @@ WORDS = [
     },
 ]
 
+# ---------------------------------------------------------------------------
+# Categoria de cada item, pra tela "Aprender" (frontend) conseguir separar
+# a fila por categoria: os primeiros 200 itens são a Parte 1 (Saudações e
+# frases essenciais / sobrevivência linguística, A1); o restante é a Parte 2
+# (Chunks e verbos essenciais). O índice 200 é o começo comprovado da Parte 2
+# — primeiro item é o chunk "I need...".
+# ---------------------------------------------------------------------------
+PART_1_SIZE = 200
+assert WORDS[PART_1_SIZE]["word"] == "I need...", (
+    "A lista WORDS mudou — o corte da Parte 1 (índice 200) não bate mais "
+    "com o começo da Parte 2 ('I need...'). Ajuste PART_1_SIZE."
+)
+for _i, _item in enumerate(WORDS):
+    _item["category"] = "saudacoes" if _i < PART_1_SIZE else "verbos"
+
 
 def _fetch_existing_words(api_base_url: str, headers: dict) -> dict:
     """
@@ -2720,6 +2735,8 @@ def _needs_update(existing: dict, item: dict, language: str) -> bool:
     if existing_distractors != item_distractors:
         return True
     if existing["language"].strip().lower() != language.strip().lower():
+        return True
+    if existing.get("category", "saudacoes").strip().lower() != item.get("category", "saudacoes").strip().lower():
         return True
     return False
 

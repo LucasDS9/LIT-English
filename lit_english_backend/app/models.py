@@ -400,6 +400,11 @@ class VocabWord(Base):
     # aluno do curso normal (access_type=padrao) é sempre "ingles"; aluno de
     # Acesso Especial usa o target_language escolhido no cadastro.
     language = Column(String, nullable=False, default="ingles", server_default="ingles")
+    # A que categoria da tela "Aprender" essa palavra pertence (ex.:
+    # "saudacoes", "verbos"). Usada pra filtrar a fila de aprendizado por
+    # categoria — sem isso, TODO o banco de palavras do aluno (todas as
+    # categorias juntas) contava como se fosse uma categoria só.
+    category = Column(String, nullable=False, default="saudacoes", server_default="saudacoes")
     # Nem toda palavra tem uma frase de exemplo (ex.: saudações, que usam
     # `tip` no lugar) — por isso é opcional.
     example_sentence = Column(Text, nullable=True)         # ex.: "I will learn English."

@@ -311,7 +311,7 @@ function renderCategories(data) {
 
   const activeIllustration = document.createElement("div");
   activeIllustration.className = "category-illustration category-illustration--greetings";
-  activeIllustration.innerHTML = `<img src="img/category-saudacoes.png" alt="Duas pessoas se cumprimentando em inglês" class="category-illustration-img" />`;
+  activeIllustration.innerHTML = `<img src="img/category-saudacoes-v2.png" width="385" height="360" alt="Duas pessoas se cumprimentando em inglês" class="category-illustration-img" />`;
   activeCard.appendChild(activeIllustration);
 
   const activeTitle = document.createElement("h3");

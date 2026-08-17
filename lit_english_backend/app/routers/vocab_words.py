@@ -46,6 +46,12 @@ router = APIRouter(prefix="/vocab-words", tags=["Aprender"])
 # Máximo de palavras novas por sessão de Aprender.
 NEW_WORDS_PER_CYCLE = 15
 
+# A tela "Aprender" (frontend) hoje só tem UMA categoria ativa —
+# "Saudações e frases essenciais" — as demais aparecem como "Em breve".
+# Por isso a fila só puxa essa categoria por enquanto; quando uma nova
+# categoria for ligada no frontend, isso vira um parâmetro da rota.
+ACTIVE_LEARN_CATEGORY = "saudacoes"
+
 # Separador interno dos distratores (a tradução pode conter vírgula, então
 # não usamos vírgula aqui).
 _DISTRACTOR_SEP = "|"
@@ -135,6 +141,7 @@ def _to_word_out(word: VocabWord) -> VocabWordOut:
         distractors=_unpack_distractors(word.distractors),
         explanation=word.explanation,
         language=word.language,
+        category=word.category,
         created_at=word.created_at,
         students=[{"id": s.id, "name": s.name} for s in word.students],
     )
@@ -197,6 +204,7 @@ def create_vocab_word(
     _professor: User = Depends(get_current_professor),
 ):
     language = (data.language or "ingles").strip().lower()
+    category = (data.category or "saudacoes").strip().lower()
     student_ids = _resolve_student_ids(data.student_ids, language, db)
     if not student_ids:
         raise HTTPException(
@@ -215,6 +223,7 @@ def create_vocab_word(
         distractors=_pack_distractors(distractors),
         explanation=(data.explanation or "").strip() or None,
         language=language,
+        category=category,
     )
     db.add(word)
     db.flush()
@@ -276,6 +285,9 @@ def update_vocab_word(
     if data.language is not None:
         word.language = data.language.strip().lower()
 
+    if data.category is not None:
+        word.category = data.category.strip().lower()
+
     if data.student_ids is not None:
         if len(data.student_ids) == 0:
             raise HTTPException(status_code=400, detail="Selecione ao menos um aluno.")
@@ -332,12 +344,13 @@ def get_learn_queue(
          depois das novas; o frontend também pode recolocá-las ao fim da
          sessão atual quando o aluno erra de novo.
 
-    Só entram palavras da língua-alvo do próprio aluno (`student_language`).
-    Sem esse filtro, um aluno com palavras atribuídas em mais de uma língua
-    (ex.: dados de teste com Inglês, Italiano, Francês etc.) via um único
-    `student_id` acabava puxando a fila e as contagens de TODAS as línguas
-    misturadas — inflando o total exibido bem além do que existe na
-    categoria em questão.
+    Só entram palavras da língua-alvo do próprio aluno (`student_language`)
+    E da categoria ativa (`ACTIVE_LEARN_CATEGORY` — hoje "saudacoes", a
+    única categoria ligada no frontend). Sem esses filtros, um aluno com
+    palavras cadastradas em mais de uma língua e/ou categoria (ex.: a
+    Parte 2 "Verbos essenciais", ainda não lançada) acabava puxando a fila
+    e as contagens de TUDO misturado — inflando o total exibido bem além
+    do que existe na categoria em questão.
     """
     _require_student(student)
     language = student_language(student)
@@ -353,6 +366,7 @@ def get_learn_queue(
         db.query(VocabWord)
         .filter(VocabWord.id.in_(assigned_subquery))
         .filter(VocabWord.language == language)
+        .filter(VocabWord.category == ACTIVE_LEARN_CATEGORY)
         .filter(~VocabWord.id.in_(attempted_subquery))
         .order_by(VocabWord.created_at.asc())
         .limit(NEW_WORDS_PER_CYCLE)
@@ -366,6 +380,7 @@ def get_learn_queue(
         .filter(VocabWordProgress.student_id == student.id)
         .filter(VocabWordProgress.first_correct_at.is_(None))
         .filter(VocabWord.language == language)
+        .filter(VocabWord.category == ACTIVE_LEARN_CATEGORY)
         .filter(~VocabWord.id.in_(already_in_cycle_ids))
         .order_by(VocabWordProgress.last_reviewed.asc())
         .all()
@@ -390,6 +405,7 @@ def get_learn_queue(
         .filter(
             VocabWordAssignment.student_id == student.id,
             VocabWord.language == language,
+            VocabWord.category == ACTIVE_LEARN_CATEGORY,
         )
         .count()
     )
@@ -400,6 +416,7 @@ def get_learn_queue(
             VocabWordProgress.student_id == student.id,
             VocabWordProgress.first_correct_at.isnot(None),
             VocabWord.language == language,
+            VocabWord.category == ACTIVE_LEARN_CATEGORY,
         )
         .count()
     )

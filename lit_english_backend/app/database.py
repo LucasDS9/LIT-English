@@ -264,6 +264,17 @@ def run_migrations():
                     if not _col_exists(conn, "vocab_words", "explanation"):
                         conn.execute(text("ALTER TABLE vocab_words ADD COLUMN explanation TEXT"))
                         conn.commit()
+                    # Coluna `category` (nova): categoria da tela "Aprender"
+                    # (ex.: "saudacoes", "verbos"). Palavras antigas, todas
+                    # cadastradas antes de existir categoria, viram
+                    # "saudacoes" por padrão — o script de seed reclassifica
+                    # a Parte 2 ("verbos") ao rodar de novo (upsert).
+                    if not _col_exists(conn, "vocab_words", "category"):
+                        conn.execute(text(
+                            "ALTER TABLE vocab_words ADD COLUMN category VARCHAR "
+                            "NOT NULL DEFAULT 'saudacoes'"
+                        ))
+                        conn.commit()
                     if not _col_exists(conn, "vocab_words", "review_flashcard_id"):
                         conn.execute(text(
                             "ALTER TABLE vocab_words ADD COLUMN review_flashcard_id INTEGER "

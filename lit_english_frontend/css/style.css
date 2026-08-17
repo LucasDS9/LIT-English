@@ -3368,6 +3368,8 @@ button.category-card:active {
   height: 100%;
   object-fit: cover;
   border-radius: 50%;
+  image-rendering: auto;
+  -ms-interpolation-mode: bicubic;
 }
 
 .category-bubble {

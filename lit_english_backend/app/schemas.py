@@ -321,6 +321,9 @@ class VocabWordCreate(BaseModel):
     # Língua-alvo da palavra ("ingles" por padrão, hoje o único conteúdo
     # existente). Determina pra quem ela fica "nativa" — ver student_ids.
     language: str = "ingles"
+    # Categoria da tela "Aprender" (ex.: "saudacoes", "verbos"). Usada pra
+    # filtrar a fila de aprendizado por categoria.
+    category: str = "saudacoes"
     # Se omitido (ou vazio), a palavra é atribuída automaticamente a TODOS
     # os alunos aprovados no momento cuja língua bate com `language` — e
     # também a qualquer aluno aprovado depois (ver approve_student em
@@ -338,6 +341,7 @@ class VocabWordUpdate(BaseModel):
     distractors: Optional[List[str]] = Field(default=None, min_length=3, max_length=3)
     explanation: Optional[str] = None
     language: Optional[str] = None
+    category: Optional[str] = None
     student_ids: Optional[List[int]] = None
 
 
@@ -351,6 +355,7 @@ class VocabWordOut(BaseModel):
     distractors: List[str]
     explanation: Optional[str] = None
     language: str
+    category: str
     created_at: datetime
     students: List[FlashcardStudentOut] = []
 
