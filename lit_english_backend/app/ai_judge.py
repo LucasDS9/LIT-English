@@ -37,7 +37,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
 # Número de tentativas extras se a chamada à Groq falhar por motivo de rede/
 # timeout/erro 5xx (não por resposta inválida). Evita cair no fallback burro
@@ -196,6 +196,7 @@ def _call_groq(expected: str, given: str, context: str | None) -> dict:
             {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
         ],
         "temperature": 0.2,
+        "reasoning_effort": "low",
         "max_tokens": 250,
         "response_format": {"type": "json_object"},
     }
