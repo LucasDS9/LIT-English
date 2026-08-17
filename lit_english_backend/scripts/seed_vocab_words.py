@@ -4686,7 +4686,7 @@ WORDS = [
         "translation": 'Ele está cansado.',
         "distractors": ['Ele está ocupado', 'Ela está cansada', 'Eles estão cansados'],
         "explanation": 'literal: ele está cansado.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She likes me.',
@@ -4695,7 +4695,7 @@ WORDS = [
         "translation": 'Ela gosta de mim.',
         "distractors": ['Ela gosta dele', 'Eu gosto dela', 'Eles gostam de mim'],
         "explanation": 'literal: ela gosta de mim.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They feel it.',
@@ -4704,7 +4704,7 @@ WORDS = [
         "translation": 'Eles sentem isso.',
         "distractors": ['Eles acham isso', 'Nós sentimos isso', 'Ele sente isso'],
         "explanation": 'literal: eles sentem isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I know her.',
@@ -4713,7 +4713,7 @@ WORDS = [
         "translation": 'Eu conheço ela.',
         "distractors": ['Eu conheço ele', 'Ela me conhece', 'Eu gosto dela'],
         "explanation": 'literal: eu conheço-a.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They can do it.',
@@ -4722,7 +4722,7 @@ WORDS = [
         "translation": 'Eles podem fazer isso.',
         "distractors": ['Eles precisam fazer isso', 'Nós podemos fazer isso', 'Ele pode fazer isso'],
         "explanation": 'literal: eles podem fazer isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": "She doesn't need it.",
@@ -4731,7 +4731,7 @@ WORDS = [
         "translation": 'Ela não precisa disso.',
         "distractors": ['Ela não quer isso', 'Ele não precisa disso', 'Elas não precisam disso'],
         "explanation": 'literal: ela não precisa disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'Let them help.',
@@ -4740,7 +4740,7 @@ WORDS = [
         "translation": 'Deixe eles ajudarem.',
         "distractors": ['Deixe-nos ajudar', 'Deixe ela ajudar', 'Eles precisam ajudar'],
         "explanation": 'literal: deixe-os ajudar.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They use it.',
@@ -4749,7 +4749,7 @@ WORDS = [
         "translation": 'Eles usam isso.',
         "distractors": ['Eles têm isso', 'Nós usamos isso', 'Ele usa isso'],
         "explanation": 'literal: eles usam isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'Help them.',
@@ -4758,7 +4758,7 @@ WORDS = [
         "translation": 'Ajude eles.',
         "distractors": ['Ajude-nos', 'Ajude ela', 'Eles ajudam'],
         "explanation": 'literal: ajude-os.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'He is ready.',
@@ -4767,7 +4767,7 @@ WORDS = [
         "translation": 'Ele está pronto.',
         "distractors": ['Ele está cansado', 'Ela está pronta', 'Eles estão prontos'],
         "explanation": 'literal: ele está pronto.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I want it.',
@@ -4776,7 +4776,7 @@ WORDS = [
         "translation": 'Eu quero isso.',
         "distractors": ['Eu preciso disso', 'Ele quer isso', 'Eu gosto disso'],
         "explanation": 'literal: eu quero isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She thinks so.',
@@ -4785,7 +4785,7 @@ WORDS = [
         "translation": 'Ela acha que sim.',
         "distractors": ['Ela sabe disso', 'Ele acha que sim', 'Elas acham que sim'],
         "explanation": 'literal: ela pensa assim.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They need it.',
@@ -4794,7 +4794,7 @@ WORDS = [
         "translation": 'Eles precisam disso.',
         "distractors": ['Eles querem isso', 'Nós precisamos disso', 'Ele precisa disso'],
         "explanation": 'literal: eles precisam disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I use it.',
@@ -4803,7 +4803,7 @@ WORDS = [
         "translation": 'Eu uso isso.',
         "distractors": ['Eu tenho isso', 'Ele usa isso', 'Eu quero isso'],
         "explanation": 'literal: eu uso isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We want it.',
@@ -4812,7 +4812,7 @@ WORDS = [
         "translation": 'Nós queremos isso.',
         "distractors": ['Nós precisamos disso', 'Eles querem isso', 'Eu quero isso'],
         "explanation": 'literal: nós queremos isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": "I don't know.",
@@ -4821,7 +4821,7 @@ WORDS = [
         "translation": 'Eu não sei.',
         "distractors": ['Eu não acho', 'Ele não sabe', 'Eu sei'],
         "explanation": 'literal: eu não sei.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'He can do it.',
@@ -4830,7 +4830,7 @@ WORDS = [
         "translation": 'Ele pode fazer isso.',
         "distractors": ['Ele precisa fazer isso', 'Ela pode fazer isso', 'Eles podem fazer isso'],
         "explanation": 'literal: ele pode fazer isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I need them.',
@@ -4839,7 +4839,7 @@ WORDS = [
         "translation": 'Eu preciso deles.',
         "distractors": ['Eu preciso dela', 'Eles precisam de mim', 'Eu quero eles'],
         "explanation": 'literal: eu preciso deles.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": "He doesn't know.",
@@ -4848,7 +4848,7 @@ WORDS = [
         "translation": 'Ele não sabe.',
         "distractors": ['Ele não acha', 'Ela não sabe', 'Eles não sabem'],
         "explanation": 'literal: ele não sabe.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I want to go.',
@@ -4857,7 +4857,7 @@ WORDS = [
         "translation": 'Eu quero ir.',
         "distractors": ['Eu preciso ir', 'Ele quer ir', 'Eu quero ficar'],
         "explanation": 'literal: eu quero ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": "We don't know.",
@@ -4866,7 +4866,7 @@ WORDS = [
         "translation": 'Nós não sabemos.',
         "distractors": ['Nós não achamos', 'Eles não sabem', 'Eu não sei'],
         "explanation": 'literal: nós não sabemos.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I think so.',
@@ -4875,7 +4875,7 @@ WORDS = [
         "translation": 'Eu acho que sim.',
         "distractors": ['Eu sei disso', 'Eu acho que não', 'Ele acha que sim'],
         "explanation": 'literal: eu penso assim.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You want it.',
@@ -4884,7 +4884,7 @@ WORDS = [
         "translation": 'Você quer isso.',
         "distractors": ['Você precisa disso', 'Vocês querem isso', 'Você gosta disso'],
         "explanation": 'literal: você quer isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": "I'd like to help.",
@@ -4893,7 +4893,7 @@ WORDS = [
         "translation": 'Eu gostaria de ajudar.',
         "distractors": ['Eu quero ajudar', 'Ele gostaria de ajudar', 'Eu preciso ajudar'],
         "explanation": 'literal: eu gostaria de ajudar.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'Help us.',
@@ -4902,7 +4902,7 @@ WORDS = [
         "translation": 'Ajude-nos.',
         "distractors": ['Ajude eles', 'Me ajude', 'Nós ajudamos'],
         "explanation": 'literal: ajude a gente.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'He likes it.',
@@ -4911,7 +4911,7 @@ WORDS = [
         "translation": 'Ele gosta disso.',
         "distractors": ['Ele quer isso', 'Ela gosta disso', 'Eles gostam disso'],
         "explanation": 'literal: ele gosta disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We can help.',
@@ -4920,7 +4920,7 @@ WORDS = [
         "translation": 'Nós podemos ajudar.',
         "distractors": ['Nós precisamos ajudar', 'Eles podem ajudar', 'Eu posso ajudar'],
         "explanation": 'literal: nós podemos ajudar.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They know it.',
@@ -4929,7 +4929,7 @@ WORDS = [
         "translation": 'Eles sabem disso.',
         "distractors": ['Eles acham isso', 'Nós sabemos disso', 'Ele sabe disso'],
         "explanation": 'literal: eles sabem disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I want them.',
@@ -4938,7 +4938,7 @@ WORDS = [
         "translation": 'Eu quero eles.',
         "distractors": ['Eu quero ela', 'Eles me querem', 'Eu preciso deles'],
         "explanation": 'literal: eu quero eles.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We need to go.',
@@ -4947,7 +4947,7 @@ WORDS = [
         "translation": 'Nós precisamos ir.',
         "distractors": ['Nós queremos ir', 'Eles precisam ir', 'Eu preciso ir'],
         "explanation": 'literal: nós precisamos ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You can do it.',
@@ -4956,7 +4956,7 @@ WORDS = [
         "translation": 'Você pode fazer isso.',
         "distractors": ['Você precisa fazer isso', 'Vocês podem fazer isso', 'Você quer fazer isso'],
         "explanation": 'literal: você pode fazer isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I feel it.',
@@ -4965,7 +4965,7 @@ WORDS = [
         "translation": 'Eu sinto isso.',
         "distractors": ['Eu acho isso', 'Ele sente isso', 'Eu quero isso'],
         "explanation": 'literal: eu sinto isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You have to go.',
@@ -4974,7 +4974,7 @@ WORDS = [
         "translation": 'Você tem que ir.',
         "distractors": ['Você quer ir', 'Vocês têm que ir', 'Você tem que ficar'],
         "explanation": 'literal: você tem que ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We need it.',
@@ -4983,7 +4983,7 @@ WORDS = [
         "translation": 'Nós precisamos disso.',
         "distractors": ['Nós queremos isso', 'Eles precisam disso', 'Eu preciso disso'],
         "explanation": 'literal: nós precisamos disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She knows it.',
@@ -4992,7 +4992,7 @@ WORDS = [
         "translation": 'Ela sabe disso.',
         "distractors": ['Ela acha isso', 'Ele sabe disso', 'Elas sabem disso'],
         "explanation": 'literal: ela sabe disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'He means it.',
@@ -5001,7 +5001,7 @@ WORDS = [
         "translation": 'Ele está falando sério.',
         "distractors": ['Ele acha isso', 'Ela quer dizer isso', 'Eles querem dizer isso'],
         "explanation": 'literal: ele quer dizer isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They want us.',
@@ -5010,7 +5010,7 @@ WORDS = [
         "translation": 'Eles querem a gente.',
         "distractors": ['Eles querem ele', 'Nós queremos eles', 'Eles precisam da gente'],
         "explanation": 'literal: eles querem nós.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'Help her.',
@@ -5019,7 +5019,7 @@ WORDS = [
         "translation": 'Ajude ela.',
         "distractors": ['Ajude ele', 'Me ajude', 'Ela ajuda'],
         "explanation": 'literal: ajude-a.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We like it.',
@@ -5028,7 +5028,7 @@ WORDS = [
         "translation": 'Nós gostamos disso.',
         "distractors": ['Nós queremos isso', 'Eles gostam disso', 'Eu gosto disso'],
         "explanation": 'literal: nós gostamos disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I need to go.',
@@ -5037,7 +5037,7 @@ WORDS = [
         "translation": 'Eu preciso ir.',
         "distractors": ['Eu quero ir', 'Ele precisa ir', 'Eu preciso ficar'],
         "explanation": 'literal: eu preciso ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She wants it.',
@@ -5046,7 +5046,7 @@ WORDS = [
         "translation": 'Ela quer isso.',
         "distractors": ['Ela precisa disso', 'Ele quer isso', 'Elas querem isso'],
         "explanation": 'literal: ela quer isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You like it.',
@@ -5055,7 +5055,7 @@ WORDS = [
         "translation": 'Você gosta disso.',
         "distractors": ['Você quer isso', 'Vocês gostam disso', 'Você precisa disso'],
         "explanation": 'literal: você gosta disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'He thinks so.',
@@ -5064,7 +5064,7 @@ WORDS = [
         "translation": 'Ele acha que sim.',
         "distractors": ['Ele sabe disso', 'Ela acha que sim', 'Eles acham que sim'],
         "explanation": 'literal: ele pensa assim.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We want to go.',
@@ -5073,7 +5073,7 @@ WORDS = [
         "translation": 'Nós queremos ir.',
         "distractors": ['Nós precisamos ir', 'Eles querem ir', 'Eu quero ir'],
         "explanation": 'literal: nós queremos ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They mean it.',
@@ -5082,7 +5082,7 @@ WORDS = [
         "translation": 'Eles estão falando sério.',
         "distractors": ['Eles acham isso', 'Nós queremos dizer isso', 'Ele quer dizer isso'],
         "explanation": 'literal: eles querem dizer isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'He feels it.',
@@ -5091,7 +5091,7 @@ WORDS = [
         "translation": 'Ele sente isso.',
         "distractors": ['Ele acha isso', 'Ela sente isso', 'Eles sentem isso'],
         "explanation": 'literal: ele sente isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I know it.',
@@ -5100,7 +5100,7 @@ WORDS = [
         "translation": 'Eu sei disso.',
         "distractors": ['Eu acho isso', 'Ele sabe disso', 'Eu preciso disso'],
         "explanation": 'literal: eu sei disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You can help.',
@@ -5109,7 +5109,7 @@ WORDS = [
         "translation": 'Você pode ajudar.',
         "distractors": ['Você precisa ajudar', 'Vocês podem ajudar', 'Você quer ajudar'],
         "explanation": 'literal: você pode ajudar.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I can do it.',
@@ -5118,7 +5118,7 @@ WORDS = [
         "translation": 'Eu posso fazer isso.',
         "distractors": ['Eu preciso fazer isso', 'Ele pode fazer isso', 'Eu quero fazer isso'],
         "explanation": 'literal: eu posso fazer isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She has it.',
@@ -5127,7 +5127,7 @@ WORDS = [
         "translation": 'Ela tem isso.',
         "distractors": ['Ela quer isso', 'Ele tem isso', 'Elas têm isso'],
         "explanation": 'literal: ela tem isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'Let us help.',
@@ -5136,7 +5136,7 @@ WORDS = [
         "translation": 'Deixe-nos ajudar.',
         "distractors": ['Deixe eles ajudarem', 'Deixe-me ajudar', 'Nós precisamos ajudar'],
         "explanation": 'literal: deixe a gente ajudar.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She needs me.',
@@ -5145,7 +5145,7 @@ WORDS = [
         "translation": 'Ela precisa de mim.',
         "distractors": ['Ela precisa dele', 'Eu preciso dela', 'Eles precisam de mim'],
         "explanation": 'literal: ela precisa de mim.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You have it.',
@@ -5154,7 +5154,7 @@ WORDS = [
         "translation": 'Você tem isso.',
         "distractors": ['Você quer isso', 'Vocês têm isso', 'Você precisa disso'],
         "explanation": 'literal: você tem isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They like it.',
@@ -5163,7 +5163,7 @@ WORDS = [
         "translation": 'Eles gostam disso.',
         "distractors": ['Eles querem isso', 'Nós gostamos disso', 'Ele gosta disso'],
         "explanation": 'literal: eles gostam disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I can help.',
@@ -5172,7 +5172,7 @@ WORDS = [
         "translation": 'Eu posso ajudar.',
         "distractors": ['Eu preciso ajudar', 'Ele pode ajudar', 'Eu quero ajudar'],
         "explanation": 'literal: eu posso ajudar.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We have to go.',
@@ -5181,7 +5181,7 @@ WORDS = [
         "translation": 'Nós temos que ir.',
         "distractors": ['Nós queremos ir', 'Eles têm que ir', 'Eu tenho que ir'],
         "explanation": 'literal: nós temos de ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'He needs to go.',
@@ -5190,7 +5190,7 @@ WORDS = [
         "translation": 'Ele precisa ir.',
         "distractors": ['Ele quer ir', 'Ela precisa ir', 'Eles precisam ir'],
         "explanation": 'literal: ele precisa ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": "You don't know.",
@@ -5199,7 +5199,7 @@ WORDS = [
         "translation": 'Você não sabe.',
         "distractors": ['Você não acha', 'Vocês não sabem', 'Você sabe'],
         "explanation": 'literal: você não sabe.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She is ready.',
@@ -5208,7 +5208,7 @@ WORDS = [
         "translation": 'Ela está pronta.',
         "distractors": ['Ela está cansada', 'Ele está pronto', 'Elas estão prontas'],
         "explanation": 'literal: ela está pronta.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They like us.',
@@ -5217,7 +5217,7 @@ WORDS = [
         "translation": 'Eles gostam da gente.',
         "distractors": ['Eles gostam dele', 'Nós gostamos deles', 'Eles conhecem a gente'],
         "explanation": 'literal: eles gostam de nós.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'Let me help.',
@@ -5226,7 +5226,7 @@ WORDS = [
         "translation": 'Deixe-me ajudar.',
         "distractors": ['Me deixe ir', 'Deixe ele ajudar', 'Eu preciso ajudar'],
         "explanation": 'literal: deixe eu ajudar.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I need him.',
@@ -5235,7 +5235,7 @@ WORDS = [
         "translation": 'Eu preciso dele.',
         "distractors": ['Eu preciso dela', 'Ele precisa de mim', 'Eu quero ele'],
         "explanation": 'literal: eu preciso dele.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We are ready.',
@@ -5244,7 +5244,7 @@ WORDS = [
         "translation": 'Nós estamos prontos.',
         "distractors": ['Nós somos prontos', 'Eles estão prontos', 'Eu estou pronto'],
         "explanation": 'literal: nós estamos prontos.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They think so.',
@@ -5253,7 +5253,7 @@ WORDS = [
         "translation": 'Eles acham que sim.',
         "distractors": ['Eles sabem disso', 'Nós achamos que sim', 'Ele acha que sim'],
         "explanation": 'literal: eles pensam assim.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": "I don't need it.",
@@ -5262,7 +5262,7 @@ WORDS = [
         "translation": 'Eu não preciso disso.',
         "distractors": ['Eu não quero isso', 'Ele não precisa disso', 'Eu preciso disso'],
         "explanation": 'literal: eu não preciso disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She has to go.',
@@ -5271,7 +5271,7 @@ WORDS = [
         "translation": 'Ela tem que ir.',
         "distractors": ['Ela quer ir', 'Ele tem que ir', 'Elas têm que ir'],
         "explanation": 'literal: ela tem de ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They know us.',
@@ -5280,7 +5280,7 @@ WORDS = [
         "translation": 'Eles conhecem a gente.',
         "distractors": ['Eles conhecem ele', 'Nós conhecemos eles', 'Eles gostam da gente'],
         "explanation": 'literal: eles conhecem-nos.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We are tired.',
@@ -5289,7 +5289,7 @@ WORDS = [
         "translation": 'Nós estamos cansados.',
         "distractors": ['Nós somos cansados', 'Eles estão cansados', 'Eu estou cansado'],
         "explanation": 'literal: nós estamos cansados.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": "I'd like it.",
@@ -5298,7 +5298,7 @@ WORDS = [
         "translation": 'Eu gostaria disso.',
         "distractors": ['Eu quero isso', 'Ele gostaria disso', 'Eu gosto disso'],
         "explanation": 'literal: eu gostaria disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You feel it.',
@@ -5307,7 +5307,7 @@ WORDS = [
         "translation": 'Você sente isso.',
         "distractors": ['Você acha isso', 'Vocês sentem isso', 'Você quer isso'],
         "explanation": 'literal: você sente isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I like them.',
@@ -5316,7 +5316,7 @@ WORDS = [
         "translation": 'Eu gosto deles.',
         "distractors": ['Eu gosto dela', 'Eles gostam de mim', 'Eu conheço eles'],
         "explanation": 'literal: eu gosto deles.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'He uses it.',
@@ -5325,7 +5325,7 @@ WORDS = [
         "translation": 'Ele usa isso.',
         "distractors": ['Ele tem isso', 'Ela usa isso', 'Eles usam isso'],
         "explanation": 'literal: ele usa isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We feel it.',
@@ -5334,7 +5334,7 @@ WORDS = [
         "translation": 'Nós sentimos isso.',
         "distractors": ['Nós achamos isso', 'Eles sentem isso', 'Eu sinto isso'],
         "explanation": 'literal: nós sentimos isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You are tired.',
@@ -5343,7 +5343,7 @@ WORDS = [
         "translation": 'Você está cansado(a).',
         "distractors": ['Você é cansado(a)', 'Vocês estão cansados', 'Você está ocupado(a)'],
         "explanation": 'literal: você está cansado(a).',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I am ready.',
@@ -5352,7 +5352,7 @@ WORDS = [
         "translation": 'Eu estou pronto(a).',
         "distractors": ['Eu sou pronto', 'Ele está pronto', 'Eu estou ocupado(a)'],
         "explanation": 'literal: eu estou pronto(a).',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She means it.',
@@ -5361,7 +5361,7 @@ WORDS = [
         "translation": 'Ela está falando sério.',
         "distractors": ['Ela acha isso', 'Ele quer dizer isso', 'Elas querem dizer isso'],
         "explanation": 'literal: ela quer dizer isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You need it.',
@@ -5370,7 +5370,7 @@ WORDS = [
         "translation": 'Você precisa disso.',
         "distractors": ['Você quer isso', 'Vocês precisam disso', 'Você precisa dele'],
         "explanation": 'literal: você precisa disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I like it.',
@@ -5379,7 +5379,7 @@ WORDS = [
         "translation": 'Eu gosto disso.',
         "distractors": ['Eu quero isso', 'Ele gosta disso', 'Eu preciso disso'],
         "explanation": 'literal: eu gosto disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They need us.',
@@ -5388,7 +5388,7 @@ WORDS = [
         "translation": 'Eles precisam da gente.',
         "distractors": ['Eles precisam dele', 'Nós precisamos deles', 'Eles querem a gente'],
         "explanation": 'literal: eles precisam de nós.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": "I'd like to go.",
@@ -5397,7 +5397,7 @@ WORDS = [
         "translation": 'Eu gostaria de ir.',
         "distractors": ['Eu quero ir', 'Ele gostaria de ir', 'Eu gostaria de ficar'],
         "explanation": 'literal: eu gostaria de ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'Help me.',
@@ -5406,7 +5406,7 @@ WORDS = [
         "translation": 'Me ajude.',
         "distractors": ['Ajude ele', 'Me deixe ajudar', 'Eu ajudo'],
         "explanation": 'literal: ajude-me.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I am tired.',
@@ -5415,7 +5415,7 @@ WORDS = [
         "translation": 'Eu estou cansado(a).',
         "distractors": ['Eu tenho cansado', 'Ele está cansado', 'Eu estou ocupado(a)'],
         "explanation": 'literal: eu sou/estou cansado(a).',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She wants me.',
@@ -5424,7 +5424,7 @@ WORDS = [
         "translation": 'Ela me quer.',
         "distractors": ['Ela quer ele', 'Eu quero ela', 'Eles me querem'],
         "explanation": 'literal: ela quer me.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'He needs it.',
@@ -5433,7 +5433,7 @@ WORDS = [
         "translation": 'Ele precisa disso.',
         "distractors": ['Ele quer isso', 'Ela precisa disso', 'Eles precisam disso'],
         "explanation": 'literal: ele precisa disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They have it.',
@@ -5442,7 +5442,7 @@ WORDS = [
         "translation": 'Eles têm isso.',
         "distractors": ['Eles querem isso', 'Nós temos isso', 'Ele tem isso'],
         "explanation": 'literal: eles têm isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'He knows it.',
@@ -5451,7 +5451,7 @@ WORDS = [
         "translation": 'Ele sabe disso.',
         "distractors": ['Ele acha isso', 'Ela sabe disso', 'Eles sabem disso'],
         "explanation": 'literal: ele sabe disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I have it.',
@@ -5460,7 +5460,7 @@ WORDS = [
         "translation": 'Eu tenho isso.',
         "distractors": ['Eu quero isso', 'Ele tem isso', 'Eu preciso disso'],
         "explanation": 'literal: eu tenho isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You think so.',
@@ -5469,7 +5469,7 @@ WORDS = [
         "translation": 'Você acha que sim.',
         "distractors": ['Você sabe disso', 'Vocês acham que sim', 'Você acha que não'],
         "explanation": 'literal: você pensa assim.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I need it.',
@@ -5478,7 +5478,7 @@ WORDS = [
         "translation": 'Eu preciso disso.',
         "distractors": ['Eu quero isso', 'Ele precisa disso', 'Eu preciso dele'],
         "explanation": 'literal: eu preciso disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'He has it.',
@@ -5487,7 +5487,7 @@ WORDS = [
         "translation": 'Ele tem isso.',
         "distractors": ['Ele quer isso', 'Ela tem isso', 'Eles têm isso'],
         "explanation": 'literal: ele tem isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They want it.',
@@ -5496,7 +5496,7 @@ WORDS = [
         "translation": 'Eles querem isso.',
         "distractors": ['Eles precisam disso', 'Nós queremos isso', 'Ele quer isso'],
         "explanation": 'literal: eles querem isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We use it.',
@@ -5505,7 +5505,7 @@ WORDS = [
         "translation": 'Nós usamos isso.',
         "distractors": ['Nós temos isso', 'Eles usam isso', 'Eu uso isso'],
         "explanation": 'literal: nós usamos isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'Help him.',
@@ -5514,7 +5514,7 @@ WORDS = [
         "translation": 'Ajude ele.',
         "distractors": ['Ajude ela', 'Me ajude', 'Ele ajuda'],
         "explanation": 'literal: ajude-o.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": "They don't know.",
@@ -5523,7 +5523,7 @@ WORDS = [
         "translation": 'Eles não sabem.',
         "distractors": ['Eles não acham', 'Nós não sabemos', 'Ele não sabe'],
         "explanation": 'literal: eles não sabem.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We can do it.',
@@ -5532,7 +5532,7 @@ WORDS = [
         "translation": 'Nós podemos fazer isso.',
         "distractors": ['Nós precisamos fazer isso', 'Eles podem fazer isso', 'Eu posso fazer isso'],
         "explanation": 'literal: nós podemos fazer isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You use it.',
@@ -5541,7 +5541,7 @@ WORDS = [
         "translation": 'Você usa isso.',
         "distractors": ['Você tem isso', 'Vocês usam isso', 'Você quer isso'],
         "explanation": 'literal: você usa isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": "She doesn't know.",
@@ -5550,7 +5550,7 @@ WORDS = [
         "translation": 'Ela não sabe.',
         "distractors": ['Ela não acha', 'Ele não sabe', 'Elas não sabem'],
         "explanation": 'literal: ela não sabe.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They are tired.',
@@ -5559,7 +5559,7 @@ WORDS = [
         "translation": 'Eles estão cansados.',
         "distractors": ['Eles são cansados', 'Nós estamos cansados', 'Ele está cansado'],
         "explanation": 'literal: eles estão cansados.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She needs to go.',
@@ -5568,7 +5568,7 @@ WORDS = [
         "translation": 'Ela precisa ir.',
         "distractors": ['Ela quer ir', 'Ele precisa ir', 'Elas precisam ir'],
         "explanation": 'literal: ela precisa ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I like her.',
@@ -5577,7 +5577,7 @@ WORDS = [
         "translation": 'Eu gosto dela.',
         "distractors": ['Eu gosto dele', 'Ela gosta de mim', 'Eu conheço ela'],
         "explanation": 'literal: eu gosto dela.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You mean it.',
@@ -5586,7 +5586,7 @@ WORDS = [
         "translation": 'Você está falando sério.',
         "distractors": ['Você acha isso', 'Vocês querem dizer isso', 'Você usa isso'],
         "explanation": 'literal: você quer dizer isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'He has to go.',
@@ -5595,7 +5595,7 @@ WORDS = [
         "translation": 'Ele tem que ir.',
         "distractors": ['Ele quer ir', 'Ela tem que ir', 'Eles têm que ir'],
         "explanation": 'literal: ele tem de ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She likes it.',
@@ -5604,7 +5604,7 @@ WORDS = [
         "translation": 'Ela gosta disso.',
         "distractors": ['Ela quer isso', 'Ele gosta disso', 'Elas gostam disso'],
         "explanation": 'literal: ela gosta disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'He wants to go.',
@@ -5613,7 +5613,7 @@ WORDS = [
         "translation": 'Ele quer ir.',
         "distractors": ['Ele precisa ir', 'Ela quer ir', 'Eles querem ir'],
         "explanation": 'literal: ele quer ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You need to go.',
@@ -5622,7 +5622,7 @@ WORDS = [
         "translation": 'Você precisa ir.',
         "distractors": ['Você quer ir', 'Vocês precisam ir', 'Você precisa ficar'],
         "explanation": 'literal: você precisa ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They are ready.',
@@ -5631,7 +5631,7 @@ WORDS = [
         "translation": 'Eles estão prontos.',
         "distractors": ['Eles estão cansados', 'Nós estamos prontos', 'Ele está pronto'],
         "explanation": 'literal: eles estão prontos.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I like him.',
@@ -5640,7 +5640,7 @@ WORDS = [
         "translation": 'Eu gosto dele.',
         "distractors": ['Eu gosto dela', 'Ele gosta de mim', 'Eu conheço ele'],
         "explanation": 'literal: eu gosto dele.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You know it.',
@@ -5649,7 +5649,7 @@ WORDS = [
         "translation": 'Você sabe disso.',
         "distractors": ['Você acha isso', 'Vocês sabem disso', 'Você quer isso'],
         "explanation": 'literal: você sabe disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They need to go.',
@@ -5658,7 +5658,7 @@ WORDS = [
         "translation": 'Eles precisam ir.',
         "distractors": ['Eles querem ir', 'Nós precisamos ir', 'Ele precisa ir'],
         "explanation": 'literal: eles precisam ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We think so.',
@@ -5667,7 +5667,7 @@ WORDS = [
         "translation": 'Nós achamos que sim.',
         "distractors": ['Nós sabemos disso', 'Eles acham que sim', 'Eu acho que sim'],
         "explanation": 'literal: nós pensamos assim.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'He wants it.',
@@ -5676,7 +5676,7 @@ WORDS = [
         "translation": 'Ele quer isso.',
         "distractors": ['Ele precisa disso', 'Ela quer isso', 'Eles querem isso'],
         "explanation": 'literal: ele quer isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I know them.',
@@ -5685,7 +5685,7 @@ WORDS = [
         "translation": 'Eu conheço eles.',
         "distractors": ['Eu conheço ela', 'Eles me conhecem', 'Eu gosto deles'],
         "explanation": 'literal: eu conheço-os.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She can help.',
@@ -5694,7 +5694,7 @@ WORDS = [
         "translation": 'Ela pode ajudar.',
         "distractors": ['Ela precisa ajudar', 'Ele pode ajudar', 'Elas podem ajudar'],
         "explanation": 'literal: ela pode ajudar.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We know it.',
@@ -5703,7 +5703,7 @@ WORDS = [
         "translation": 'Nós sabemos disso.',
         "distractors": ['Nós achamos isso', 'Eles sabem disso', 'Eu sei disso'],
         "explanation": 'literal: nós sabemos disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You want to go.',
@@ -5712,7 +5712,7 @@ WORDS = [
         "translation": 'Você quer ir.',
         "distractors": ['Você precisa ir', 'Vocês querem ir', 'Você quer ficar'],
         "explanation": 'literal: você quer ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I need her.',
@@ -5721,7 +5721,7 @@ WORDS = [
         "translation": 'Eu preciso dela.',
         "distractors": ['Eu preciso dele', 'Ela precisa de mim', 'Eu quero ela'],
         "explanation": 'literal: eu preciso dela.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They have to go.',
@@ -5730,7 +5730,7 @@ WORDS = [
         "translation": 'Eles têm que ir.',
         "distractors": ['Eles querem ir', 'Nós temos que ir', 'Ele tem que ir'],
         "explanation": 'literal: eles têm de ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'Let him help.',
@@ -5739,7 +5739,7 @@ WORDS = [
         "translation": 'Deixe ele ajudar.',
         "distractors": ['Deixe ela ajudar', 'Deixe-me ajudar', 'Ele precisa ajudar'],
         "explanation": 'literal: deixe-o ajudar.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She wants to go.',
@@ -5748,7 +5748,7 @@ WORDS = [
         "translation": 'Ela quer ir.',
         "distractors": ['Ela precisa ir', 'Ele quer ir', 'Elas querem ir'],
         "explanation": 'literal: ela quer ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We mean it.',
@@ -5757,7 +5757,7 @@ WORDS = [
         "translation": 'Nós estamos falando sério.',
         "distractors": ['Nós achamos isso', 'Eles querem dizer isso', 'Eu quero dizer isso'],
         "explanation": 'literal: nós queremos dizer isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I want him.',
@@ -5766,7 +5766,7 @@ WORDS = [
         "translation": 'Eu quero ele.',
         "distractors": ['Eu quero ela', 'Ele me quer', 'Eu preciso dele'],
         "explanation": 'literal: eu quero ele.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She is tired.',
@@ -5775,7 +5775,7 @@ WORDS = [
         "translation": 'Ela está cansada.',
         "distractors": ['Ela está ocupada', 'Ele está cansado', 'Elas estão cansadas'],
         "explanation": 'literal: ela está cansada.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They can help.',
@@ -5784,7 +5784,7 @@ WORDS = [
         "translation": 'Eles podem ajudar.',
         "distractors": ['Eles precisam ajudar', 'Nós podemos ajudar', 'Ele pode ajudar'],
         "explanation": 'literal: eles podem ajudar.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She can do it.',
@@ -5793,7 +5793,7 @@ WORDS = [
         "translation": 'Ela pode fazer isso.',
         "distractors": ['Ela precisa fazer isso', 'Ele pode fazer isso', 'Elas podem fazer isso'],
         "explanation": 'literal: ela pode fazer isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'He can help.',
@@ -5802,7 +5802,7 @@ WORDS = [
         "translation": 'Ele pode ajudar.',
         "distractors": ['Ele precisa ajudar', 'Ela pode ajudar', 'Eles podem ajudar'],
         "explanation": 'literal: ele pode ajudar.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I have to go.',
@@ -5811,7 +5811,7 @@ WORDS = [
         "translation": 'Eu tenho que ir.',
         "distractors": ['Eu quero ir', 'Ele tem que ir', 'Eu tenho que ficar'],
         "explanation": 'literal: eu tenho de ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She uses it.',
@@ -5820,7 +5820,7 @@ WORDS = [
         "translation": 'Ela usa isso.',
         "distractors": ['Ela tem isso', 'Ele usa isso', 'Elas usam isso'],
         "explanation": 'literal: ela usa isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'You are ready.',
@@ -5829,7 +5829,7 @@ WORDS = [
         "translation": 'Você está pronto(a).',
         "distractors": ['Você é pronto', 'Vocês estão prontos', 'Você está cansado(a)'],
         "explanation": 'literal: você está pronto(a).',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'They want to go.',
@@ -5838,7 +5838,7 @@ WORDS = [
         "translation": 'Eles querem ir.',
         "distractors": ['Eles precisam ir', 'Nós queremos ir', 'Ele quer ir'],
         "explanation": 'literal: eles querem ir.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She knows me.',
@@ -5847,7 +5847,7 @@ WORDS = [
         "translation": 'Ela me conhece.',
         "distractors": ['Ela conhece ele', 'Eu conheço ela', 'Eles me conhecem'],
         "explanation": 'literal: ela conhece-me.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I want her.',
@@ -5856,7 +5856,7 @@ WORDS = [
         "translation": 'Eu quero ela.',
         "distractors": ['Eu quero ele', 'Ela me quer', 'Eu preciso dela'],
         "explanation": 'literal: eu quero ela.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She feels it.',
@@ -5865,7 +5865,7 @@ WORDS = [
         "translation": 'Ela sente isso.',
         "distractors": ['Ela acha isso', 'Ele sente isso', 'Elas sentem isso'],
         "explanation": 'literal: ela sente isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I know him.',
@@ -5874,7 +5874,7 @@ WORDS = [
         "translation": 'Eu conheço ele.',
         "distractors": ['Eu conheço ela', 'Ele me conhece', 'Eu gosto dele'],
         "explanation": 'literal: eu conheço-o.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'We have it.',
@@ -5883,7 +5883,7 @@ WORDS = [
         "translation": 'Nós temos isso.',
         "distractors": ['Nós queremos isso', 'Eles têm isso', 'Eu tenho isso'],
         "explanation": 'literal: nós temos isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'Let her help.',
@@ -5892,7 +5892,7 @@ WORDS = [
         "translation": 'Deixe ela ajudar.',
         "distractors": ['Deixe ele ajudar', 'Deixe-me ajudar', 'Ela precisa ajudar'],
         "explanation": 'literal: deixe-a ajudar.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'I mean it.',
@@ -5901,7 +5901,7 @@ WORDS = [
         "translation": 'Eu estou falando sério.',
         "distractors": ['Eu acho isso', 'Ele quer dizer isso', 'Eu uso isso'],
         "explanation": 'literal: eu quero dizer isso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
     {
         "word": 'She needs it.',
@@ -5910,18 +5910,49 @@ WORDS = [
         "translation": 'Ela precisa disso.',
         "distractors": ['Ela quer isso', 'Ele precisa disso', 'Elas precisam disso'],
         "explanation": 'literal: ela precisa disso.',
-        "category": 'verbos_pt3',
+        "category": 'pronomes',
     },
 ]
 
 # ---------------------------------------------------------------------------
 # Categoria de cada item, pra tela "Aprender" (frontend) conseguir separar
-# a fila por categoria. Por enquanto só existe a Parte 1 (Saudações e
-# frases essenciais / sobrevivência linguística, A1) neste arquivo.
+# a fila por categoria. As categorias são definidas nos próprios itens do WORDS e usadas pelo
+# frontend/backend para separar os flashcards.
 # ---------------------------------------------------------------------------
-for _item in WORDS:
-    _item["category"] = "saudacoes"
 
+# ---------------------------------------------------------------------------
+# Categorias da tela "Aprender"
+#
+# A ordem abaixo é a mesma ordem usada no frontend. O campo `category` de
+# cada item de WORDS é a fonte de verdade; ao rodar este seed novamente, uma
+# palavra que estiver cadastrada na categoria errada será ATUALIZADA para a
+# categoria correta sem apagar progresso.
+# ---------------------------------------------------------------------------
+CATEGORY_ORDER = [
+    "saudacoes",
+    "verbos_essenciais_pt1",
+    "verbos_essenciais_pt2",
+    "pronomes",
+]
+
+def _validate_categories():
+    unknown = sorted({item.get("category") for item in WORDS if item.get("category") not in CATEGORY_ORDER})
+    uncategorized = [item.get("word", "?") for item in WORDS if not item.get("category")]
+    if unknown or uncategorized:
+        details = []
+        if unknown:
+            details.append(f"categorias desconhecidas: {unknown}")
+        if uncategorized:
+            details.append(f"itens sem categoria: {uncategorized[:10]}")
+        raise RuntimeError("Categorias inválidas no seed — " + "; ".join(details))
+
+    counts = {category: sum(1 for item in WORDS if item.get("category") == category)
+              for category in CATEGORY_ORDER}
+    print("Categorias do seed:")
+    for category in CATEGORY_ORDER:
+        print(f"  - {category}: {counts[category]}")
+
+_validate_categories()
 
 def _fetch_existing_words(api_base_url: str, headers: dict) -> dict:
     """
@@ -6074,6 +6105,8 @@ def main():
         f"Atualizado: {summary['Atualizado']} | "
         f"Inalterado: {summary['Inalterado']}"
     )
+    print("Se havia palavras na categoria errada, elas foram corrigidas pelo PUT "
+          "porque `category` faz parte da comparação de atualização.")
 
 
 if __name__ == "__main__":

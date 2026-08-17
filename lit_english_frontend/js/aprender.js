@@ -288,9 +288,8 @@ function renderError(message, retryFn) {
 // ---------------------------------------------------------------------------
 // Tela de categorias ("Aprender" — escolha do que estudar)
 //
-// Por enquanto só a categoria "Saudações e frases essenciais" está
-// funcional (é o conteúdo já servido por /vocab-words/learn/next). As
-// demais aparecem como "Em breve" — vêm depois.
+// As categorias abaixo são exibidas conforme os cards atribuídos ao aluno
+// e separados pelo campo `category` vindo do backend.
 // ---------------------------------------------------------------------------
 
 const CATEGORY_META = {
@@ -314,17 +313,11 @@ const CATEGORY_META = {
     desc: "Pronomes que você precisa dominar para montar frases naturalmente.",
     icon: "pronouns",
   },
-  verbos_pt3: {
-    title: "Outras expressões e verbos",
-    desc: "Mais expressões e verbos para ampliar seu repertório em inglês.",
-    icon: "expressions",
-  },
 };
 
 const CATEGORY_ICON = {
   verbs: Icons.bookOpen,
   pronouns: Icons.user,
-  expressions: Icons.sparkles || Icons.bookOpen,
 };
 
 function categoryMeta(category) {
