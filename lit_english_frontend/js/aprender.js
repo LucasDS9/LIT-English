@@ -286,57 +286,54 @@ function renderError(message, retryFn) {
 }
 
 // ---------------------------------------------------------------------------
-// Tela de categorias ("Aprender" — escolha do que estudar)
-//
-// As categorias abaixo são exibidas conforme os cards atribuídos ao aluno
-// e separados pelo campo `category` vindo do backend.
+// Tela de categorias ("Aprender")
 // ---------------------------------------------------------------------------
 
 const CATEGORY_META = {
   saudacoes: {
     title: "Saudações e frases essenciais",
     desc: "Frases básicas para cumprimentar, se apresentar e se comunicar no dia a dia.",
-    icon: "greetings",
+    image: "img/category-saudacoes-v3.png",
+    alt: "Duas pessoas se cumprimentando em inglês",
   },
   verbos_essenciais_pt1: {
     title: "Verbos essenciais — Parte 1",
     desc: "Os verbos mais importantes para começar a formar frases em inglês.",
-    icon: "verbs",
+    image: "img/category-verbos-pt1.png",
+    alt: "Pessoa aprendendo verbos essenciais em inglês",
   },
   verbos_essenciais_pt2: {
     title: "Verbos essenciais — Parte 2",
     desc: "Continue aprendendo verbos e chunks essenciais para se comunicar.",
-    icon: "verbs",
+    image: "img/category-verbos-pt2.png",
+    alt: "Pessoa estudando verbos essenciais em inglês",
   },
   pronomes: {
     title: "Pronomes essenciais",
     desc: "Pronomes que você precisa dominar para montar frases naturalmente.",
-    icon: "pronouns",
+    image: "img/category-pronomes.png",
+    alt: "Pessoa estudando inglês",
   },
-};
-
-const CATEGORY_ICON = {
-  verbs: Icons.bookOpen,
-  pronouns: Icons.user,
 };
 
 function categoryMeta(category) {
   return CATEGORY_META[category] || {
     title: category.replaceAll("_", " "),
     desc: "Vocabulário para ampliar seu inglês.",
-    icon: "default",
+    image: null,
+    alt: "",
   };
 }
 
 function buildCategoryIllustration(category) {
   const meta = categoryMeta(category);
   const illustration = document.createElement("div");
-  illustration.className = `category-illustration category-illustration--${meta.icon}`;
+  illustration.className = "category-illustration";
 
-  if (category === "saudacoes") {
-    illustration.innerHTML = `<img src="img/category-saudacoes-v2.png" width="385" height="360" alt="Duas pessoas se cumprimentando em inglês" class="category-illustration-img" />`;
+  if (meta.image) {
+    illustration.innerHTML = `<img src="${meta.image}" width="500" height="500" alt="${meta.alt}" class="category-illustration-img" />`;
   } else {
-    illustration.innerHTML = `<div class="category-illustration-icon">${CATEGORY_ICON[meta.icon] || Icons.bookOpen}</div>`;
+    illustration.innerHTML = `<div class="category-illustration-icon">${Icons.bookOpen}</div>`;
   }
   return illustration;
 }

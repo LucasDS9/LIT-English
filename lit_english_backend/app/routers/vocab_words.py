@@ -357,6 +357,7 @@ def get_learn_categories(
         "verbos_essenciais_pt1",
         "verbos_essenciais_pt2",
         "pronomes",
+        "verbos_pt3",
     ]
     categories.sort(key=lambda c: (preferred_order.index(c) if c in preferred_order else len(preferred_order), c))
 
