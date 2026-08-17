@@ -8,7 +8,7 @@ Rotas de "Aprender" (treino de vocabulário por reconhecimento/múltipla escolha
 import random
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.ai_judge import judge_answer
@@ -46,10 +46,8 @@ router = APIRouter(prefix="/vocab-words", tags=["Aprender"])
 # Máximo de palavras novas por sessão de Aprender.
 NEW_WORDS_PER_CYCLE = 15
 
-# A tela "Aprender" (frontend) hoje só tem UMA categoria ativa —
-# "Saudações e frases essenciais" — as demais aparecem como "Em breve".
-# Por isso a fila só puxa essa categoria por enquanto; quando uma nova
-# categoria for ligada no frontend, isso vira um parâmetro da rota.
+# Categoria padrão da tela "Aprender". A fila aceita uma categoria
+# explicitamente para que cada conteúdo liberado apareça separado no frontend.
 ACTIVE_LEARN_CATEGORY = "saudacoes"
 
 # Separador interno dos distratores (a tradução pode conter vírgula, então
@@ -332,8 +330,72 @@ def _build_options(word: VocabWord) -> list[str]:
     return options
 
 
+@router.get("/learn/categories")
+def get_learn_categories(
+    db: Session = Depends(get_db),
+    student: User = Depends(get_current_approved_user),
+):
+    """Retorna as categorias de vocabulário realmente atribuídas ao aluno,
+    separadas com total e progresso para a tela Aprender."""
+    _require_student(student)
+    language = student_language(student)
+
+    rows = (
+        db.query(VocabWord.category)
+        .join(VocabWordAssignment, VocabWordAssignment.word_id == VocabWord.id)
+        .filter(
+            VocabWordAssignment.student_id == student.id,
+            VocabWord.language == language,
+        )
+        .distinct()
+        .all()
+    )
+
+    categories = [row[0] for row in rows if row[0]]
+    preferred_order = [
+        "saudacoes",
+        "verbos_essenciais_pt1",
+        "verbos_essenciais_pt2",
+        "pronomes",
+        "verbos_pt3",
+    ]
+    categories.sort(key=lambda c: (preferred_order.index(c) if c in preferred_order else len(preferred_order), c))
+
+    result = []
+    for cat in categories:
+        total_assigned = (
+            db.query(VocabWordAssignment)
+            .join(VocabWord, VocabWord.id == VocabWordAssignment.word_id)
+            .filter(
+                VocabWordAssignment.student_id == student.id,
+                VocabWord.language == language,
+                VocabWord.category == cat,
+            )
+            .count()
+        )
+        total_learned = (
+            db.query(VocabWordProgress)
+            .join(VocabWord, VocabWord.id == VocabWordProgress.word_id)
+            .filter(
+                VocabWordProgress.student_id == student.id,
+                VocabWordProgress.first_correct_at.isnot(None),
+                VocabWord.language == language,
+                VocabWord.category == cat,
+            )
+            .count()
+        )
+        result.append({
+            "category": cat,
+            "total_assigned": total_assigned,
+            "total_learned": min(total_learned, total_assigned),
+        })
+
+    return result
+
+
 @router.get("/learn/next", response_model=VocabLearnQueueOut)
 def get_learn_queue(
+    category: str = Query(ACTIVE_LEARN_CATEGORY),
     db: Session = Depends(get_db),
     student: User = Depends(get_current_approved_user),
 ):
@@ -345,15 +407,12 @@ def get_learn_queue(
          sessão atual quando o aluno erra de novo.
 
     Só entram palavras da língua-alvo do próprio aluno (`student_language`)
-    E da categoria ativa (`ACTIVE_LEARN_CATEGORY` — hoje "saudacoes", a
-    única categoria ligada no frontend). Sem esses filtros, um aluno com
-    palavras cadastradas em mais de uma língua e/ou categoria (ex.: a
-    Parte 2 "Verbos essenciais", ainda não lançada) acabava puxando a fila
-    e as contagens de TUDO misturado — inflando o total exibido bem além
-    do que existe na categoria em questão.
+    e da categoria solicitada pela tela Aprender. Assim cada categoria
+    mantém sua própria fila e seu próprio progresso.
     """
     _require_student(student)
     language = student_language(student)
+    category = (category or ACTIVE_LEARN_CATEGORY).strip().lower()
 
     assigned_subquery = db.query(VocabWordAssignment.word_id).filter(
         VocabWordAssignment.student_id == student.id
@@ -366,7 +425,7 @@ def get_learn_queue(
         db.query(VocabWord)
         .filter(VocabWord.id.in_(assigned_subquery))
         .filter(VocabWord.language == language)
-        .filter(VocabWord.category == ACTIVE_LEARN_CATEGORY)
+        .filter(VocabWord.category == category)
         .filter(~VocabWord.id.in_(attempted_subquery))
         .order_by(VocabWord.created_at.asc())
         .limit(NEW_WORDS_PER_CYCLE)
@@ -380,7 +439,7 @@ def get_learn_queue(
         .filter(VocabWordProgress.student_id == student.id)
         .filter(VocabWordProgress.first_correct_at.is_(None))
         .filter(VocabWord.language == language)
-        .filter(VocabWord.category == ACTIVE_LEARN_CATEGORY)
+        .filter(VocabWord.category == category)
         .filter(~VocabWord.id.in_(already_in_cycle_ids))
         .order_by(VocabWordProgress.last_reviewed.asc())
         .all()
@@ -405,7 +464,7 @@ def get_learn_queue(
         .filter(
             VocabWordAssignment.student_id == student.id,
             VocabWord.language == language,
-            VocabWord.category == ACTIVE_LEARN_CATEGORY,
+            VocabWord.category == category,
         )
         .count()
     )
@@ -416,7 +475,7 @@ def get_learn_queue(
             VocabWordProgress.student_id == student.id,
             VocabWordProgress.first_correct_at.isnot(None),
             VocabWord.language == language,
-            VocabWord.category == ACTIVE_LEARN_CATEGORY,
+            VocabWord.category == category,
         )
         .count()
     )
