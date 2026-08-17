@@ -3361,7 +3361,6 @@ button.category-card:active {
 .category-illustration-icon svg {
   width: 100%;
   height: 100%;
-  stroke: currentColor;
 }
 
 .category-illustration-img {
