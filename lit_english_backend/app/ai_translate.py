@@ -23,7 +23,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
 # Mesmo espírito do TTS_LANGUAGE_CODES em app/routers/tts.py: mapa língua-alvo
 # (campo `language`/`target_language` do app) -> nome por extenso em
@@ -73,6 +73,7 @@ def translate_to_portuguese(text: str, source_language: str) -> str:
             {"role": "user", "content": clean_text},
         ],
         "temperature": 0.2,
+        "reasoning_effort": "low",
         "max_tokens": 150,
         "response_format": {"type": "json_object"},
     }

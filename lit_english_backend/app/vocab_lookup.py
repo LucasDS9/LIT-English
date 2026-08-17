@@ -32,7 +32,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
 # Mesma lógica de retry do ai_judge: só tenta de novo em erro de rede/timeout/5xx,
 # não em resposta mal formada (isso é problema de prompt, não de rede).
@@ -97,6 +97,7 @@ def _call_groq(
             {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
         ],
         "temperature": 0.4,
+        "reasoning_effort": "low",
         "max_tokens": 300,
         "response_format": {"type": "json_object"},
     }

@@ -20,7 +20,7 @@ from app.ai_judge import AiJudgeUnavailable
 logger = logging.getLogger(__name__)
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 _MAX_RETRIES = 1
 
 _LANGUAGE_LABELS = {
@@ -105,6 +105,7 @@ def _call_groq(payload: dict) -> dict:
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ],
         "temperature": 0.1,
+        "reasoning_effort": "low",
         "max_tokens": 250,
         "response_format": {"type": "json_object"},
     }
