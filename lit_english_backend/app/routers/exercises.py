@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.activity_queue import build_student_exercise_queue
-from app.auth import get_current_approved_user, get_current_professor
+from app.auth import get_current_professor, get_current_standard_student
 from app.database import get_db
 from app.models import (
     Exercise,
@@ -589,7 +589,7 @@ def get_student_exercise_progress(
 @router.get("/my-assignments", response_model=list[ExercisePracticeOut])
 def my_assignments(
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_approved_user),
+    user: User = Depends(get_current_standard_student),
 ):
     return build_student_exercise_queue(db, user)
 
@@ -599,7 +599,7 @@ def submit_answer(
     exercise_id: int,
     payload: ExerciseAnswerSubmit,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_approved_user),
+    user: User = Depends(get_current_standard_student),
 ):
     exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
     if not exercise:
@@ -647,7 +647,7 @@ async def submit_audio_answer(
     exercise_id: int,
     audio: UploadFile = File(...),
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_approved_user),
+    user: User = Depends(get_current_standard_student),
 ):
     exercise = db.query(Exercise).filter(Exercise.id == exercise_id).first()
     if not exercise:

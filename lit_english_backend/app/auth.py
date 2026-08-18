@@ -14,7 +14,7 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User, UserRole
+from app.models import AccessType, User, UserRole
 
 # ⚠️ Em produção, troque essa chave por uma variável de ambiente!
 SECRET_KEY = "troque-essa-chave-antes-de-ir-para-producao"
@@ -76,5 +76,20 @@ def get_current_professor(current_user: User = Depends(get_current_user)) -> Use
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Apenas o professor pode acessar este recurso.",
+        )
+    return current_user
+
+
+def get_current_standard_student(current_user: User = Depends(get_current_approved_user)) -> User:
+    """Garante que o usuário é um aluno aprovado do acesso padrão."""
+    if current_user.role != UserRole.aluno:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas alunos podem acessar este recurso.",
+        )
+    if current_user.access_type != AccessType.padrao:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Exercícios estão disponíveis apenas para alunos do acesso padrão.",
         )
     return current_user
