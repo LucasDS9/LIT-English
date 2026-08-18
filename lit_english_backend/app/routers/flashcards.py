@@ -626,6 +626,7 @@ def get_review_queue(
             flashcard_id=card.id,
             front=card.front,
             back=card.back,
+            description=card.description,
             status=_card_status(progress),
             mode=_card_mode(progress),
         )

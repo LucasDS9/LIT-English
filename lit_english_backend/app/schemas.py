@@ -110,6 +110,7 @@ class ReviewCardOut(BaseModel):
     flashcard_id: int
     front: str
     back: str
+    description: Optional[str] = None
     status: Optional[ReviewCardStatus] = None
     mode: ReviewMode = ReviewMode.flip
 

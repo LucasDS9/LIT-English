@@ -3556,3 +3556,309 @@ body.reader-fs-open {
     width: 100%;
   }
 }
+
+/* ==========================================================================
+   Revisar — flashcard visual final (modelo LIT)
+   Mantém o painel de pronúncia existente intacto e estiliza apenas o modo
+   flip para seguir o modelo visual dos cards de referência.
+   ========================================================================== */
+
+.main-review .review-area-centered {
+  max-width: 810px;
+}
+
+.main-review .review-area-centered .review-card {
+  min-height: 584px;
+  height: 584px;
+  padding: 34px 44px 42px;
+  border-radius: 18px;
+  box-sizing: border-box;
+}
+
+.review-card-header {
+  width: 100%;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.review-lang-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.review-lang-flag {
+  width: 42px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.review-lang-flag svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.review-language-placeholder {
+  width: 42px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: #e8e8e8;
+  color: #333;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.review-card-counter {
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.review-flip-body {
+  gap: 0 !important;
+  padding: 0 !important;
+  justify-content: center !important;
+}
+
+.review-flip-body .prompt-text-holder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.review-flip-body .front-text {
+  font-size: 38px;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  margin: 0;
+  padding-bottom: 14px;
+  color: var(--primary);
+}
+
+.review-flip-body .front-text::after {
+  width: 68px;
+  height: 3px;
+  bottom: 0;
+}
+
+.review-meaning-question {
+  margin: 30px 0 0;
+  font-size: 21px;
+  line-height: 1.35;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.review-flip-body .review-audio-controls {
+  margin-top: 58px;
+  gap: 12px;
+}
+
+.review-flip-body > .review-description {
+  margin-top: 46px;
+}
+
+.review-flip-body > .review-description + .review-audio-controls {
+  margin-top: 44px;
+}
+
+.review-flip-body .review-audio-btn:not(.review-audio-btn--mic) {
+  width: 264px;
+  height: 62px;
+  justify-content: center;
+  border-radius: 11px;
+  font-size: 17px;
+  font-weight: 600;
+  padding: 0 20px;
+}
+
+.review-flip-body .review-audio-btn:not(.review-audio-btn--mic) svg {
+  width: 22px;
+  height: 22px;
+}
+
+.review-flip-body .review-audio-btn--mic {
+  height: 62px;
+  border-radius: 11px;
+}
+
+.review-card-back {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  text-align: center;
+}
+
+.review-card-back .review-back-word {
+  font-size: 38px;
+  line-height: 1.15;
+  font-weight: 800;
+  margin: 0;
+  padding-bottom: 14px;
+  color: var(--primary);
+  position: relative;
+}
+
+.review-card-back .review-back-word::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 68px;
+  height: 3px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: var(--primary);
+}
+
+.review-card-back .review-back-word.status-dominando,
+.review-card-back .review-back-word.status-concluido {
+  color: var(--primary);
+}
+
+.review-card-back .review-back-word.status-dominando::after,
+.review-card-back .review-back-word.status-concluido::after {
+  background: var(--primary);
+}
+
+.review-card-back .learn-back-answer {
+  margin: 31px 0 0;
+  font-size: 25px;
+  line-height: 1.25;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.review-card-divider {
+  display: none;
+}
+
+.review-description {
+  width: 100%;
+  max-width: 486px;
+  min-height: 76px;
+  box-sizing: border-box;
+  margin-top: 66px;
+  padding: 16px 22px;
+  border-radius: 10px;
+  background: #f5e5e5;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  text-align: left;
+}
+
+.review-description-icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+}
+
+.review-description-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
+.review-description p {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+.review-card-back .review-description {
+  margin-top: 68px;
+}
+
+.review-card-back.card-flip-anim {
+  animation: cardFlipReveal 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (max-width: 900px) {
+  .main-review .review-area-centered {
+    max-width: calc(100% - 28px);
+  }
+
+  .main-review .review-area-centered .review-card {
+    min-height: 560px;
+    height: 560px;
+    padding: 30px 28px 36px;
+  }
+
+  .review-flip-body .front-text,
+  .review-card-back .review-back-word {
+    font-size: 34px;
+  }
+
+  .review-description {
+    max-width: 90%;
+  }
+}
+
+@media (max-width: 560px) {
+  .main-review .review-area-centered .review-card {
+    height: auto;
+    min-height: 560px;
+  }
+
+  .review-lang-badge {
+    font-size: 16px;
+  }
+
+  .review-lang-flag {
+    width: 36px;
+    height: 24px;
+  }
+
+  .review-card-counter {
+    font-size: 15px;
+  }
+
+  .review-meaning-question {
+    font-size: 18px;
+  }
+
+  .review-flip-body .review-audio-btn:not(.review-audio-btn--mic) {
+    width: min(264px, 100%);
+  }
+
+  .review-description {
+    margin-top: 48px;
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .review-description p {
+    font-size: 15px;
+  }
+}

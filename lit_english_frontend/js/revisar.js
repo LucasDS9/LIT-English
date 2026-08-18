@@ -36,6 +36,7 @@ const session = {
   remaining: 0,
   limit: 15,
   typingLocked: false,
+  targetLanguage: "ingles",
 };
 
 // ---------------------------------------------------------------------------
@@ -553,45 +554,135 @@ async function submitSpeakAnswer(card, getBlob, feedback, submitBtn, getLocked, 
   }
 }
 
+function normalizeTargetLanguage(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (["it", "italiano"].includes(raw)) return "italiano";
+  if (["fr", "frances", "francês", "français"].includes(raw)) return "frances";
+  if (["es", "espanhol", "español"].includes(raw)) return "espanhol";
+  if (["de", "alemao", "alemão", "deutsch"].includes(raw)) return "alemao";
+  if (["pt", "pt-br", "portugues", "português"].includes(raw)) return "portugues";
+  return "ingles";
+}
+
+function languageMetaForReview(languageCode) {
+  const code = normalizeTargetLanguage(languageCode);
+  const labels = {
+    ingles: "Inglês",
+    italiano: "Italiano",
+    frances: "Francês",
+    espanhol: "Espanhol",
+    alemao: "Alemão",
+    portugues: "Português",
+  };
+  const flags = {
+    ingles: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#012169"/><path d="M0 0l24 16M24 0L0 16" stroke="#fff" stroke-width="2.4"/><path d="M0 0l24 16M24 0L0 16" stroke="#C8102E" stroke-width="1.2"/><path d="M12 0v16M0 8h24" stroke="#fff" stroke-width="3.2"/><path d="M12 0v16M0 8h24" stroke="#C8102E" stroke-width="1.6"/></svg>`,
+    italiano: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#fff"/><rect x="16" width="8" height="16" fill="#CE2B37"/><rect width="8" height="16" fill="#009246"/></svg>`,
+    frances: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#fff"/><rect width="8" height="16" fill="#0055A4"/><rect x="16" width="8" height="16" fill="#EF4135"/></svg>`,
+    espanhol: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#AA151B"/><rect y="4" width="24" height="8" fill="#F1BF00"/></svg>`,
+    alemao: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" fill="#000"/><rect y="5.33" width="24" height="5.34" fill="#DD0000"/><rect y="10.66" width="24" height="5.34" fill="#FFCE00"/></svg>`,
+    portugues: `<span class="review-language-placeholder">PT</span>`,
+  };
+  return { code, label: labels[code], flag: flags[code] || flags.ingles };
+}
+
+function appendReviewCardHeader(cardBox, card) {
+  const header = document.createElement("div");
+  header.className = "review-card-header";
+
+  const meta = languageMetaForReview(session.targetLanguage);
+  const badge = document.createElement("div");
+  badge.className = "review-lang-badge";
+  badge.innerHTML = `<span class="review-lang-flag">${meta.flag}</span><span>${meta.label}</span>`;
+  header.appendChild(badge);
+
+  const counter = document.createElement("span");
+  counter.className = "review-card-counter";
+  counter.textContent = `${session.index + 1} / ${session.cards.length}`;
+  header.appendChild(counter);
+
+  cardBox.appendChild(header);
+}
+
+function reviewMeaningQuestion(word) {
+  const safeWord = (word || "").trim();
+  switch (normalizeTargetLanguage(session.targetLanguage)) {
+    case "italiano":
+      return `Cosa significa '${safeWord}'?`;
+    case "frances":
+      return `Que signifie « ${safeWord} » ?`;
+    case "espanhol":
+      return `¿Qué significa '${safeWord}'?`;
+    case "alemao":
+      return `Was bedeutet „${safeWord}“?`;
+    case "portugues":
+      return `O que significa '${safeWord}'?`;
+    default:
+      return `What does '${safeWord}' mean?`;
+  }
+}
+
+function buildReviewDescription(description) {
+  const text = String(description || "").trim();
+  if (!text) return null;
+
+  const box = document.createElement("div");
+  box.className = "review-description";
+  box.innerHTML = `
+    <span class="review-description-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 18h6"/>
+        <path d="M10 22h4"/>
+        <path d="M8.3 14.8C7.2 13.9 6.5 12.6 6.5 11a5.5 5.5 0 0 1 11 0c0 1.6-.7 2.9-1.8 3.8-.8.7-1.2 1.2-1.2 2.2H9.5c0-1-.4-1.5-1.2-2.2Z"/>
+      </svg>
+    </span>
+    <p>${escapeHtml(text)}</p>
+  `;
+  return box;
+}
+
 function renderFlipCard(card) {
   const wrapper = document.createElement("div");
 
   const cardBox = document.createElement("div");
   cardBox.className = `review-card review-card-status ${statusClassName(card)}`.trim();
 
-  const counter = document.createElement("div");
-  counter.className = "counter";
-  counter.textContent = `${session.index + 1} / ${session.cards.length}`;
-  cardBox.appendChild(counter);
+  appendReviewCardHeader(cardBox, card);
 
   const body = document.createElement("div");
-  body.className = "card-body";
+  body.className = "card-body review-flip-body";
 
   if (session.flipped) {
     const backWrap = document.createElement("div");
     backWrap.className = "review-card-back card-flip-anim";
 
-    appendPromptText(backWrap, card.front, `review-back-word ${statusClassName(card)}`.trim());
+    const word = document.createElement("p");
+    word.className = `review-back-word ${statusClassName(card)}`.trim();
+    word.textContent = card.front;
+    backWrap.appendChild(word);
+
+    const divider = document.createElement("div");
+    divider.className = "review-card-divider";
+    backWrap.appendChild(divider);
 
     const answer = document.createElement("p");
     answer.className = "learn-back-answer";
     answer.textContent = card.back;
     backWrap.appendChild(answer);
 
-    if (card.explanation) {
-      const dot = document.createElement("span");
-      dot.className = "learn-back-dot";
-      backWrap.appendChild(dot);
-
-      const explanation = document.createElement("p");
-      explanation.className = "learn-back-explanation";
-      explanation.textContent = card.explanation;
-      backWrap.appendChild(explanation);
-    }
+    const description = buildReviewDescription(card.description);
+    if (description) backWrap.appendChild(description);
 
     body.appendChild(backWrap);
   } else {
     appendPromptText(body, card.front, "front-text");
+
+    const question = document.createElement("p");
+    question.className = "review-meaning-question";
+    question.textContent = reviewMeaningQuestion(splitTopicLabel(card.front).text);
+    body.appendChild(question);
+
+    const description = buildReviewDescription(card.description);
+    if (description) body.appendChild(description);
   }
 
   const { listenBtn } = buildReviewAudioControls(card, body);
@@ -854,6 +945,7 @@ async function init() {
 
   studentNameEl.textContent = user.name;
   roleLabelEl.textContent = user.role === "professor" ? "PROFESSOR" : "ALUNO";
+  session.targetLanguage = normalizeTargetLanguage(user.target_language || "ingles");
 
   if (user.role !== "aluno") {
     window.location.href = "professor.html";
