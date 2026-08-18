@@ -10,6 +10,19 @@ const studentNameEl = document.getElementById("student-name");
 const roleLabelEl = document.getElementById("role-label");
 const toastEl = document.getElementById("toast");
 
+// Escapa texto antes de inseri-lo em HTML.
+// revisar.js é carregado como um módulo/script independente e não carrega
+// textos.js, onde existia outra versão dessa função.
+function escapeHtml(str) {
+  return String(str ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  }[char]));
+}
+
 let toastTimer = null;
 function showToast(message) {
   toastEl.textContent = message;
