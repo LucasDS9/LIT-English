@@ -476,6 +476,52 @@ def run_migrations():
                     )
                     conn.rollback()
 
+            # Starter flashcards: suporte a pares língua-origem -> língua-alvo.
+            # Cards antigos ficam com origem "pt" para preservar compatibilidade.
+            if _table_exists(conn, "starter_flashcards"):
+                try:
+                    if not _col_exists(conn, "starter_flashcards", "source_language"):
+                        conn.execute(text(
+                            "ALTER TABLE starter_flashcards ADD COLUMN source_language VARCHAR "
+                            "NOT NULL DEFAULT 'pt'"
+                        ))
+                        conn.commit()
+
+                    # A constraint antiga só diferenciava pela língua-alvo.
+                    # Ela impediria, por exemplo, PT->inglês e FR->inglês de coexistirem.
+                    old_constraint = conn.execute(text("""
+                        SELECT tc.constraint_name
+                        FROM information_schema.table_constraints tc
+                        WHERE tc.table_schema = 'public'
+                          AND tc.table_name = 'starter_flashcards'
+                          AND tc.constraint_type = 'UNIQUE'
+                          AND tc.constraint_name = 'uq_starter_language_front_back'
+                    """)).first()
+                    if old_constraint:
+                        conn.execute(text(
+                            'ALTER TABLE starter_flashcards DROP CONSTRAINT "uq_starter_language_front_back"'
+                        ))
+                        conn.commit()
+
+                    new_constraint = conn.execute(text("""
+                        SELECT 1
+                        FROM information_schema.table_constraints
+                        WHERE table_schema = 'public'
+                          AND table_name = 'starter_flashcards'
+                          AND constraint_name = 'uq_starter_source_target_front_back'
+                    """)).first()
+                    if not new_constraint:
+                        conn.execute(text(
+                            'ALTER TABLE starter_flashcards ADD CONSTRAINT "uq_starter_source_target_front_back" '
+                            'UNIQUE (source_language, language, front, back)'
+                        ))
+                        conn.commit()
+                except Exception:
+                    logger.exception(
+                        "Falha ao migrar starter_flashcards para pares origem->alvo, ignorando."
+                    )
+                    conn.rollback()
+
             for enum_name, value in _ENUM_VALUE_FIXES:
                 try:
                     _add_enum_value(conn, enum_name, value)

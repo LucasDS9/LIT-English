@@ -1,4 +1,4 @@
-/* LIT English — Aprender: criação de flashcards próprios do aluno. */
+/* LIT English — Aprender */
 
 const studentNameEl = document.getElementById("student-name");
 const roleLabelEl = document.getElementById("role-label");
@@ -14,24 +14,25 @@ const form = document.getElementById("flashcard-form");
 const errorBox = document.getElementById("form-error");
 const createBtn = document.getElementById("create-flashcard-btn");
 
+const onboardingEl = document.getElementById("learn-onboarding");
+const previewEl = document.getElementById("learn-preview");
+const receivedEl = document.getElementById("learn-received");
+const createViewEl = document.getElementById("learn-create-view");
+const exampleGridEl = document.getElementById("example-cards-grid");
+const receivedGridEl = document.getElementById("received-cards-grid");
+const startExamplesBtn = document.getElementById("start-examples-btn");
+const createOwnBtn = document.getElementById("create-own-btn");
+const seeExamplesBtn = document.getElementById("see-examples-btn");
+const previewBackBtn = document.getElementById("preview-back-btn");
+const addOwnAfterReceiveBtn = document.getElementById("add-own-after-receive-btn");
+
 const LANGUAGE_NAMES = {
-  pt: "português",
-  "pt-br": "português",
-  portugues: "português",
-  português: "português",
-  en: "inglês",
-  ingles: "inglês",
-  inglês: "inglês",
-  it: "italiano",
-  italiano: "italiano",
-  fr: "francês",
-  frances: "francês",
-  francês: "francês",
-  es: "espanhol",
-  espanhol: "espanhol",
-  de: "alemão",
-  alemao: "alemão",
-  alemão: "alemão",
+  pt: "português", "pt-br": "português", portugues: "português", português: "português",
+  en: "inglês", ingles: "inglês", inglês: "inglês",
+  it: "italiano", italiano: "italiano",
+  fr: "francês", frances: "francês", francês: "francês",
+  es: "espanhol", espanhol: "espanhol",
+  de: "alemão", alemao: "alemão", alemão: "alemão",
 };
 
 function languageLabel(value, fallback) {
@@ -44,20 +45,16 @@ function getNativeLanguage(user) {
 }
 
 function getTargetLanguage(user) {
-  if (user?.target_language) return user.target_language;
-  return "ingles";
+  return user?.target_language || "ingles";
 }
 
 function updateFrontHint(user) {
   const nativeLabel = languageLabel(getNativeLanguage(user), "português");
   const targetLabel = languageLabel(getTargetLanguage(user), "inglês");
   frontHintEl.textContent = `Digite a palavra, frase ou expressão em ${nativeLabel} ou ${targetLabel}.`;
-
-  if (targetLabel === "inglês") {
-    frontInput.placeholder = "Ex: Livro ou Book";
-  } else {
-    frontInput.placeholder = `Ex: ${targetLabel} ou ${nativeLabel}`;
-  }
+  frontInput.placeholder = targetLabel === "inglês"
+    ? "Ex: Livro ou Book"
+    : `Ex: ${targetLabel} ou ${nativeLabel}`;
 }
 
 let toastTimer = null;
@@ -65,26 +62,213 @@ function showToast(message) {
   toastEl.textContent = message;
   toastEl.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    toastEl.hidden = true;
-  }, 2600);
+  toastTimer = setTimeout(() => { toastEl.hidden = true; }, 2600);
 }
 
-function updateCounter(input, counter) {
-  counter.textContent = `${input.value.length}/200`;
+function updateCounter(input, counter, max = 200) {
+  counter.textContent = `${input.value.length}/${max}`;
 }
 
 frontInput.addEventListener("input", () => updateCounter(frontInput, frontCounter));
 backInput.addEventListener("input", () => updateCounter(backInput, backCounter));
-descriptionInput.addEventListener("input", () => {
-  descriptionCounter.textContent = `${descriptionInput.value.length}/300`;
-});
+descriptionInput.addEventListener("input", () => updateCounter(descriptionInput, descriptionCounter, 300));
 
 document.getElementById("logout-btn").addEventListener("click", () => {
-  const ok = window.confirm("Deseja sair da sua conta?");
-  if (ok) Auth.logout();
+  if (window.confirm("Deseja sair da sua conta?")) Auth.logout();
 });
 
+// ---------------------------------------------------------------------------
+// Primeiro acesso ao Aprender
+// ---------------------------------------------------------------------------
+// Esta lista é o ponto único para os cards iniciais. Quando você me enviar a
+// lista definitiva, basta substituir os itens abaixo — o fluxo e o design não
+// precisam ser alterados.
+const STARTER_CARDS_BY_LANGUAGE = {};
+
+let currentUser = null;
+let currentStarterCards = [];
+
+function onboardingKey(user) {
+  return `lit_learn_start_${user.id}`;
+}
+
+function savedCardsKey(user) {
+  return `lit_saved_starter_cards_${user.id}`;
+}
+
+function getTargetKey(user) {
+  const raw = String(getTargetLanguage(user) || "ingles").trim().toLowerCase();
+  return raw === "italiano" || raw === "it" ? "italiano"
+    : raw === "frances" || raw === "francês" || raw === "fr" ? "frances"
+    : raw === "espanhol" || raw === "es" ? "espanhol"
+    : raw === "alemão" || raw === "alemao" || raw === "de" ? "alemão"
+    : "ingles";
+}
+
+async function getStarterCards(user) {
+  const language = getTargetKey(user);
+  const cacheKey = `lit_starter_catalog_${language}`;
+  try {
+    const cards = await apiFetch(`/flashcards/starter/catalog?language=${encodeURIComponent(language)}`);
+    const normalized = Array.isArray(cards) ? cards.map(card => ({ ...card })) : [];
+    STARTER_CARDS_BY_LANGUAGE[language] = normalized;
+    return normalized;
+  } catch (err) {
+    const cached = STARTER_CARDS_BY_LANGUAGE[language];
+    if (cached) return cached.map(card => ({ ...card }));
+    try {
+      const local = JSON.parse(localStorage.getItem(cacheKey) || "[]");
+      if (Array.isArray(local)) return local.map(card => ({ ...card }));
+    } catch {}
+    throw err;
+  }
+}
+
+function markOnboardingDone(user, mode) {
+  localStorage.setItem(onboardingKey(user), mode);
+}
+
+function getOnboardingMode(user) {
+  return localStorage.getItem(onboardingKey(user));
+}
+
+function bookmarkIcon(saved) {
+  return saved
+    ? `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.2 3.5h11.6c.9 0 1.7.8 1.7 1.7v15.3c0 .5-.6.8-1 .5L12 17.4l-6.5 3.6c-.4.2-1-.1-1-.5V5.2c0-.9.8-1.7 1.7-1.7Z"/></svg>`
+    : `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6.2 3.5h11.6c.9 0 1.7.8 1.7 1.7v15.3c0 .5-.6.8-1 .5L12 17.4l-6.5 3.6c-.4.2-1-.1-1-.5V5.2c0-.9.8-1.7 1.7-1.7Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>`;
+}
+
+function getSavedIds(user) {
+  try { return new Set(JSON.parse(localStorage.getItem(savedCardsKey(user)) || "[]")); }
+  catch { return new Set(); }
+}
+
+function persistSavedIds(user, ids) {
+  localStorage.setItem(savedCardsKey(user), JSON.stringify([...ids]));
+}
+
+function renderStarterCards(container, cards, allowSave) {
+  const savedIds = getSavedIds(currentUser);
+  container.innerHTML = "";
+
+  if (!cards.length) {
+    container.innerHTML = `<div class="learn-empty-state"><strong>Nenhum exemplo disponível ainda.</strong><span>Os flashcards iniciais aparecerão aqui quando forem adicionados.</span></div>`;
+    return;
+  }
+
+  cards.forEach((card, index) => {
+    const cardId = `${getTargetKey(currentUser)}-${index}-${card.front}`;
+    const saved = savedIds.has(cardId);
+    const article = document.createElement("article");
+    article.className = "starter-card";
+    article.innerHTML = `
+      <div class="starter-card-language">${languageLabel(getTargetLanguage(currentUser), "inglês")}</div>
+      ${allowSave ? `<button type="button" class="starter-save-btn ${saved ? "saved" : ""}" aria-label="${saved ? "Remover dos salvos" : "Salvar flashcard"}" title="${saved ? "Remover dos salvos" : "Salvar"}">${bookmarkIcon(saved)}</button>` : ""}
+      <div class="starter-card-front">${escapeHtml(card.front)}</div>
+      <div class="starter-card-line"></div>
+      <div class="starter-card-back">${escapeHtml(card.back)}</div>
+      ${card.description ? `<div class="starter-card-description">${escapeHtml(card.description)}</div>` : ""}
+    `;
+
+    if (allowSave) {
+      const saveBtn = article.querySelector(".starter-save-btn");
+      saveBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const ids = getSavedIds(currentUser);
+        if (ids.has(cardId)) {
+          ids.delete(cardId);
+          saveBtn.classList.remove("saved");
+          saveBtn.setAttribute("aria-label", "Salvar flashcard");
+          saveBtn.title = "Salvar";
+        } else {
+          ids.add(cardId);
+          saveBtn.classList.add("saved");
+          saveBtn.setAttribute("aria-label", "Remover dos salvos");
+          saveBtn.title = "Remover dos salvos";
+        }
+        saveBtn.innerHTML = bookmarkIcon(ids.has(cardId));
+        persistSavedIds(currentUser, ids);
+      });
+    }
+    container.appendChild(article);
+  });
+}
+
+function showOnly(section) {
+  [onboardingEl, previewEl, receivedEl, createViewEl].forEach(el => { el.hidden = el !== section; });
+}
+
+function showChoice() {
+  showOnly(onboardingEl);
+}
+
+async function showExamplesPreview() {
+  try {
+    currentStarterCards = await getStarterCards(currentUser);
+    renderStarterCards(exampleGridEl, currentStarterCards, false);
+    showOnly(previewEl);
+  } catch (err) {
+    showToast(err.message || "Não foi possível carregar os exemplos.");
+  }
+}
+
+async function receiveStarterCards() {
+  try {
+    currentStarterCards = await getStarterCards(currentUser);
+  } catch (err) {
+    showToast(err.message || "Não foi possível carregar os exemplos.");
+    return;
+  }
+
+  if (!currentStarterCards.length) {
+    markOnboardingDone(currentUser, "create");
+    showToast("Ainda não há cards iniciais disponíveis.");
+    showOnly(createViewEl);
+    frontInput.focus();
+    return;
+  }
+
+  try {
+    const result = await apiFetch("/flashcards/starter/claim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cards: currentStarterCards }),
+    });
+
+    localStorage.setItem(`lit_received_starter_cards_${currentUser.id}`, JSON.stringify(currentStarterCards));
+    markOnboardingDone(currentUser, "received");
+    renderStarterCards(receivedGridEl, currentStarterCards, true);
+    showOnly(receivedEl);
+    showToast(`${result?.received ?? currentStarterCards.length} flashcards adicionados!`);
+  } catch (err) {
+    showToast(err.message || "Não foi possível receber os flashcards.");
+  }
+}
+
+function showCreateView() {
+  markOnboardingDone(currentUser, "create");
+  showOnly(createViewEl);
+  setTimeout(() => frontInput.focus(), 0);
+}
+
+startExamplesBtn.addEventListener("click", receiveStarterCards);
+seeExamplesBtn.addEventListener("click", showExamplesPreview);
+previewBackBtn.addEventListener("click", showChoice);
+createOwnBtn.addEventListener("click", showCreateView);
+addOwnAfterReceiveBtn.addEventListener("click", showCreateView);
+
+// Botão "Receber estes flashcards" é criado abaixo do preview para manter o
+// visual dos cards limpo e a ação sempre no mesmo lugar.
+const receiveExamplesBtn = document.createElement("button");
+receiveExamplesBtn.type = "button";
+receiveExamplesBtn.className = "btn btn-primary learn-receive-btn";
+receiveExamplesBtn.textContent = "Receber estes flashcards";
+receiveExamplesBtn.addEventListener("click", receiveStarterCards);
+previewEl.appendChild(receiveExamplesBtn);
+
+// ---------------------------------------------------------------------------
+// Criação manual — comportamento original preservado
+// ---------------------------------------------------------------------------
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   errorBox.hidden = true;
@@ -113,7 +297,7 @@ form.addEventListener("submit", async (event) => {
     form.reset();
     updateCounter(frontInput, frontCounter);
     updateCounter(backInput, backCounter);
-    descriptionCounter.textContent = "0/300";
+    updateCounter(descriptionInput, descriptionCounter, 300);
     showToast("Flashcard criado!");
     frontInput.focus();
   } catch (err) {
@@ -133,6 +317,7 @@ async function init() {
 
   try {
     const user = await fetchCurrentUser();
+    currentUser = user;
 
     studentNameEl.textContent = user.name;
     roleLabelEl.textContent = user.role === "professor" ? "PROFESSOR" : "ALUNO";
@@ -142,11 +327,11 @@ async function init() {
       return;
     }
 
-    // Exercícios existem somente para alunos do curso padrão.
     const navExercicios = document.getElementById("nav-exercicios");
     if (navExercicios) navExercicios.style.display = user.access_type === "padrao" ? "" : "none";
 
     if (!user.is_approved) {
+      showOnly(createViewEl);
       frontHintEl.textContent = "Sua conta ainda aguarda aprovação.";
       frontInput.disabled = true;
       backInput.disabled = true;
@@ -156,12 +341,38 @@ async function init() {
     }
 
     updateFrontHint(user);
-    frontInput.focus();
+
+    const mode = getOnboardingMode(user);
+    if (!mode) {
+      showChoice();
+      return;
+    }
+
+    if (mode === "received") {
+      try {
+        currentStarterCards = JSON.parse(localStorage.getItem(`lit_received_starter_cards_${user.id}`) || "[]");
+      } catch { currentStarterCards = []; }
+      if (!currentStarterCards.length) currentStarterCards = await getStarterCards(user);
+      renderStarterCards(receivedGridEl, currentStarterCards, true);
+      showOnly(receivedEl);
+      return;
+    }
+
+    showCreateView();
   } catch (err) {
     const redirectUrl = Auth.loginRedirectUrl();
     Auth.clear();
     window.location.href = redirectUrl;
   }
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 init();

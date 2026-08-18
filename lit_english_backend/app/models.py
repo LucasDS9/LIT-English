@@ -56,6 +56,23 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class StarterFlashcard(Base):
+    """Catálogo de flashcards sugeridos no primeiro acesso ao Aprender."""
+    __tablename__ = "starter_flashcards"
+    __table_args__ = (UniqueConstraint("source_language", "language", "front", "back", name="uq_starter_source_target_front_back"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_language = Column(String, nullable=False, index=True, default="pt", server_default="pt")
+    language = Column(String, nullable=False, index=True)
+    front = Column(Text, nullable=False)
+    back = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+    placeholders = Column(JSON, nullable=True)
+    category = Column(String, nullable=False, default="saudacoes", server_default="saudacoes")
+    active = Column(Boolean, nullable=False, default=True, server_default="true")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class FlashcardSource(str, enum.Enum):
     """
     Quem originou o flashcard:

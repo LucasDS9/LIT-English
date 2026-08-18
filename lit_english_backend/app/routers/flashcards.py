@@ -5,6 +5,7 @@ Rotas de Flashcards:
 """
 import logging
 import random
+import re
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -18,7 +19,7 @@ from app.flashcard_judge import judge_flashcard_answer
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
 from app.lit_points import maybe_award_flashcard_daily_bonus
-from app.language import student_language
+from app.language import student_language, student_source_language
 from app.models import (
     CardProgress,
     Flashcard,
@@ -27,6 +28,7 @@ from app.models import (
     FlashcardBatchItem,
     FlashcardBatchStudent,
     FlashcardSource,
+    StarterFlashcard,
     QAAnswerLog,
     ReviewCardStatus,
     ReviewMode,
@@ -47,6 +49,9 @@ from app.schemas import (
     FlashcardPronunciationResult,
     FlashcardResendPayload,
     FlashcardSelfAdd,
+    StarterCatalogCardOut,
+    StarterCatalogUpsert,
+    FlashcardStarterClaim,
     FlashcardUpdate,
     ReviewCardOut,
     ReviewQueueOut,
@@ -479,6 +484,212 @@ def resend_flashcard_batch(
 
     db.commit()
     return {"assigned": total}
+
+
+# ============================================================
+# CATÁLOGO: flashcards sugeridos no primeiro acesso
+# ============================================================
+
+_PLACEHOLDER_RE = re.compile(r"<([^<>]+)>")
+
+
+def _extract_placeholders(*texts: str) -> list[str]:
+    found = []
+    seen = set()
+    for text in texts:
+        for match in _PLACEHOLDER_RE.findall(text or ""):
+            value = match.strip()
+            if value and value.lower() not in seen:
+                seen.add(value.lower())
+                found.append(value)
+    return found
+
+
+@router.get("/starter/catalog", response_model=list[StarterCatalogCardOut])
+def get_starter_catalog(
+    language: str = "ingles",
+    db: Session = Depends(get_db),
+    student: User = Depends(get_current_approved_user),
+):
+    """Retorna os exemplos ativos da língua-alvo do aluno.
+
+    Tokens entre < > são identificados no backend e devolvidos em
+    `placeholders`, mas o texto original é preservado exatamente como foi
+    enviado pelo professor.
+    """
+    if student.role != UserRole.aluno:
+        raise HTTPException(status_code=403, detail="Apenas alunos podem consultar o catálogo inicial.")
+
+    requested = (language or "ingles").strip().lower()
+    actual = student_language(student).strip().lower()
+    if requested != actual:
+        requested = actual
+    source = student_source_language(student)
+
+    cards = (
+        db.query(StarterFlashcard)
+        .filter(
+            StarterFlashcard.source_language == source,
+            StarterFlashcard.language == requested,
+            StarterFlashcard.active.is_(True),
+        )
+        .order_by(StarterFlashcard.id.asc())
+        .all()
+    )
+    return [
+        StarterCatalogCardOut(
+            id=card.id,
+            source_language=card.source_language,
+            language=card.language,
+            front=card.front,
+            back=card.back,
+            description=card.description,
+            placeholders=card.placeholders or _extract_placeholders(card.front, card.back, card.description or ""),
+            category=card.category,
+        )
+        for card in cards
+    ]
+
+
+@router.post("/starter/catalog", status_code=status.HTTP_200_OK)
+def upsert_starter_catalog(
+    data: StarterCatalogUpsert,
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    """Cria/atualiza o pacote de exemplos usado no primeiro acesso.
+
+    O professor pode enviar novamente a lista pelo script de seed sem criar
+    duplicatas. Placeholders como <name>, <age> e <language> são detectados
+    automaticamente e armazenados separadamente, enquanto o texto original
+    continua intacto para aparecer no flashcard.
+    """
+    source_language = (data.source_language or "pt").strip().lower()
+    language = (data.language or "ingles").strip().lower()
+    if not source_language or not language:
+        raise HTTPException(status_code=400, detail="source_language e language são obrigatórios.")
+    created = updated = unchanged = 0
+    incoming_keys = set()
+
+    for item in data.cards:
+        front = item.front.strip()
+        back = item.back.strip()
+        if not front or not back:
+            continue
+        description = (item.description or "").strip() or None
+        category = (item.category or "saudacoes").strip().lower() or "saudacoes"
+        placeholders = _extract_placeholders(front, back, description or "")
+        key = (front.casefold(), back.casefold())
+        incoming_keys.add(key)
+
+        card = (
+            db.query(StarterFlashcard)
+            .filter(
+                StarterFlashcard.source_language == source_language,
+                StarterFlashcard.language == language,
+                StarterFlashcard.front == front,
+                StarterFlashcard.back == back,
+            )
+            .first()
+        )
+        if card is None:
+            db.add(StarterFlashcard(
+                source_language=source_language,
+                language=language,
+                front=front,
+                back=back,
+                description=description,
+                placeholders=placeholders,
+                category=category,
+                active=True,
+            ))
+            created += 1
+            continue
+
+        changed = (
+            card.description != description
+            or (card.placeholders or []) != placeholders
+            or card.category != category
+            or not card.active
+        )
+        if changed:
+            card.description = description
+            card.placeholders = placeholders
+            card.category = category
+            card.active = True
+            updated += 1
+        else:
+            unchanged += 1
+
+    # O seed representa o catálogo completo: itens antigos que não estão mais
+    # na lista deixam de aparecer para novos alunos, mas não são apagados.
+    existing_cards = db.query(StarterFlashcard).filter(
+        StarterFlashcard.source_language == source_language,
+        StarterFlashcard.language == language,
+    ).all()
+    for card in existing_cards:
+        if (card.front.casefold(), card.back.casefold()) not in incoming_keys:
+            card.active = False
+
+    db.commit()
+    return {"source_language": source_language, "language": language, "created": created, "updated": updated, "unchanged": unchanged, "total": len(incoming_keys)}
+
+
+# ============================================================
+# ALUNO: receber pacote inicial de flashcards
+# ============================================================
+
+@router.post("/starter/claim", status_code=status.HTTP_201_CREATED)
+def claim_starter_flashcards(
+    data: FlashcardStarterClaim,
+    db: Session = Depends(get_db),
+    student: User = Depends(get_current_approved_user),
+):
+    """Cria e atribui ao aluno os cards do pacote inicial.
+
+    A operação é idempotente por conteúdo: se o mesmo card já estiver
+    atribuído ao aluno, ele não é duplicado.
+    """
+    if student.role != UserRole.aluno:
+        raise HTTPException(status_code=403, detail="Apenas alunos podem receber flashcards.")
+
+    created = []
+    skipped = 0
+
+    for item in data.cards:
+        front = (item.front or "").strip()
+        back = (item.back or "").strip()
+        description = (item.description or "").strip() or None
+        if not front or not back:
+            continue
+
+        existing = (
+            db.query(Flashcard)
+            .join(FlashcardAssignment, FlashcardAssignment.flashcard_id == Flashcard.id)
+            .filter(
+                FlashcardAssignment.student_id == student.id,
+                Flashcard.front == front,
+                Flashcard.back == back,
+            )
+            .first()
+        )
+        if existing:
+            skipped += 1
+            continue
+
+        card = Flashcard(
+            front=front,
+            back=back,
+            description=description,
+            source=FlashcardSource.aluno,
+        )
+        db.add(card)
+        db.flush()
+        db.add(FlashcardAssignment(flashcard_id=card.id, student_id=student.id))
+        created.append(card.id)
+
+    db.commit()
+    return {"received": len(created), "skipped": skipped, "flashcard_ids": created}
 
 
 # ============================================================

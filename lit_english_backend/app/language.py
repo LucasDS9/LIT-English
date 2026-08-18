@@ -12,3 +12,10 @@ def student_language(student: User) -> str:
     if student.access_type == AccessType.especial and student.target_language:
         return student.target_language.strip().lower()
     return "ingles"
+
+
+def student_source_language(student: User) -> str:
+    """Retorna a língua de origem/nativa usada no par dos conteúdos."""
+    if student.native_language:
+        return student.native_language.strip().lower()
+    return "pt"

@@ -97,6 +97,45 @@ class FlashcardOut(BaseModel):
         from_attributes = True
 
 
+class StarterCatalogCardIn(BaseModel):
+    front: str
+    back: str
+    description: Optional[str] = None
+    category: str = "saudacoes"
+
+
+class StarterCatalogUpsert(BaseModel):
+    source_language: str = "pt"
+    language: str
+    cards: List[StarterCatalogCardIn] = Field(min_length=1)
+
+
+class StarterCatalogCardOut(BaseModel):
+    id: int
+    source_language: str
+    language: str
+    front: str
+    back: str
+    description: Optional[str] = None
+    placeholders: List[str] = []
+    category: str
+
+    class Config:
+        from_attributes = True
+
+
+class FlashcardStarterCard(BaseModel):
+    """Card enviado ao aluno ao escolher o pacote inicial de exemplos."""
+    front: str
+    back: str
+    description: Optional[str] = None
+
+
+class FlashcardStarterClaim(BaseModel):
+    """Lista de cards iniciais que o aluno escolheu receber."""
+    cards: List[FlashcardStarterCard]
+
+
 class FlashcardSelfAdd(BaseModel):
     """Aluno salvando um flashcard próprio."""
     front: str

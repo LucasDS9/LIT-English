@@ -3862,3 +3862,385 @@ body.reader-fs-open {
     font-size: 15px;
   }
 }
+
+/* ==========================================================================
+   Aprender — primeiro acesso / escolha inicial
+   Modelo visual baseado na tela de referência enviada pelo usuário.
+   ========================================================================== */
+.learn-onboarding {
+  width: 100%;
+  min-height: calc(100vh - 56px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 46px 24px 34px;
+}
+
+.learn-onboarding-hero {
+  text-align: center;
+}
+
+.learn-fire-icon {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 14px;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.learn-fire-icon svg {
+  width: 48px;
+  height: 48px;
+}
+
+.learn-onboarding h1 {
+  margin: 0;
+  color: var(--primary);
+  font-size: 38px;
+  line-height: 1.18;
+  font-weight: 800;
+  letter-spacing: -1.2px;
+}
+
+.learn-onboarding-hero p {
+  margin: 22px 0 0;
+  color: #73777F;
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.learn-choice-grid {
+  width: min(100%, 884px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 76px;
+  margin-top: 66px;
+}
+
+.learn-choice-card {
+  min-height: 302px;
+  border: 1px solid #E2E2E2;
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: none;
+  color: var(--text);
+  padding: 40px 34px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+
+.learn-choice-card:hover {
+  border-color: #D3D3D3;
+  box-shadow: 0 8px 24px rgba(20,20,30,.05);
+  transform: translateY(-2px);
+}
+
+.learn-choice-card:focus-visible,
+.learn-see-examples:focus-visible,
+.learn-back-btn:focus-visible,
+.learn-outline-btn:focus-visible,
+.starter-save-btn:focus-visible {
+  outline: 3px solid rgba(134, 30, 25, .15);
+  outline-offset: 3px;
+}
+
+.learn-choice-icon {
+  width: 62px;
+  height: 62px;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 21px;
+}
+
+.learn-choice-icon svg {
+  width: 49px;
+  height: 49px;
+}
+
+.learn-choice-card strong {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.learn-choice-card > span:not(.learn-choice-icon):not(.learn-choice-arrow) {
+  margin-top: 17px;
+  color: #777B83;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.learn-choice-arrow {
+  margin-top: 24px;
+  color: var(--primary);
+  font-size: 31px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.learn-see-examples {
+  margin-top: 52px;
+  border: 0;
+  background: transparent;
+  color: #777B83;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 6px 10px;
+}
+
+.learn-see-examples svg {
+  width: 23px;
+  height: 23px;
+}
+
+/* ==========================================================================
+   Aprender — prévia e cards recebidos
+   ========================================================================== */
+.learn-preview,
+.learn-received {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 42px 24px 50px;
+}
+
+.learn-preview-topbar {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 18px;
+}
+
+.learn-preview-topbar > div {
+  justify-self: start;
+}
+
+.learn-preview-topbar h1 {
+  margin: 0;
+  color: var(--primary);
+  font-size: 32px;
+  font-weight: 800;
+}
+
+.learn-received .learn-preview-topbar {
+  grid-template-columns: 1fr auto;
+}
+
+.learn-received .learn-preview-topbar h1 {
+  font-size: 30px;
+}
+
+.learn-received .learn-preview-topbar p {
+  margin: 7px 0 0;
+  color: #777B83;
+  font-size: 14px;
+}
+
+.learn-back-btn {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 7px 0;
+}
+
+.learn-preview-subtitle {
+  margin: 10px 0 30px;
+  text-align: center;
+  color: #777B83;
+  font-size: 14px;
+}
+
+.learn-outline-btn {
+  justify-self: end;
+  border: 1px solid var(--primary);
+  background: #fff;
+  color: var(--primary);
+  border-radius: 9px;
+  padding: 10px 15px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.starter-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.starter-card {
+  position: relative;
+  min-height: 250px;
+  border: 1px solid #E4E4E4;
+  border-radius: 16px;
+  background: #fff;
+  padding: 22px 22px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.starter-card-language {
+  align-self: flex-start;
+  color: #22252A;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.starter-save-btn {
+  position: absolute;
+  top: 16px;
+  right: 17px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #555A61;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.starter-save-btn:hover,
+.starter-save-btn.saved {
+  color: var(--primary);
+  background: var(--primary-pale);
+}
+
+.starter-save-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.starter-card-front {
+  margin-top: 43px;
+  color: var(--primary);
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.starter-card-line {
+  width: 44px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--primary);
+  margin: 13px 0 15px;
+}
+
+.starter-card-back {
+  color: #22252A;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.starter-card-description {
+  width: 100%;
+  margin-top: 21px;
+  border-radius: 9px;
+  background: #F8EDEC;
+  color: var(--primary);
+  padding: 11px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.learn-receive-btn {
+  display: block;
+  margin: 28px auto 0;
+  min-width: 220px;
+}
+
+.learn-empty-state {
+  grid-column: 1 / -1;
+  min-height: 220px;
+  border: 1px dashed #DCDCDC;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #777B83;
+  gap: 7px;
+}
+
+.learn-empty-state strong {
+  color: #27292E;
+  font-size: 15px;
+}
+
+.learn-empty-state span {
+  font-size: 13px;
+}
+
+@media (max-width: 850px) {
+  .learn-choice-grid {
+    gap: 22px;
+  }
+  .starter-cards-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .learn-onboarding {
+    padding: 34px 18px 28px;
+  }
+  .learn-onboarding h1 {
+    font-size: 29px;
+  }
+  .learn-onboarding-hero p {
+    font-size: 14px;
+  }
+  .learn-choice-grid {
+    grid-template-columns: 1fr;
+    margin-top: 38px;
+  }
+  .learn-choice-card {
+    min-height: 260px;
+  }
+  .learn-see-examples {
+    margin-top: 30px;
+  }
+  .starter-cards-grid {
+    grid-template-columns: 1fr;
+  }
+  .learn-preview-topbar,
+  .learn-received .learn-preview-topbar {
+    grid-template-columns: 1fr;
+  }
+  .learn-preview-topbar h1 {
+    justify-self: start;
+    grid-row: 1;
+  }
+  .learn-preview-topbar .learn-back-btn {
+    grid-row: 2;
+  }
+  .learn-outline-btn {
+    justify-self: start;
+  }
+}
+EOF

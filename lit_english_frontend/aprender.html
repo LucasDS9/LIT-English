@@ -52,13 +52,76 @@
     </aside>
 
     <main class="main main-learn-create">
-      <header class="page-header">
-        <h1>Aprender</h1>
-        <div class="page-title-rule"></div>
-        <p id="page-subtitle">Crie seu flashcard para aprender de forma mais eficiente.</p>
-      </header>
+      <section id="learn-onboarding" class="learn-onboarding" hidden>
+        <div class="learn-onboarding-hero">
+          <div class="learn-fire-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+              <path d="M25.4 4.8c.7 7.1-3.9 9.4-6.2 13.5-1.7 3.1-.8 6.8 1.7 8.8-1.1-3.1.4-5.7 2.9-7.4 4.1 4.5 8.2 8.4 7.3 14.2-.7 4.4-4.2 7.2-8.8 7.2-6.7 0-11.9-4.9-11.9-11.8 0-8.3 6.2-13.1 10.8-18.7 1.8-2.2 3.4-4.3 4.2-5.8Z" fill="currentColor"/>
+              <path d="M28.2 24.1c3.7 3.8 5.3 6.2 4.7 9.8-.4 2.5-2.3 4.1-4.9 4.1-3.2 0-5.6-2.3-5.6-5.5 0-3.4 2.5-5.5 5.8-8.4Z" fill="#fff"/>
+            </svg>
+          </div>
+          <h1>Como você quer começar?</h1>
+          <p>Você pode começar com alguns exemplos prontos<br>ou adicionar seus próprios flashcards.</p>
+        </div>
 
-      <section id="learn-area" class="learn-create-area">
+        <div class="learn-choice-grid">
+          <button type="button" class="learn-choice-card" id="start-examples-btn">
+            <span class="learn-choice-icon" aria-hidden="true">
+              <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 7.5C9.9 7.5 12.6 8.4 16 10.5V26c-3.4-2.1-6.1-3-10-3V7.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                <path d="M26 7.5c-3.9 0-6.6.9-10 3V26c3.4-2.1 6.1-3 10-3V7.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                <path d="M16 10.5V26" stroke="currentColor" stroke-width="1.8"/>
+              </svg>
+            </span>
+            <strong>Começar com exemplos</strong>
+            <span>Receba alguns flashcards prontos<br>para começar a aprender.</span>
+            <span class="learn-choice-arrow" aria-hidden="true">→</span>
+          </button>
+
+          <button type="button" class="learn-choice-card" id="create-own-btn">
+            <span class="learn-choice-icon" aria-hidden="true">
+              <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="m6.5 25.5 1.7-6.2L22.8 4.7a2.2 2.2 0 0 1 3.1 0l1.4 1.4a2.2 2.2 0 0 1 0 3.1L12.7 23.8l-6.2 1.7Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+                <path d="m20.8 6.7 4.5 4.5" stroke="currentColor" stroke-width="1.8"/>
+              </svg>
+            </span>
+            <strong>Criar meus próprios flashcards</strong>
+            <span>Adicione as frases que você<br>quer aprender.</span>
+            <span class="learn-choice-arrow" aria-hidden="true">→</span>
+          </button>
+        </div>
+
+        <button type="button" class="learn-see-examples" id="see-examples-btn">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M2.8 12s3.4-5.5 9.2-5.5 9.2 5.5 9.2 5.5-3.4 5.5-9.2 5.5S2.8 12 2.8 12Z" stroke="currentColor" stroke-width="1.7"/>
+            <circle cx="12" cy="12" r="2.6" stroke="currentColor" stroke-width="1.7"/>
+          </svg>
+          <span>Ver exemplos primeiro</span>
+        </button>
+      </section>
+
+      <section id="learn-preview" class="learn-preview" hidden>
+        <div class="learn-preview-topbar">
+          <button type="button" class="learn-back-btn" id="preview-back-btn">← <span>Voltar</span></button>
+          <h1>Exemplos</h1>
+          <span></span>
+        </div>
+        <p class="learn-preview-subtitle">Veja alguns exemplos antes de escolher como começar.</p>
+        <div id="example-cards-grid" class="starter-cards-grid"></div>
+      </section>
+
+      <section id="learn-received" class="learn-received" hidden>
+        <div class="learn-preview-topbar">
+          <div>
+            <h1>Seus flashcards</h1>
+            <p>Os exemplos foram adicionados para você começar a aprender.</p>
+          </div>
+          <button type="button" class="learn-outline-btn" id="add-own-after-receive-btn">+ Criar flashcard</button>
+        </div>
+        <div id="received-cards-grid" class="starter-cards-grid"></div>
+      </section>
+
+      <section id="learn-create-view" class="learn-create-area" hidden>
         <div class="learn-create-card">
           <div class="learn-create-header">
             <div class="learn-create-illustration" aria-hidden="true">
