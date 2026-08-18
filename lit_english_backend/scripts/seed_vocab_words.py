@@ -77,6 +77,65 @@ WORDS = [
     # =======================================================================
     # PARTE 1 — SAUDAÇÕES E SOBREVIVÊNCIA LINGUÍSTICA
     # =======================================================================
+    # -----------------------------------------------------------------------
+    # Frases essenciais de apresentação pessoal — ficam logo no início,
+    # antes das saudações gerais, porque são as primeiras frases que um
+    # aluno iniciante precisa para se apresentar.
+    # -----------------------------------------------------------------------
+    {
+        "word": 'My name is...',
+        "part_of_speech": 'expressão',
+        "tip": "O que significa 'My name is...'?",
+        "translation": 'Meu nome é...',
+        "distractors": ['Eu sou de...', 'Eu tenho... anos', 'Eu moro em...'],
+        "explanation": 'Resposta usada para dizer o próprio nome.',
+        "category": 'saudacoes',
+    },
+    {
+        "word": "I'm still learning",
+        "part_of_speech": 'expressão',
+        "tip": "O que significa 'I'm still learning'?",
+        "translation": 'Eu ainda estou aprendendo',
+        "distractors": ['Eu já sei tudo', 'Eu parei de estudar', 'Eu nunca estudei'],
+        "explanation": 'Usado para dizer que o aprendizado ainda está em progresso.',
+        "category": 'saudacoes',
+    },
+    {
+        "word": 'See you next week',
+        "part_of_speech": 'expressão',
+        "tip": "O que significa 'See you next week'?",
+        "translation": 'Até a próxima semana',
+        "distractors": ['Até amanhã', 'Até logo', 'Até o próximo mês'],
+        "explanation": 'Despedida usada quando o próximo encontro será em uma semana.',
+        "category": 'saudacoes',
+    },
+    {
+        "word": 'Have a great weekend!',
+        "part_of_speech": 'expressão',
+        "tip": "O que significa 'Have a great weekend!'",
+        "translation": 'Tenha um ótimo fim de semana!',
+        "distractors": ['Tenha um ótimo dia!', 'Tenha uma boa viagem!', 'Tenha uma boa noite!'],
+        "explanation": 'Despedida usada antes do fim de semana.',
+        "category": 'saudacoes',
+    },
+    {
+        "word": 'It was nice talking to you',
+        "part_of_speech": 'expressão',
+        "tip": "O que significa 'It was nice talking to you'?",
+        "translation": 'Foi bom falar com você',
+        "distractors": ['Foi bom te conhecer', 'Foi bom trabalhar com você', 'Foi bom te ajudar'],
+        "explanation": 'Usado ao final de uma conversa agradável.',
+        "category": 'saudacoes',
+    },
+    {
+        "word": "Let's keep in touch",
+        "part_of_speech": 'expressão',
+        "tip": "O que significa 'Let's keep in touch?'",
+        "translation": 'Vamos manter contato',
+        "distractors": ['Vamos nos encontrar amanhã', 'Vamos conversar agora', 'Vamos trabalhar juntos'],
+        "explanation": 'Usado ao se despedir de alguém com quem se quer continuar em contato.',
+        "category": 'saudacoes',
+    },
     {
         "word": 'Hello',
         "part_of_speech": 'expressão',
@@ -1362,78 +1421,6 @@ WORDS = [
         "translation": 'Boa sorte, se cuida!',
         "distractors": ['Eu sou do Brasil', 'Foi meu erro', 'Só por precaução'],
         "explanation": "Combina 'good luck' com 'take care'.",
-        "category": 'saudacoes',
-    },
-    {
-        "word": "What's your name?",
-        "part_of_speech": 'expressão',
-        "tip": "O que significa 'What's your name?'",
-        "translation": 'Qual é o seu nome?',
-        "distractors": ['Quantos anos você tem?', 'Onde você mora?', 'De onde você é?'],
-        "explanation": 'Pergunta básica para saber o nome de alguém.',
-        "category": 'saudacoes',
-    },
-    {
-        "word": 'My name is...',
-        "part_of_speech": 'expressão',
-        "tip": "O que significa 'My name is...'?",
-        "translation": 'Meu nome é...',
-        "distractors": ['Eu sou de...', 'Eu tenho... anos', 'Eu moro em...'],
-        "explanation": 'Resposta usada para dizer o próprio nome.',
-        "category": 'saudacoes',
-    },
-    {
-        "word": 'How old are you?',
-        "part_of_speech": 'expressão',
-        "tip": "O que significa 'How old are you?'",
-        "translation": 'Quantos anos você tem?',
-        "distractors": ['Onde você mora?', 'Qual é o seu nome?', 'O que você faz?'],
-        "explanation": 'Pergunta básica sobre idade.',
-        "category": 'saudacoes',
-    },
-    {
-        "word": "I'm ... years old",
-        "part_of_speech": 'expressão',
-        "tip": "O que significa 'I'm ... years old'?",
-        "translation": 'Eu tenho ... anos',
-        "distractors": ['Eu me chamo ...', 'Eu moro em ...', 'Eu sou de ...'],
-        "explanation": 'Resposta usada para dizer a idade.',
-        "category": 'saudacoes',
-    },
-    {
-        "word": 'Where are you from?',
-        "part_of_speech": 'expressão',
-        "tip": "O que significa 'Where are you from?'",
-        "translation": 'De onde você é?',
-        "distractors": ['O que você quer?', 'Quando você chega?', 'Como você está?'],
-        "explanation": 'Pergunta sobre origem/nacionalidade.',
-        "category": 'saudacoes',
-    },
-    {
-        "word": "I'm from Brazil",
-        "part_of_speech": 'expressão',
-        "tip": "O que significa 'I'm from Brazil'?",
-        "translation": 'Eu sou do Brasil',
-        "distractors": ['Eu moro perto', 'Eu gosto do Brasil', 'Eu vou ao Brasil'],
-        "explanation": 'Resposta comum indicando o país de origem.',
-        "category": 'saudacoes',
-    },
-    {
-        "word": 'Where do you live?',
-        "part_of_speech": 'expressão',
-        "tip": "O que significa 'Where do you live?'",
-        "translation": 'Onde você mora?',
-        "distractors": ['Como você vive?', 'Quando você chega?', 'Por que você mora aqui?'],
-        "explanation": 'Pergunta básica sobre local de moradia.',
-        "category": 'saudacoes',
-    },
-    {
-        "word": 'I live in...',
-        "part_of_speech": 'expressão',
-        "tip": "O que significa 'I live in...'?",
-        "translation": 'Eu moro em...',
-        "distractors": ['Eu vou a...', 'Eu gosto de...', 'Eu nasci em...'],
-        "explanation": 'Resposta usada para dizer o local de moradia.',
         "category": 'saudacoes',
     },
     {
@@ -3294,15 +3281,6 @@ WORDS = [
         "translation": 'Eu moro aqui.',
         "distractors": ['Eu trabalho aqui.', 'Eu estudo aqui.', 'Eu fico aqui.'],
         "explanation": 'literal: eu moro aqui.',
-        "category": 'verbos_essenciais_pt2',
-    },
-    {
-        "word": 'Where do you live?',
-        "part_of_speech": 'verbo',
-        "tip": "O que significa a expressão 'Where do you live?'?",
-        "translation": 'Onde você mora?',
-        "distractors": ['Onde você trabalha?', 'Onde você estuda?', 'Onde você fica?'],
-        "explanation": 'literal: onde você vive?.',
         "category": 'verbos_essenciais_pt2',
     },
     {
@@ -5913,16 +5891,6 @@ WORDS = [
         "category": 'verbos_pt3',
     },
 ]
-
-# ---------------------------------------------------------------------------
-# Categoria de cada item, pra tela "Aprender" (frontend) conseguir separar
-# a fila por categoria. Por enquanto só existe a Parte 1 (Saudações e
-# frases essenciais / sobrevivência linguística, A1) neste arquivo.
-# ---------------------------------------------------------------------------
-for _item in WORDS:
-    _item["category"] = "saudacoes"
-
-
 
 # ---------------------------------------------------------------------------
 # Categorias da tela "Aprender"

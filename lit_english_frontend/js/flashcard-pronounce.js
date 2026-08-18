@@ -1,6 +1,6 @@
 /* ==========================================================================
    LIT English — flashcard-pronounce.js
-   Gravação, envio e UI de feedback de pronúncia (Aprender, Revisar, Speak).
+   Gravação, envio e UI de feedback de pronúncia (Revisar, Speak).
    ========================================================================== */
 
 const FlashcardPronounce = (() => {
@@ -217,7 +217,7 @@ const FlashcardPronounce = (() => {
   }
 
   /**
-   * Verso do card Aprender com feedback visual de pronúncia (após virar).
+   * Feedback visual de pronúncia em Revisar (após gravar).
    */
   function buildPronunciationBack({
     card,
@@ -306,10 +306,10 @@ const FlashcardPronounce = (() => {
 
   /**
    * Painel de análise de pronúncia genérico (mesmo visual de
-   * buildPronunciationBack, usado em Aprender) — pra encaixar dentro de um
+   * buildPronunciationBack, usado em Revisar) — pra encaixar dentro de um
    * container já existente, como o verso do exercício de falar em Revisar.
    * Ao contrário de buildPronunciationBack, não assume os campos de um
-   * card de Aprender (word/tip) — recebe o texto da frase e da tradução
+   * card de Revisar — recebe o texto da frase e da tradução
    * prontos.
    */
   function renderAnalyzerPanel(container, {

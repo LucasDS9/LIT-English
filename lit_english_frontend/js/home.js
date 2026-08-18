@@ -13,7 +13,7 @@ const homeQuoteEl = document.getElementById("home-quote");
 const homeQuoteAuthorEl = document.getElementById("home-quote-author");
 const metricsRootEl = document.getElementById("home-metrics");
 
-// Mesma regra do backend (ver student_language() em vocab_words.py): curso
+// Mesma regra do backend (ver student_language() em language.py): curso
 // normal (access_type "padrao") é sempre inglês; Acesso Especial usa a
 // target_language escolhida no cadastro (ex.: "italiano").
 function studentLanguage(user) {

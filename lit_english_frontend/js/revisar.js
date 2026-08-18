@@ -25,8 +25,6 @@ document.getElementById("logout-btn").addEventListener("click", () => {
   if (ok) Auth.logout();
 });
 
-document.getElementById("add-flashcard-btn").addEventListener("click", openAddFlashcardModal);
-
 // ---------------------------------------------------------------------------
 // Sessão de revisão (estado em memória, vive enquanto a página está aberta)
 // ---------------------------------------------------------------------------
@@ -224,162 +222,6 @@ function buildReviewAudioControls(card, body, { listenLabel = "Ouvir novamente" 
   return { listenBtn, pronounceBtn, pronunciationFeedback };
 }
 
-// ---------------------------------------------------------------------------
-// "Adicionar flashcard" — aluno cria o próprio flashcard.
-// Verso é opcional: se ficar em branco, o backend gera a tradução
-// automaticamente (na língua-alvo certa: inglês no curso normal, ou a
-// língua do Acesso Especial, ex.: italiano).
-// ---------------------------------------------------------------------------
-
-const FIELD_MAX_LENGTH = 200;
-
-function isReviewSessionActive() {
-  return session.cards.length > 0 && session.index < session.cards.length;
-}
-
-function buildCounterField({ id, labelText, hintText, placeholder }) {
-  const field = document.createElement("div");
-  field.className = "field";
-
-  const label = document.createElement("label");
-  label.setAttribute("for", id);
-  label.textContent = labelText;
-  field.appendChild(label);
-
-  const hint = document.createElement("p");
-  hint.className = "field-hint";
-  hint.textContent = hintText;
-  field.appendChild(hint);
-
-  const textarea = document.createElement("textarea");
-  textarea.id = id;
-  textarea.maxLength = FIELD_MAX_LENGTH;
-  textarea.placeholder = placeholder;
-  field.appendChild(textarea);
-
-  const counter = document.createElement("span");
-  counter.className = "field-char-count";
-  counter.textContent = `0/${FIELD_MAX_LENGTH}`;
-  field.appendChild(counter);
-
-  textarea.addEventListener("input", () => {
-    counter.textContent = `${textarea.value.length}/${FIELD_MAX_LENGTH}`;
-  });
-
-  return { field, textarea, counter };
-}
-
-function openAddFlashcardModal() {
-  const overlay = document.createElement("div");
-  overlay.className = "modal-overlay";
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) overlay.remove();
-  });
-
-  const modal = document.createElement("div");
-  modal.className = "modal";
-
-  const header = document.createElement("div");
-  header.className = "modal-header";
-  const h2 = document.createElement("h2");
-  h2.textContent = "Adicionar flashcard";
-  header.appendChild(h2);
-  const closeBtn = document.createElement("button");
-  closeBtn.type = "button";
-  closeBtn.className = "icon-btn";
-  closeBtn.innerHTML = Icons.x;
-  closeBtn.addEventListener("click", () => overlay.remove());
-  header.appendChild(closeBtn);
-  modal.appendChild(header);
-
-  const form = document.createElement("form");
-
-  const { field: frontField, textarea: frontInput } = buildCounterField({
-    id: "flashcard-front",
-    labelText: "Frente",
-    hintText: "Escreva o termo ou frase na língua alvo.",
-    placeholder: "Ex: It's a beautiful day.",
-  });
-  form.appendChild(frontField);
-
-  const { field: backField, textarea: backInput } = buildCounterField({
-    id: "flashcard-back",
-    labelText: "Verso",
-    hintText: "Escreva a tradução ou o significado.",
-    placeholder: "Ex: É um dia lindo.",
-  });
-  form.appendChild(backField);
-
-  const note = document.createElement("div");
-  note.className = "field-note";
-  note.innerHTML = `${Icons.alert}<span>Se você não preencher o verso, um flashcard será gerado automaticamente para você.</span>`;
-  form.appendChild(note);
-
-  const errorBox = document.createElement("p");
-  errorBox.className = "form-error";
-  errorBox.hidden = true;
-  form.appendChild(errorBox);
-
-  const actions = document.createElement("div");
-  actions.className = "modal-actions";
-
-  const cancelBtn = document.createElement("button");
-  cancelBtn.type = "button";
-  cancelBtn.className = "btn btn-outline";
-  cancelBtn.textContent = "Cancelar";
-  cancelBtn.addEventListener("click", () => overlay.remove());
-  actions.appendChild(cancelBtn);
-
-  const addBtn = document.createElement("button");
-  addBtn.type = "submit";
-  addBtn.className = "btn btn-primary";
-  addBtn.textContent = "Adicionar";
-  actions.appendChild(addBtn);
-
-  form.appendChild(actions);
-  modal.appendChild(form);
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-  frontInput.focus();
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    errorBox.hidden = true;
-
-    const front = frontInput.value.trim();
-    if (!front) {
-      errorBox.textContent = "Escreva o termo ou frase na língua-alvo.";
-      errorBox.hidden = false;
-      return;
-    }
-
-    addBtn.disabled = true;
-    addBtn.textContent = "Adicionando...";
-
-    try {
-      await apiFetch("/flashcards/self-add", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ front, back: backInput.value.trim() }),
-      });
-
-      overlay.remove();
-      showToast("Flashcard adicionado!");
-
-      // Se o aluno não estiver no meio de uma sessão de revisão, atualiza a
-      // fila agora pra já mostrar o card novo (ele pode já estar "devido").
-      if (!isReviewSessionActive()) {
-        loadQueue();
-      }
-    } catch (err) {
-      errorBox.textContent = err.message || "Não foi possível adicionar o flashcard. Tente novamente.";
-      errorBox.hidden = false;
-      addBtn.disabled = false;
-      addBtn.textContent = "Adicionar";
-    }
-  });
-}
-
 function renderStateBox({ icon, title, text, actionLabel, onAction }) {
   reviewArea.innerHTML = "";
   const box = document.createElement("div");
@@ -529,9 +371,7 @@ function renderTypeCard(card) {
   const hint = document.createElement("p");
   hint.className = "review-hint";
   hint.style.margin = "0";
-  hint.textContent = card.is_showcase
-    ? "Prévia do Dominando — digite a tradução em português"
-    : "Digite a tradução em português";
+  hint.textContent = "Digite a tradução em português";
   body.appendChild(hint);
 
   const input = document.createElement("input");
@@ -595,9 +435,7 @@ function renderSpeakCard(card) {
   const hint = document.createElement("p");
   hint.className = "review-hint";
   hint.style.margin = "0";
-  hint.textContent = card.is_showcase
-    ? "Prévia do Dominando — fale a frase na língua-alvo"
-    : "Fale a frase na língua-alvo";
+  hint.textContent = "Fale a frase na língua-alvo";
   body.appendChild(hint);
 
   const feedback = document.createElement("div");
@@ -671,7 +509,7 @@ async function submitSpeakAnswer(card, getBlob, feedback, submitBtn, getLocked, 
 
     // Quando a Azure Pronunciation Assessment está disponível, mostra o
     // mesmo analisador visual (score + palavra por palavra) usado em
-    // Aprender — tanto no acerto quanto no erro, pra o aluno entender ONDE
+    // Revisar — tanto no acerto quanto no erro, pra o aluno entender ONDE
     // errou antes de tentar de novo.
     if (result.score != null) {
       FlashcardPronounce.renderAnalyzerPanel(feedback, {
@@ -848,18 +686,6 @@ async function submitTypedAnswer(card, input, feedback, submitBtn) {
       feedback.textContent = `Resposta correta: ${result.correct_answer}`;
     }
 
-    // Prévia do Dominando: ao acertar a digitação, o próprio card já
-    // avança pro exercício de pronúncia (type_speak) na hora, sem esperar
-    // o aluno terminar o lote inteiro pra fila recarregar do servidor —
-    // assim ele sente o fluxo completo (digitar -> falar) de cada palavra
-    // da prévia de uma vez só.
-    if (card.is_showcase && result.correct && result.review_mode === "type_speak") {
-      card.mode = result.review_mode;
-      card.status = result.review_status;
-      session.typingLocked = false;
-      setTimeout(() => renderCard(), 900);
-      return;
-    }
 
     setTimeout(() => advanceToNextCard(), 900);
   } catch (err) {

@@ -37,10 +37,6 @@
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16"/><path d="M9 4v16"/><path d="M14 4l5 16"/></svg>
           <span>Revisar</span>
         </a>
-        <a href="exercicios.html" id="nav-exercicios" class="nav-item">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
-          <span>Exercícios</span>
-        </a>
         <a href="textos.html" class="nav-item">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7c-1.5-1.3-4-2-7-2v13c3 0 5.5.7 7 2 1.5-1.3 4-2 7-2V5c-3 0-5.5.7-7 2Z"/><path d="M12 7v13"/></svg>
           <span>Read and Listen</span>
@@ -55,14 +51,87 @@
       </nav>
     </aside>
 
-    <main class="main main-review">
+    <main class="main main-learn-create">
       <header class="page-header">
         <h1>Aprender</h1>
-        <p id="page-subtitle">Escolha uma categoria para começar a estudar.</p>
+        <div class="page-title-rule"></div>
+        <p id="page-subtitle">Crie seu flashcard para aprender de forma mais eficiente.</p>
       </header>
 
-      <section id="learn-area" class="review-area-centered">
-        <div class="skeleton">Carregando...</div>
+      <section id="learn-area" class="learn-create-area">
+        <div class="learn-create-card">
+          <div class="learn-create-header">
+            <div class="learn-create-illustration" aria-hidden="true">
+              <svg viewBox="0 0 120 86" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="74" cy="45" rx="37" ry="28" fill="#861E19" opacity="0.96"/>
+                <g transform="rotate(-6 58 40)">
+                  <rect x="18" y="20" width="58" height="45" rx="5" fill="#fff" stroke="#2A2A2A" stroke-width="1.5"/>
+                  <rect x="26" y="14" width="58" height="45" rx="5" fill="#fff" stroke="#2A2A2A" stroke-width="1.5"/>
+                  <line x1="31" y1="20" x2="74" y2="20" stroke="#E9E9E9" stroke-width="1.5"/>
+                  <text x="55" y="45" text-anchor="middle" font-family="Poppins, sans-serif" font-size="17" font-weight="800" fill="#861E19">LIT</text>
+                </g>
+              </svg>
+            </div>
+            <div>
+              <h2>Novo Flashcard</h2>
+              <p>Preencha as informações abaixo para criar seu flashcard.</p>
+            </div>
+          </div>
+
+          <div class="learn-create-divider"></div>
+
+          <form id="flashcard-form" novalidate>
+            <div class="learn-create-field-row">
+              <div class="learn-create-field-copy">
+                <div class="learn-create-field-title"><span class="learn-create-icon">A</span><strong>Frente</strong></div>
+                <p id="front-hint">Digite a palavra, frase ou expressão em português ou inglês.</p>
+              </div>
+              <div class="learn-create-input-wrap">
+                <textarea id="flashcard-front" maxlength="200" placeholder="Ex: Livro" required></textarea>
+                <span class="learn-create-counter" id="front-counter">0/200</span>
+              </div>
+            </div>
+
+            <div class="learn-create-field-row">
+              <div class="learn-create-field-copy">
+                <div class="learn-create-field-title"><span class="learn-create-icon">文</span><strong>Verso</strong></div>
+                <p>Deixe em branco para gerar automaticamente.</p>
+              </div>
+              <div class="learn-create-input-wrap">
+                <textarea id="flashcard-back" maxlength="200" placeholder="Deixe em branco para gerar automaticamente."></textarea>
+                <span class="learn-create-counter" id="back-counter">0/200</span>
+              </div>
+            </div>
+
+            <div class="learn-create-field-row">
+              <div class="learn-create-field-copy">
+                <div class="learn-create-field-title"><span class="learn-create-icon">▤</span><strong>Descrição</strong></div>
+                <p>Contexto, exemplo ou observação (opcional).</p>
+              </div>
+              <div class="learn-create-input-wrap">
+                <textarea id="flashcard-description" maxlength="300" placeholder="Ex: Usado para falar sobre leitura ou livros."></textarea>
+                <span class="learn-create-counter" id="description-counter">0/300</span>
+              </div>
+            </div>
+
+            <div class="learn-create-note">
+              <span class="learn-create-note-icon">✦</span>
+              <div>
+                <strong>Geração automática</strong>
+                <p>Se o campo “Verso” estiver vazio, a tradução será gerada automaticamente.</p>
+              </div>
+            </div>
+
+            <p id="form-error" class="learn-create-error" hidden></p>
+
+            <div class="learn-create-actions">
+              <button type="submit" id="create-flashcard-btn" class="btn btn-primary">
+                <span class="learn-create-plus">+</span>
+                <span>Criar Flashcard</span>
+              </button>
+            </div>
+          </form>
+        </div>
       </section>
     </main>
 
@@ -72,8 +141,6 @@
 
   <script src="js/api.js"></script>
   <script src="js/icons.js"></script>
-  <script src="js/sfx.js"></script>
-  <script src="js/flashcard-pronounce.js"></script>
   <script src="js/aprender.js"></script>
 </body>
 </html>

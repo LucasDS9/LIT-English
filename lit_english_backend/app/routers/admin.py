@@ -25,11 +25,9 @@ from app.models import (
     TextAssignment,
     User,
     UserRole,
-    VocabWord,
-    VocabWordAssignment,
 )
 from app.routers.dashboard import build_dashboard_metrics
-from app.routers.vocab_words import student_language
+from app.language import student_language
 from app.schemas import StudentDetailsOut, UserOut
 
 router = APIRouter(prefix="/admin", tags=["Admin (Professor)"])
@@ -91,30 +89,12 @@ def approve_student(
 ):
     """Aprova o acesso de um aluno.
 
-    Também atribui a ele, automaticamente, todas as palavras já cadastradas
-    na tela Aprender **na língua dele** — curso normal (access_type=padrao)
-    recebe as palavras de "ingles"; aluno de Acesso Especial recebe as da
-    língua escolhida no cadastro (target_language, ex.: "italiano"). Assim
-    o vocabulário fica "nativo" sem misturar línguas, e sem o professor
-    precisar selecionar aluno por aluno.
+    A aprovação apenas libera o acesso do aluno. A língua escolhida no
+    cadastro continua disponível para os módulos que já suportam múltiplos
+    idiomas.
     """
     student = _get_student_or_404(student_id, db)
     student.is_approved = True
-
-    language = student_language(student)
-    already_assigned = {
-        row[0]
-        for row in db.query(VocabWordAssignment.word_id)
-        .filter(VocabWordAssignment.student_id == student.id)
-        .all()
-    }
-    matching_word_ids = [
-        row[0]
-        for row in db.query(VocabWord.id).filter(VocabWord.language == language).all()
-    ]
-    for word_id in matching_word_ids:
-        if word_id not in already_assigned:
-            db.add(VocabWordAssignment(word_id=word_id, student_id=student.id))
 
     db.commit()
     db.refresh(student)

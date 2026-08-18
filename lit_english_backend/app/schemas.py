@@ -13,7 +13,6 @@ from app.models import (
     ReviewCardStatus,
     ReviewMode,
     UserRole,
-    VocabWordStatus,
 )
 
 # Línguas-alvo aceitas hoje no cadastro de Acesso Especial. Só existe estrutura
@@ -67,12 +66,14 @@ class Token(BaseModel):
 class FlashcardCreate(BaseModel):
     front: str
     back: str
+    description: Optional[str] = None
     student_ids: List[int] = Field(min_length=1)
 
 
 class FlashcardUpdate(BaseModel):
     front: Optional[str] = None
     back: Optional[str] = None
+    description: Optional[str] = None
     student_ids: Optional[List[int]] = None
 
 
@@ -88,6 +89,7 @@ class FlashcardOut(BaseModel):
     id: int
     front: str
     back: str
+    description: Optional[str] = None
     created_at: datetime
     students: List[FlashcardStudentOut] = []
 
@@ -96,14 +98,10 @@ class FlashcardOut(BaseModel):
 
 
 class FlashcardSelfAdd(BaseModel):
-    """
-    Aluno salvando um flashcard próprio — seja pelo popup de vocabulário
-    (Read and Listen, front+back sempre preenchidos) seja pelo botão
-    "Adicionar flashcard" da tela de Flashcards, onde `back` é opcional:
-    se vier vazio, o backend gera a tradução automaticamente.
-    """
+    """Aluno salvando um flashcard próprio."""
     front: str
     back: Optional[str] = None
+    description: Optional[str] = None
 
 
 # ---------- Revisão ----------
@@ -114,11 +112,6 @@ class ReviewCardOut(BaseModel):
     back: str
     status: Optional[ReviewCardStatus] = None
     mode: ReviewMode = ReviewMode.flip
-    explanation: Optional[str] = None
-    # True para os 3 cards da "prévia do Dominando" (ver flashcards.py) —
-    # puxados direto pra Dominando fora da agenda normal do SM-2, pra um
-    # aluno novo já sentir o potencial da plataforma nas primeiras sessões.
-    is_showcase: bool = False
 
 
 class ReviewQueueOut(BaseModel):
@@ -154,8 +147,7 @@ class ReviewResultOut(BaseModel):
     confidence: Optional[float] = None
     transcribed_text: Optional[str] = None
     # Preenchidos best-effort no exercício de falar (type_speak) quando o
-    # Azure Pronunciation Assessment está disponível — mesmo analisador
-    # visual (score + palavra por palavra) usado em Aprender.
+    # Azure Pronunciation Assessment está disponível.
     score: Optional[int] = Field(default=None, ge=0, le=100)
     word_scores: Optional[List["WordPronunciationScore"]] = None
     feedback_title: Optional[str] = None
@@ -300,109 +292,6 @@ class WordLookupOut(BaseModel):
     translation: str
     example_en: str
     example_pt: str
-
-
-# ---------- Aprender (treino de vocabulário por múltipla escolha) ----------
-
-class VocabWordCreate(BaseModel):
-    word: str
-    part_of_speech: str
-    translation: str
-    # Ao menos um dos dois precisa vir preenchido: `example_sentence` (a
-    # maioria das palavras) ou `tip` (ex.: saudações, sem frase de exemplo).
-    example_sentence: Optional[str] = None
-    tip: Optional[str] = None
-    # Sempre exatamente 3 opções erradas — junto com `translation` formam as
-    # 4 opções fixas mostradas ao aluno.
-    distractors: List[str] = Field(min_length=3, max_length=3)
-    # Explicação curta, mostrada no verso do card só depois que o aluno
-    # responde (junto com a resposta certa) — nunca antes.
-    explanation: Optional[str] = None
-    # Língua-alvo da palavra ("ingles" por padrão, hoje o único conteúdo
-    # existente). Determina pra quem ela fica "nativa" — ver student_ids.
-    language: str = "ingles"
-    # Categoria da tela "Aprender" (ex.: "saudacoes", "verbos"). Usada pra
-    # filtrar a fila de aprendizado por categoria.
-    category: str = "saudacoes"
-    # Se omitido (ou vazio), a palavra é atribuída automaticamente a TODOS
-    # os alunos aprovados no momento cuja língua bate com `language` — e
-    # também a qualquer aluno aprovado depois (ver approve_student em
-    # admin.py), ficando nativa pra tela Aprender de todos os alunos
-    # daquela língua, sem precisar selecionar aluno por aluno.
-    student_ids: Optional[List[int]] = None
-
-
-class VocabWordUpdate(BaseModel):
-    word: Optional[str] = None
-    part_of_speech: Optional[str] = None
-    translation: Optional[str] = None
-    example_sentence: Optional[str] = None
-    tip: Optional[str] = None
-    distractors: Optional[List[str]] = Field(default=None, min_length=3, max_length=3)
-    explanation: Optional[str] = None
-    language: Optional[str] = None
-    category: Optional[str] = None
-    student_ids: Optional[List[int]] = None
-
-
-class VocabWordOut(BaseModel):
-    id: int
-    word: str
-    part_of_speech: str
-    translation: str
-    example_sentence: Optional[str] = None
-    tip: Optional[str] = None
-    distractors: List[str]
-    explanation: Optional[str] = None
-    language: str
-    category: str
-    created_at: datetime
-    students: List[FlashcardStudentOut] = []
-
-
-class VocabLearnCardOut(BaseModel):
-    """Card mostrado na tela Aprender. NÃO inclui `translation` (a resposta
-    certa) e as 4 `options` vêm embaralhadas — o aluno não tem como saber
-    qual é a certa antes de responder. A tradução da própria palavra também
-    não aparece em nenhum outro campo (ex.: se o aluno clicar nela na frase
-    de exemplo, o frontend não deve chamar o lookup contextual pra ela)."""
-    word_id: int
-    word: str
-    part_of_speech: str
-    example_sentence: Optional[str] = None
-    tip: Optional[str] = None
-    options: List[str]  # sempre 4, em ordem embaralhada
-
-
-class VocabLearnQueueOut(BaseModel):
-    cards: List[VocabLearnCardOut]
-    total_assigned: int
-    total_learned: int
-    new_words_count: int = 0
-
-
-class VocabLearnSubmit(BaseModel):
-    selected_option: str = Field(min_length=1)
-
-
-class VocabLearnResult(BaseModel):
-    """Resultado devolvido depois que o aluno responde — é só aqui que a
-    resposta certa e a explicação podem aparecer, pra virar o verso do
-    card (nunca antes, em VocabLearnCardOut)."""
-    correct: bool
-    correct_answer: str
-    explanation: Optional[str] = None
-    graduated_to_review: bool = False
-
-
-class VocabWordProgressOut(BaseModel):
-    """Vocabulário (Aprender) de um aluno específico, visão do professor."""
-    word_id: int
-    word: str
-    part_of_speech: str
-    translation: str
-    status: VocabWordStatus
-    next_review: datetime
 
 
 # ---------- Exercícios ----------

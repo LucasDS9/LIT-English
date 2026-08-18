@@ -1,7 +1,7 @@
 """
 Limites de uso da prática opcional de pronúncia (Azure Speech free tier).
 
-Cada teste no botão "Pronunciar" (Aprender / Revisar) conta 1 tentativa.
+Cada teste no botão "Pronunciar" em Revisar conta 1 tentativa.
 Exercícios obrigatórios de fala (submit-speak) não passam por aqui.
 """
 import logging

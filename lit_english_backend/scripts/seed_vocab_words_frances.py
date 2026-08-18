@@ -80,6 +80,43 @@ LEGACY_WORDS_TO_REMOVE = [
 # junto com a resposta certa.
 # ---------------------------------------------------------------------------
 WORDS = [
+
+    {
+        "word": "Je m'appelle...",
+        "part_of_speech": 'expressão',
+        "tip": "Que signifie « Je m'appelle... » ?",
+        "translation": 'Meu nome é...',
+        "distractors": ['Eu sou de...', 'Eu moro em...', 'Eu gosto de...'],
+        "explanation": 'Frase essencial de apresentação pessoal.',
+        "category": 'saudacoes',
+    },
+    {
+        "word": "J'ai ... ans.",
+        "part_of_speech": 'expressão',
+        "tip": "Que signifie « J'ai ... ans. » ?",
+        "translation": 'Eu tenho ... anos.',
+        "distractors": ['Eu sou de...', 'Eu moro em...', 'Eu gosto de...'],
+        "explanation": 'Frase essencial de apresentação pessoal.',
+        "category": 'saudacoes',
+    },
+    {
+        "word": 'Je parle français.',
+        "part_of_speech": 'expressão',
+        "tip": 'Que signifie « Je parle français. » ?',
+        "translation": 'Eu falo francês.',
+        "distractors": ['Eu sou de...', 'Eu moro em...', 'Eu gosto de...'],
+        "explanation": 'Frase essencial de apresentação pessoal.',
+        "category": 'saudacoes',
+    },
+    {
+        "word": "J'apprends le français.",
+        "part_of_speech": 'expressão',
+        "tip": "Que signifie « J'apprends le français. » ?",
+        "translation": 'Eu estou aprendendo francês.',
+        "distractors": ['Eu sou de...', 'Eu moro em...', 'Eu gosto de...'],
+        "explanation": 'Frase essencial de apresentação pessoal.',
+        "category": 'saudacoes',
+    },
     {
         "word": 'Salut',
         "part_of_speech": 'expressão',

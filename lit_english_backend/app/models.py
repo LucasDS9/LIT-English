@@ -54,18 +54,13 @@ class User(Base):
     native_language = Column(String, nullable=True)   # só preenchido quando access_type == especial
     target_language = Column(String, nullable=True)   # idem — ver ALLOWED_TARGET_LANGUAGES em schemas.py
     created_at = Column(DateTime, default=datetime.utcnow)
-    # Já rodou (ou não é mais elegível para) a "prévia do Dominando" nas
-    # primeiras sessões de Aprender — ver get_review_queue em
-    # routers/flashcards.py. Uma vez True, nunca mais seleciona a prévia.
-    dominando_showcase_done = Column(Boolean, default=False, nullable=False, server_default="false")
 
 
 class FlashcardSource(str, enum.Enum):
     """
     Quem originou o flashcard:
-      - professor: criado pelo professor (CRUD manual, decks em lote, ou
-        gerado a partir de uma palavra de "Aprender" curada por ele) — tem
-        prioridade na fila de revisão.
+      - professor: criado pelo professor (CRUD manual ou decks em lote) —
+        tem prioridade na fila de revisão.
       - aluno: criado pelo próprio aluno (botão "Adicionar flashcard",
         popup de vocabulário do Read and Listen, ou resposta salva em Q&A).
     """
@@ -79,6 +74,7 @@ class Flashcard(Base):
     id = Column(Integer, primary_key=True, index=True)
     front = Column(Text, nullable=False)
     back = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
     # Origem do card — usada para priorizar os flashcards do professor na
     # fila de revisão (ver get_review_queue em routers/flashcards.py).
     source = Column(Enum(FlashcardSource), nullable=False, default=FlashcardSource.professor, server_default="professor")
@@ -177,13 +173,6 @@ class CardProgress(Base):
     # Qual exercício mostrar quando o card estiver devido (flip ou digitação).
     review_mode = Column(Enum(ReviewMode), nullable=False, default=ReviewMode.flip, server_default="flip")
     correct_streak = Column(Integer, default=0, nullable=False)
-    # "Prévia do Dominando" (ver get_review_queue em routers/flashcards.py):
-    # card puxado direto pra Dominando fora da agenda do SM-2, pra um aluno
-    # novo ver o potencial da plataforma nas primeiras sessões de Aprender.
-    # Enquanto True, esse card fica fora do SM-2 (não afeta repetitions/
-    # interval/ease_factor); volta ao normal assim que ele acerta o
-    # type_speak e vira "concluido".
-    is_showcase = Column(Boolean, default=False, nullable=False, server_default="false")
     flashcard = relationship("Flashcard")
 
 
@@ -368,113 +357,6 @@ class ExerciseProgress(Base):
     exercise = relationship("Exercise")
 
 
-# ── "Aprender": treino de vocabulário por reconhecimento (múltipla escolha) ─
-# Diferente do Flashcard usado em "Revisar" (frase inteira, frente/verso,
-# autoavaliação livre 0-5), aqui cada card é UMA palavra: mostra a palavra,
-# a classe gramatical e uma frase de exemplo (onde as outras palavras podem
-# ser clicadas para ver o significado, igual ao Read and Listen — MENOS a
-# própria palavra sendo aprendida, que fica de fora disso), e o aluno escolhe
-# a tradução certa entre 4 opções (a certa + 3 distratores cadastrados pelo
-# professor). Aprender exibe SOMENTE palavras nunca respondidas; o primeiro
-# acerto gradua a palavra para Revisar como flashcard. A progressão de
-# status (Revisando / Aprofundando / Concluído) acontece em Revisar.
-
-class VocabWordStatus(str, enum.Enum):
-    """Legado — usado apenas na visão do professor."""
-    nova = "nova"
-    em_revisao = "em_revisao"
-    aprendida = "aprendida"
-
-
-class VocabWord(Base):
-    """Uma palavra de vocabulário da tela Aprender."""
-    __tablename__ = "vocab_words"
-
-    id = Column(Integer, primary_key=True, index=True)
-    word = Column(String, nullable=False)                 # ex.: "learn"
-    part_of_speech = Column(String, nullable=False)        # ex.: "verbo"
-    translation = Column(String, nullable=False)           # resposta certa, ex.: "aprender"
-    # A que língua-alvo essa palavra pertence ("ingles", "italiano", ...).
-    # Usada pra "nativizar" a palavra só pros alunos daquela língua (ver
-    # _resolve_student_ids em vocab_words.py e approve_student em admin.py):
-    # aluno do curso normal (access_type=padrao) é sempre "ingles"; aluno de
-    # Acesso Especial usa o target_language escolhido no cadastro.
-    language = Column(String, nullable=False, default="ingles", server_default="ingles")
-    # A que categoria da tela "Aprender" essa palavra pertence (ex.:
-    # "saudacoes", "verbos"). Usada pra filtrar a fila de aprendizado por
-    # categoria — sem isso, TODO o banco de palavras do aluno (todas as
-    # categorias juntas) contava como se fosse uma categoria só.
-    category = Column(String, nullable=False, default="saudacoes", server_default="saudacoes")
-    # Nem toda palavra tem uma frase de exemplo (ex.: saudações, que usam
-    # `tip` no lugar) — por isso é opcional.
-    example_sentence = Column(Text, nullable=True)         # ex.: "I will learn English."
-    # Dica curta sobre o uso da palavra (ex.: "Saudação informal e muito
-    # comum."), mostrada abaixo da palavra principal no card. Usada
-    # principalmente pelas saudações, que não têm frase de exemplo.
-    tip = Column(Text, nullable=True)
-    # Sempre exatamente 3 opções erradas, separadas por "|" (a tradução pode
-    # conter vírgula, então não usamos vírgula como separador). Junto com
-    # `translation`, formam as 4 opções sempre mostradas ao aluno.
-    distractors = Column(Text, nullable=False)
-    # Explicação curta mostrada no VERSO do card, só depois que o aluno
-    # responde (junto com a resposta certa) — nunca antes, pra não entregar
-    # a resposta da múltipla escolha. Opcional: nem toda palavra precisa de
-    # uma explicação além da tradução em si.
-    explanation = Column(Text, nullable=True)
-    # Flashcard de Revisar gerado a partir desta palavra no primeiro acerto
-    # em Aprender. Um flashcard por palavra, compartilhado entre alunos.
-    review_flashcard_id = Column(Integer, ForeignKey("flashcards.id", ondelete="SET NULL"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
-    assignments = relationship(
-        "VocabWordAssignment", cascade="all, delete-orphan", passive_deletes=True, backref="word"
-    )
-    review_flashcard = relationship("Flashcard", foreign_keys=[review_flashcard_id])
-
-    @property
-    def students(self):
-        return [a.student for a in self.assignments]
-
-
-class VocabWordAssignment(Base):
-    """Define para qual(is) aluno(s) uma palavra de vocabulário é direcionada."""
-    __tablename__ = "vocab_word_assignments"
-    __table_args__ = (UniqueConstraint("word_id", "student_id", name="uq_vocabword_student"),)
-
-    id = Column(Integer, primary_key=True, index=True)
-    word_id = Column(Integer, ForeignKey("vocab_words.id", ondelete="CASCADE"), nullable=False)
-    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    assigned_at = Column(DateTime, default=datetime.utcnow)
-
-    student = relationship("User")
-
-
-class VocabWordProgress(Base):
-    """Progresso do aluno numa palavra em Aprender.
-
-    Registra tentativas e o momento do primeiro acerto. Depois do primeiro
-    acerto, a palavra sai de Aprender e passa a ser revisada via flashcard
-    (CardProgress em Revisar).
-    """
-    __tablename__ = "vocab_word_progress"
-    __table_args__ = (UniqueConstraint("student_id", "word_id", name="uq_student_vocabword"),)
-
-    id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    word_id = Column(Integer, ForeignKey("vocab_words.id", ondelete="CASCADE"), nullable=False)
-    # Legado — mantido para compatibilidade com dados antigos.
-    status = Column(Enum(VocabWordStatus), nullable=False, default=VocabWordStatus.nova)
-    correct_streak = Column(Integer, default=0, nullable=False)
-    next_review = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_reviewed = Column(DateTime, nullable=True)
-    # Preenchido no primeiro acerto em Aprender — a partir daí a palavra
-    # não volta mais para Aprender e entra em Revisar.
-    first_correct_at = Column(DateTime, nullable=True)
-
-    student = relationship("User")
-    word = relationship("VocabWord")
-
-
 # ── Métricas da tela inicial do aluno (LIT Points / Tempo de Texto) ──────────
 
 class LitPointLog(Base):
@@ -511,7 +393,7 @@ class ReadingTimeLog(Base):
 
 
 class PronunciationAttemptLog(Base):
-    """Testes opcionais de pronúncia (Aprender / Revisar — botão Pronunciar).
+    """Testes opcionais de pronúncia em Revisar.
     Usado para limitar consumo da Azure Speech free tier."""
     __tablename__ = "pronunciation_attempt_logs"
 

@@ -21,7 +21,7 @@ import httpx
 
 from app.auth import get_current_approved_user
 from app.models import User
-from app.routers.vocab_words import student_language
+from app.language import student_language
 
 router = APIRouter(prefix="/tts", tags=["TTS"])
 
@@ -54,7 +54,7 @@ async def speak(
     """
     Retorna um áudio MP3 com a pronúncia do texto enviado, na língua-alvo
     do aluno logado. Usado pelo botão de "ouvir pronúncia" na tela de
-    revisão de flashcards, Aprender, Exercícios e Read and Listen.
+    revisão de flashcards, Exercícios e Read and Listen.
     """
     tts_language = student_language(user)
     tl = TTS_LANGUAGE_CODES.get(tts_language, DEFAULT_TTS_LANGUAGE_CODE)

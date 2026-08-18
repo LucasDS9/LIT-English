@@ -404,6 +404,16 @@ def run_migrations():
                     )
                     conn.rollback()
 
+            # Aprender: descrição opcional nos flashcards criados pelo aluno/professor.
+            if _table_exists(conn, "flashcards"):
+                try:
+                    if not _col_exists(conn, "flashcards", "description"):
+                        conn.execute(text("ALTER TABLE flashcards ADD COLUMN description TEXT"))
+                        conn.commit()
+                except Exception:
+                    logger.exception("Falha ao migrar flashcards (description), ignorando.")
+                    conn.rollback()
+
             # Acesso Especial: colunas novas em `users` (access_type,
             # native_language, target_language) — cadastro pela tela
             # "Acesso Especial" (Nome, e-mail @litstudent, senha, língua

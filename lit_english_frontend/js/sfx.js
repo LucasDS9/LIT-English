@@ -1,7 +1,7 @@
 /* ==========================================================================
    LIT English — sfx.js
    Efeitos sonoros de feedback (acertar / errar / concluir sessão).
-   Usado em: aprender.js (acertar + errar + concluir), exercicios.js
+   Usado em: exercicios.js
    (errar + concluir) e revisar.js (concluir).
    ========================================================================== */
 

@@ -202,13 +202,15 @@ async function redirectAfterStudentLogin(user) {
  * redirecionado pra home. Não afeta professores nem alunos do cadastro padrão.
  */
 function applyAccessRestrictions(user) {
-  if (!user || user.access_type !== "especial") return;
-
   const navExercicios = document.getElementById("nav-exercicios");
-  if (navExercicios) navExercicios.style.display = "none";
+  const canUseExercises = Boolean(user && user.role === "aluno" && user.access_type === "padrao");
+
+  if (navExercicios) {
+    navExercicios.style.display = canUseExercises ? "" : "none";
+  }
 
   const page = window.location.pathname.split("/").pop();
-  if (page === "exercicios.html") {
+  if (page === "exercicios.html" && !canUseExercises) {
     window.location.href = "home.html";
   }
 }

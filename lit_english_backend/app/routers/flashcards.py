@@ -13,12 +13,12 @@ from sqlalchemy.orm import Session
 
 from app.activity_queue import should_defer_flashcards
 from app.ai_judge import judge_answer
-from app.ai_translate import TranslationUnavailable, translate_to_portuguese
+from app.ai_translate import TranslationUnavailable, translate_flashcard_front
 from app.flashcard_judge import judge_flashcard_answer
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
 from app.lit_points import maybe_award_flashcard_daily_bonus
-from app.routers.vocab_words import NEW_WORDS_PER_CYCLE, student_language
+from app.language import student_language
 from app.models import (
     CardProgress,
     Flashcard,
@@ -33,8 +33,6 @@ from app.models import (
     ReviewLog,
     User,
     UserRole,
-    VocabWord,
-    VocabWordProgress,
 )
 from app.schemas import (
     CardProgressOut,
@@ -166,99 +164,6 @@ def _card_status(progress: CardProgress | None) -> ReviewCardStatus | None:
 
 
 # ============================================================
-# "Prévia do Dominando" — nas primeiras sessões de Aprender, o aluno demora
-# pra ver as etapas mais avançadas de Revisar (digitar / falar), porque só
-# chega em Dominando depois de acertar "Fácil" num card já maduro no SM-2.
-# Pra ele sentir o potencial da plataforma logo de cara, escolhemos 3
-# flashcards ao acaso, tiramos do SM-2 e mandamos direto pra Dominando
-# (type_pt -> type_speak). Errar não penaliza: só repete até acertar os 3.
-# Ao concluir o último, o card volta pro fluxo normal do SM-2.
-# ============================================================
-
-SHOWCASE_WORD_COUNT = 3
-# "Primeiras três sessões de aprender (15 palavras)" — usamos o total de
-# palavras já graduadas de Aprender (1º acerto) como proxy de "sessão",
-# já que não existe um contador de sessão explícito.
-SHOWCASE_ELIGIBLE_WORDS = NEW_WORDS_PER_CYCLE * 3
-
-
-def _graduated_word_count(student_id: int, db: Session) -> int:
-    return (
-        db.query(VocabWordProgress)
-        .filter(
-            VocabWordProgress.student_id == student_id,
-            VocabWordProgress.first_correct_at.isnot(None),
-        )
-        .count()
-    )
-
-
-def _maybe_start_dominando_showcase(student: User, db: Session) -> bool:
-    """Seleciona (uma única vez) os 3 cards da prévia, se o aluno for
-    elegível. Retorna True só quando a prévia acabou de ser iniciada agora
-    (pra o frontend poder avisar o aluno)."""
-    if student.dominando_showcase_done:
-        return False
-
-    active = (
-        db.query(CardProgress)
-        .filter(
-            CardProgress.student_id == student.id,
-            CardProgress.is_showcase.is_(True),
-            CardProgress.review_status != ReviewCardStatus.concluido,
-        )
-        .first()
-    )
-    if active:
-        return False  # já em andamento — nada a fazer aqui
-
-    if _graduated_word_count(student.id, db) > SHOWCASE_ELIGIBLE_WORDS:
-        # Passou da janela das primeiras sessões sem nunca ter tido 3 cards
-        # disponíveis pra prévia — desiste, pra não tentar pra sempre.
-        student.dominando_showcase_done = True
-        db.commit()
-        return False
-
-    candidates = (
-        db.query(CardProgress)
-        .join(Flashcard, Flashcard.id == CardProgress.flashcard_id)
-        .filter(
-            CardProgress.student_id == student.id,
-            CardProgress.review_status == ReviewCardStatus.aprendendo,
-        )
-        .all()
-    )
-    if len(candidates) < SHOWCASE_WORD_COUNT:
-        return False  # ainda não tem palavras suficientes — tenta de novo depois
-
-    chosen = random.sample(candidates, SHOWCASE_WORD_COUNT)
-    now = datetime.utcnow()
-    for progress in chosen:
-        progress.is_showcase = True
-        progress.review_status = ReviewCardStatus.dominando
-        progress.review_mode = ReviewMode.type_pt
-        progress.next_review = now
-    db.commit()
-    return True
-
-
-def _finish_showcase_card_if_done(student: User, db: Session) -> None:
-    """Chamada depois que um card da prévia chega em 'concluido': se não
-    sobrar nenhum card de prévia pendente, marca a prévia como encerrada."""
-    remaining = (
-        db.query(CardProgress)
-        .filter(
-            CardProgress.student_id == student.id,
-            CardProgress.is_showcase.is_(True),
-            CardProgress.review_status != ReviewCardStatus.concluido,
-        )
-        .count()
-    )
-    if remaining == 0:
-        student.dominando_showcase_done = True
-
-
-# ============================================================
 # PROFESSOR: CRUD de flashcards
 # ============================================================
 
@@ -280,7 +185,7 @@ def create_flashcard(
 ):
     _validate_student_ids(data.student_ids, db)
 
-    card = Flashcard(front=data.front, back=data.back, source=FlashcardSource.professor)
+    card = Flashcard(front=data.front, back=data.back, description=(data.description or "").strip() or None, source=FlashcardSource.professor)
     db.add(card)
     db.flush()
 
@@ -316,6 +221,8 @@ def update_flashcard(
         card.front = data.front
     if data.back is not None:
         card.back = data.back
+    if data.description is not None:
+        card.description = data.description.strip() or None
 
     if data.student_ids is not None:
         if len(data.student_ids) == 0:
@@ -605,14 +512,24 @@ def self_add_flashcard(
     back = (data.back or "").strip()
     if not back:
         try:
-            back = translate_to_portuguese(front, student_language(student))
+            native_language = student.native_language or "pt"
+            back = translate_flashcard_front(
+                front,
+                native_language=native_language,
+                target_language=student_language(student),
+            )
         except (TranslationUnavailable, ValueError):
             raise HTTPException(
                 status_code=502,
                 detail="Não foi possível gerar a tradução automaticamente agora. Preencha o verso e tente de novo.",
             )
 
-    card = Flashcard(front=front, back=back, source=FlashcardSource.aluno)
+    card = Flashcard(
+        front=front,
+        back=back,
+        description=(data.description or "").strip() or None,
+        source=FlashcardSource.aluno,
+    )
     db.add(card)
     db.flush()
     db.add(FlashcardAssignment(flashcard_id=card.id, student_id=student.id))
@@ -668,7 +585,6 @@ def get_review_queue(
     if remaining == 0:
         return ReviewQueueOut(cards=[], remaining_in_window=0, limit_per_window=LIMIT_PER_WINDOW)
 
-    showcase_started = _maybe_start_dominando_showcase(student, db)
 
     now = datetime.utcnow()
 
@@ -678,8 +594,7 @@ def get_review_queue(
     )
 
     # IDs de cards que ainda NÃO estão prontos para revisão (next_review no
-    # futuro) — os 3 da prévia do Dominando nunca caem aqui, porque ficam
-    # sempre com next_review == agora enquanto is_showcase for True.
+    # futuro).
     not_due_subquery = db.query(CardProgress.flashcard_id).filter(
         CardProgress.student_id == student.id,
         CardProgress.next_review > now,
@@ -688,15 +603,6 @@ def get_review_queue(
     # Flashcards do professor entram primeiro na fila — dentro de cada grupo
     # (professor / aluno), a ordem continua sendo por vencimento (SM-2).
     source_priority = case((Flashcard.source == FlashcardSource.professor, 0), else_=1)
-
-    # Prévia do Dominando tem prioridade máxima (senão o LIMIT abaixo pode
-    # cortá-la fora quando o aluno tem muitos outros cards atrasados) — e,
-    # entre os 3 da prévia, type_pt sempre antes de type_speak, pra nunca
-    # fazer "uma palavra inteira de uma vez só".
-    showcase_priority = case((CardProgress.is_showcase.is_(True), 0), else_=1)
-    showcase_mode_priority = case(
-        (CardProgress.review_mode == ReviewMode.type_pt, 0), else_=1
-    )
 
     due_cards = (
         db.query(Flashcard, CardProgress)
@@ -707,8 +613,6 @@ def get_review_queue(
         .filter(Flashcard.id.in_(assigned_subquery))
         .filter(~Flashcard.id.in_(not_due_subquery))
         .order_by(
-            showcase_priority,
-            showcase_mode_priority,
             source_priority,
             nullsfirst(CardProgress.next_review),
         )
@@ -716,13 +620,6 @@ def get_review_queue(
         .all()
     )
 
-    flashcard_ids = [card.id for card, _ in due_cards]
-    vocab_by_flashcard = {}
-    if flashcard_ids:
-        vocab_by_flashcard = {
-            w.review_flashcard_id: w
-            for w in db.query(VocabWord).filter(VocabWord.review_flashcard_id.in_(flashcard_ids)).all()
-        }
 
     cards_out = [
         ReviewCardOut(
@@ -731,8 +628,6 @@ def get_review_queue(
             back=card.back,
             status=_card_status(progress),
             mode=_card_mode(progress),
-            explanation=vocab_by_flashcard[card.id].explanation if card.id in vocab_by_flashcard else None,
-            is_showcase=bool(progress and progress.is_showcase),
         )
         for card, progress in due_cards
     ]
@@ -740,7 +635,6 @@ def get_review_queue(
         cards=cards_out,
         remaining_in_window=remaining,
         limit_per_window=LIMIT_PER_WINDOW,
-        showcase_started=showcase_started,
     )
 
 
@@ -800,13 +694,7 @@ def submit_review(
         is_correct = judge_result["correct"]
         quality = 5 if is_correct else 0
 
-        if progress.is_showcase:
-            # Prévia do Dominando: fora do SM-2 — erro só repete o mesmo
-            # card, sem empurrar o next_review pra frente.
-            progress.next_review = datetime.utcnow()
-            progress.last_reviewed = datetime.utcnow()
-        else:
-            _apply_sm2(progress, quality)
+        _apply_sm2(progress, quality)
 
         if is_correct:
             progress.review_mode = ReviewMode.type_speak
@@ -866,7 +754,7 @@ async def pronounce_flashcard(
     student: User = Depends(get_current_approved_user),
 ):
     """
-    Prática opcional de pronúncia em flashcards (Aprender/Concluído).
+    Prática opcional de pronúncia em flashcards.
     Não altera SM-2, não consome limite de revisão, não bloqueia avanço.
     """
     _require_student(student)
@@ -963,9 +851,8 @@ async def submit_speak_review(
     )
     is_correct = judge_result["correct"]
     quality = 5 if is_correct else 0
-    was_showcase = progress.is_showcase
 
-    # Analisador visual de pronúncia (mesmo usado em Aprender): melhor
+    # Analisador visual de pronúncia: melhor
     # esforço — se a Azure não estiver configurada/disponível, seguimos só
     # com a correção semântica de sempre (transcrição + IA), sem quebrar o
     # exercício obrigatório de falar.
@@ -982,20 +869,10 @@ async def submit_speak_review(
     except Exception:
         logger.exception("Falha ao gerar análise visual de pronúncia (submit-speak) — ignorando.")
 
-    if was_showcase and not is_correct:
-        # Prévia do Dominando: erro não sai do type_speak nem mexe no SM-2 —
-        # só repete até acertar.
-        progress.next_review = datetime.utcnow()
-        progress.last_reviewed = datetime.utcnow()
-    else:
-        _apply_sm2(progress, quality)
-        if is_correct:
-            progress.review_status = ReviewCardStatus.concluido
-            progress.review_mode = ReviewMode.flip
-            if was_showcase:
-                # "Aí fica tudo normal no SM-2" — sai da prévia de vez.
-                progress.is_showcase = False
-                _finish_showcase_card_if_done(student, db)
+    _apply_sm2(progress, quality)
+    if is_correct:
+        progress.review_status = ReviewCardStatus.concluido
+        progress.review_mode = ReviewMode.flip
 
     db.add(ReviewLog(student_id=student.id, flashcard_id=flashcard_id))
     db.flush()
