@@ -3304,6 +3304,19 @@ body.reader-fs-open {
 /* ---------- Aprender: criação de flashcard ---------- */
 .main-learn-create {
   padding-bottom: 44px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.main-learn-create > section[hidden] {
+  display: none !important;
+}
+
+.main-learn-create > section:not([hidden]) {
+  flex: 1;
+  width: 100%;
 }
 
 .main-learn-create .page-header {
@@ -4065,6 +4078,26 @@ body.reader-fs-open {
   text-align: center;
   color: #777B83;
   font-size: 14px;
+}
+
+.learn-preview-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 34px;
+}
+
+.learn-receive-btn {
+  min-width: 240px;
+}
+
+.learn-create-topbar {
+  max-width: 1020px;
+  margin: 0 auto 18px;
+  padding: 0 24px;
+}
+
+.learn-create-topbar h1 {
+  font-size: 28px;
 }
 
 .learn-outline-btn {

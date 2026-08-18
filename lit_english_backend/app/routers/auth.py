@@ -40,6 +40,11 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
                 status_code=400,
                 detail="Essa língua ainda não está disponível na plataforma.",
             )
+        if user_in.age is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Informe sua idade.",
+            )
 
     new_user = User(
         name=user_in.name,
@@ -52,6 +57,8 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         # Língua nativa: por enquanto sempre português, sem opção de escolha.
         native_language="pt" if user_in.access_type == AccessType.especial else None,
         target_language=user_in.target_language if user_in.access_type == AccessType.especial else None,
+        age=user_in.age if user_in.access_type == AccessType.especial else None,
+        nationality=user_in.nationality or ("Brasileiro" if user_in.access_type == AccessType.especial else None),
     )
     db.add(new_user)
     db.commit()

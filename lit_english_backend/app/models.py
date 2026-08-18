@@ -53,6 +53,8 @@ class User(Base):
     access_type = Column(Enum(AccessType), nullable=False, default=AccessType.padrao)
     native_language = Column(String, nullable=True)   # só preenchido quando access_type == especial
     target_language = Column(String, nullable=True)   # idem — ver ALLOWED_TARGET_LANGUAGES em schemas.py
+    age = Column(Integer, nullable=True)
+    nationality = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

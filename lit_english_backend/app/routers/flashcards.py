@@ -505,6 +505,96 @@ def _extract_placeholders(*texts: str) -> list[str]:
     return found
 
 
+def _first_name(full_name: str) -> str:
+    return (full_name or "").strip().split()[0] if (full_name or "").strip() else ""
+
+
+def _target_language_labels(target: str) -> dict[str, str]:
+    labels = {
+        "ingles": {
+            "language": "English",
+            "idioma": "inglês",
+            "lingua": "inglese",
+            "langue": "anglais",
+        },
+        "italiano": {
+            "language": "Italian",
+            "idioma": "italiano",
+            "lingua": "italiano",
+            "langue": "italien",
+        },
+        "frances": {
+            "language": "French",
+            "idioma": "francês",
+            "lingua": "francese",
+            "langue": "français",
+        },
+    }
+    return labels.get(target, labels["ingles"])
+
+
+def _nationality_values(user: User) -> dict[str, str]:
+    defaults = {
+        "nationality": "Brazilian",
+        "nacionalidade": "Brasileiro",
+        "nazionalità": "Brasiliano",
+        "nationalité": "Brésilien",
+    }
+    custom = (user.nationality or "").strip()
+    if not custom or custom.lower() in {v.lower() for v in defaults.values()}:
+        return defaults
+    return {key: custom for key in defaults}
+
+
+def _placeholder_values(user: User) -> dict[str, str]:
+    target = student_language(user)
+    first = _first_name(user.name)
+    age = str(user.age) if user.age is not None else ""
+
+    values = {
+        "name": first,
+        "nome": first,
+        "nom": first,
+        "age": age,
+        "idade": age,
+        "età": age,
+        "âge": age,
+    }
+    values.update(_nationality_values(user))
+    values.update(_target_language_labels(target))
+    return values
+
+
+def _apply_user_placeholders(text: str, user: User) -> str:
+    if not text:
+        return text
+    values = _placeholder_values(user)
+
+    def replacer(match: re.Match) -> str:
+        key = match.group(1).strip().lower()
+        if key in values and values[key]:
+            return values[key]
+        return match.group(0)
+
+    return _PLACEHOLDER_RE.sub(replacer, text)
+
+
+def _personalize_starter_card(card: StarterFlashcard, user: User) -> StarterCatalogCardOut:
+    front = _apply_user_placeholders(card.front, user)
+    back = _apply_user_placeholders(card.back, user)
+    description = _apply_user_placeholders(card.description or "", user) or None
+    return StarterCatalogCardOut(
+        id=card.id,
+        source_language=card.source_language,
+        language=card.language,
+        front=front,
+        back=back,
+        description=description,
+        placeholders=card.placeholders or _extract_placeholders(card.front, card.back, card.description or ""),
+        category=card.category,
+    )
+
+
 @router.get("/starter/catalog", response_model=list[StarterCatalogCardOut])
 def get_starter_catalog(
     language: str = "ingles",
@@ -537,16 +627,7 @@ def get_starter_catalog(
         .all()
     )
     return [
-        StarterCatalogCardOut(
-            id=card.id,
-            source_language=card.source_language,
-            language=card.language,
-            front=card.front,
-            back=card.back,
-            description=card.description,
-            placeholders=card.placeholders or _extract_placeholders(card.front, card.back, card.description or ""),
-            category=card.category,
-        )
+        _personalize_starter_card(card, student)
         for card in cards
     ]
 
@@ -657,9 +738,10 @@ def claim_starter_flashcards(
     skipped = 0
 
     for item in data.cards:
-        front = (item.front or "").strip()
-        back = (item.back or "").strip()
-        description = (item.description or "").strip() or None
+        front = _apply_user_placeholders((item.front or "").strip(), student)
+        back = _apply_user_placeholders((item.back or "").strip(), student)
+        description_raw = (item.description or "").strip()
+        description = _apply_user_placeholders(description_raw, student) or None
         if not front or not back:
             continue
 

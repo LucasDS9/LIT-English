@@ -25,6 +25,9 @@ const createOwnBtn = document.getElementById("create-own-btn");
 const seeExamplesBtn = document.getElementById("see-examples-btn");
 const previewBackBtn = document.getElementById("preview-back-btn");
 const addOwnAfterReceiveBtn = document.getElementById("add-own-after-receive-btn");
+const receiveExamplesBtn = document.getElementById("receive-examples-btn");
+const createTopbarEl = document.getElementById("create-topbar");
+const createBackBtn = document.getElementById("create-back-btn");
 
 const LANGUAGE_NAMES = {
   pt: "português", "pt-br": "português", portugues: "português", português: "português",
@@ -105,12 +108,77 @@ function getTargetKey(user) {
     : "ingles";
 }
 
+function firstName(fullName) {
+  const trimmed = String(fullName || "").trim();
+  return trimmed ? trimmed.split(/\s+/)[0] : "";
+}
+
+function nationalityValues(user) {
+  const defaults = {
+    nationality: "Brazilian",
+    nacionalidade: "Brasileiro",
+    nazionalità: "Brasiliano",
+    nationalité: "Brésilien",
+  };
+  const custom = String(user?.nationality || "").trim();
+  if (!custom || Object.values(defaults).some(v => v.toLowerCase() === custom.toLowerCase())) {
+    return defaults;
+  }
+  return Object.fromEntries(Object.keys(defaults).map(key => [key, custom]));
+}
+
+function targetLanguageLabels(user) {
+  const target = getTargetKey(user);
+  const labels = {
+    ingles: { language: "English", idioma: "inglês", lingua: "inglese", langue: "anglais" },
+    italiano: { language: "Italian", idioma: "italiano", lingua: "italiano", langue: "italien" },
+    frances: { language: "French", idioma: "francês", lingua: "francese", langue: "français" },
+  };
+  return labels[target] || labels.ingles;
+}
+
+function placeholderValues(user) {
+  const age = user?.age != null ? String(user.age) : "";
+  return {
+    name: firstName(user?.name),
+    nome: firstName(user?.name),
+    nom: firstName(user?.name),
+    age,
+    idade: age,
+    "età": age,
+    "âge": age,
+    ...nationalityValues(user),
+    ...targetLanguageLabels(user),
+  };
+}
+
+function applyUserPlaceholders(text, user) {
+  const values = placeholderValues(user);
+  return String(text ?? "").replace(/<([^<>]+)>/g, (match, token) => {
+    const key = String(token).trim().toLowerCase();
+    return values[key] ? values[key] : match;
+  });
+}
+
+function personalizeStarterCard(card, user) {
+  return {
+    ...card,
+    front: applyUserPlaceholders(card.front, user),
+    back: applyUserPlaceholders(card.back, user),
+    description: card.description ? applyUserPlaceholders(card.description, user) : card.description,
+  };
+}
+
+function personalizeStarterCards(cards, user) {
+  return (Array.isArray(cards) ? cards : []).map(card => personalizeStarterCard(card, user));
+}
+
 async function getStarterCards(user) {
   const language = getTargetKey(user);
   const cacheKey = `lit_starter_catalog_${language}`;
   try {
     const cards = await apiFetch(`/flashcards/starter/catalog?language=${encodeURIComponent(language)}`);
-    const normalized = Array.isArray(cards) ? cards.map(card => ({ ...card })) : [];
+    const normalized = personalizeStarterCards(Array.isArray(cards) ? cards : [], user);
     STARTER_CARDS_BY_LANGUAGE[language] = normalized;
     return normalized;
   } catch (err) {
@@ -195,7 +263,10 @@ function renderStarterCards(container, cards, allowSave) {
 }
 
 function showOnly(section) {
-  [onboardingEl, previewEl, receivedEl, createViewEl].forEach(el => { el.hidden = el !== section; });
+  [onboardingEl, previewEl, receivedEl, createViewEl].forEach(el => {
+    if (!el) return;
+    el.hidden = el !== section;
+  });
 }
 
 function showChoice() {
@@ -245,8 +316,12 @@ async function receiveStarterCards() {
   }
 }
 
-function showCreateView() {
+function showCreateView(options = {}) {
+  const { showBack = false } = options;
   markOnboardingDone(currentUser, "create");
+  if (createTopbarEl) createTopbarEl.hidden = !showBack;
+  const createHeader = createViewEl?.querySelector(".learn-create-header");
+  if (createHeader) createHeader.hidden = showBack;
   showOnly(createViewEl);
   setTimeout(() => frontInput.focus(), 0);
 }
@@ -254,17 +329,18 @@ function showCreateView() {
 startExamplesBtn.addEventListener("click", receiveStarterCards);
 seeExamplesBtn.addEventListener("click", showExamplesPreview);
 previewBackBtn.addEventListener("click", showChoice);
-createOwnBtn.addEventListener("click", showCreateView);
-addOwnAfterReceiveBtn.addEventListener("click", showCreateView);
-
-// Botão "Receber estes flashcards" é criado abaixo do preview para manter o
-// visual dos cards limpo e a ação sempre no mesmo lugar.
-const receiveExamplesBtn = document.createElement("button");
-receiveExamplesBtn.type = "button";
-receiveExamplesBtn.className = "btn btn-primary learn-receive-btn";
-receiveExamplesBtn.textContent = "Receber estes flashcards";
-receiveExamplesBtn.addEventListener("click", receiveStarterCards);
-previewEl.appendChild(receiveExamplesBtn);
+createOwnBtn.addEventListener("click", () => showCreateView({ showBack: true }));
+addOwnAfterReceiveBtn.addEventListener("click", () => showCreateView({ showBack: true }));
+createBackBtn?.addEventListener("click", () => {
+  const mode = getOnboardingMode(currentUser);
+  if (mode === "received") {
+    renderStarterCards(receivedGridEl, currentStarterCards, true);
+    showOnly(receivedEl);
+    return;
+  }
+  showChoice();
+});
+receiveExamplesBtn?.addEventListener("click", receiveStarterCards);
 
 // ---------------------------------------------------------------------------
 // Criação manual — comportamento original preservado
@@ -353,6 +429,7 @@ async function init() {
         currentStarterCards = JSON.parse(localStorage.getItem(`lit_received_starter_cards_${user.id}`) || "[]");
       } catch { currentStarterCards = []; }
       if (!currentStarterCards.length) currentStarterCards = await getStarterCards(user);
+      else currentStarterCards = personalizeStarterCards(currentStarterCards, user);
       renderStarterCards(receivedGridEl, currentStarterCards, true);
       showOnly(receivedEl);
       return;

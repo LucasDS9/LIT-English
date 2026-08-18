@@ -439,6 +439,12 @@ def run_migrations():
                     if not _col_exists(conn, "users", "target_language"):
                         conn.execute(text("ALTER TABLE users ADD COLUMN target_language VARCHAR"))
                         conn.commit()
+                    if not _col_exists(conn, "users", "age"):
+                        conn.execute(text("ALTER TABLE users ADD COLUMN age INTEGER"))
+                        conn.commit()
+                    if not _col_exists(conn, "users", "nationality"):
+                        conn.execute(text("ALTER TABLE users ADD COLUMN nationality VARCHAR"))
+                        conn.commit()
                 except Exception:
                     logger.exception(
                         "Falha ao migrar users (access_type/native_language/target_language), ignorando."

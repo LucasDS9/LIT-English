@@ -54,11 +54,13 @@
   const isAcessoEspecial = new URLSearchParams(window.location.search).get("acesso") === "especial";
   const specialFields    = document.getElementById("special-access-fields");
   const regTargetLang    = document.getElementById("reg-target-language");
+  const regAgeInput      = document.getElementById("reg-age");
 
   if (isAcessoEspecial) {
     specialFields.hidden = false;
     whatsappField.hidden = true;
     regWhatsInput.required = false;
+    regAgeInput.required = true;
   }
 
   // -------------------------------------------------------------------------
@@ -191,9 +193,17 @@
     const confirm   = regPassConfirm.value;
 
     const targetLanguage = isAcessoEspecial ? regTargetLang.value : "";
+    const ageRaw = isAcessoEspecial ? regAgeInput.value.trim() : "";
 
     if (!name) { showRegError("Informe seu nome completo."); return; }
     if (!isAcessoEspecial && !whatsapp) { showRegError("Informe seu número de WhatsApp."); return; }
+    if (isAcessoEspecial) {
+      const age = Number(ageRaw);
+      if (!ageRaw || !Number.isInteger(age) || age < 1 || age > 120) {
+        showRegError("Informe uma idade válida (entre 1 e 120).");
+        return;
+      }
+    }
     if (!emailUser) { showRegError("Informe o nome de usuário do e-mail."); return; }
     if (!password)  { showRegError("Crie uma senha."); return; }
     if (password !== confirm) { showRegError("As senhas não coincidem."); return; }
@@ -205,6 +215,7 @@
     if (isAcessoEspecial) {
       payload.access_type      = "especial";
       payload.target_language  = targetLanguage;
+      payload.age              = Number(ageRaw);
     } else {
       payload.whatsapp = whatsapp;
     }

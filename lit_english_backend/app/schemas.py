@@ -33,6 +33,8 @@ class UserCreate(BaseModel):
     access_type: AccessType = AccessType.padrao
     native_language: Optional[str] = None
     target_language: Optional[str] = None
+    age: Optional[int] = Field(default=None, ge=1, le=120)
+    nationality: Optional[str] = None
 
 
 class UserLogin(BaseModel):
@@ -50,6 +52,8 @@ class UserOut(BaseModel):
     access_type: AccessType
     native_language: Optional[str] = None
     target_language: Optional[str] = None
+    age: Optional[int] = None
+    nationality: Optional[str] = None
     created_at: datetime
 
     class Config:
