@@ -50,6 +50,7 @@ const session = {
   limit: 15,
   typingLocked: false,
   targetLanguage: "ingles",
+  accessType: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -908,7 +909,7 @@ async function loadQueue() {
       showToast("Prévia especial: 3 palavras foram direto pro Dominando! 🚀");
     }
 
-    if (data.blocked_by === "exercises") {
+    if (data.blocked_by === "exercises" && session.accessType === "padrao") {
       renderStateBox({
         icon: Icons.alert,
         title: "Exercícios prioritários",
@@ -959,6 +960,7 @@ async function init() {
   studentNameEl.textContent = user.name;
   roleLabelEl.textContent = user.role === "professor" ? "PROFESSOR" : "ALUNO";
   session.targetLanguage = normalizeTargetLanguage(user.target_language || "ingles");
+  session.accessType = user.access_type || null;
 
   if (user.role !== "aluno") {
     window.location.href = "professor.html";
