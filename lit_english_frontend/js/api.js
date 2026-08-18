@@ -203,25 +203,19 @@ async function redirectAfterStudentLogin(user) {
  */
 function applyAccessRestrictions(user) {
   const navExercicios = document.getElementById("nav-exercicios");
-
-  // Exercícios são EXCLUSIVOS de alunos aprovados do acesso padrão.
-  // Acesso Especial, professores, contas pendentes e usuários sem sessão
-  // nunca devem visualizar esse menu. O HTML já o deixa oculto por padrão
-  // para evitar qualquer flash antes do /auth/me terminar.
   const canUseExercises = Boolean(
     user &&
     user.role === "aluno" &&
     user.access_type === "padrao" &&
-    user.is_approved
+    user.is_approved === true
   );
 
   if (navExercicios) {
-    navExercicios.hidden = !canUseExercises;
-    navExercicios.setAttribute("aria-hidden", canUseExercises ? "false" : "true");
+    navExercicios.style.display = canUseExercises ? "" : "none";
   }
 
   const page = window.location.pathname.split("/").pop();
   if (page === "exercicios.html" && !canUseExercises) {
-    window.location.replace("home.html");
+    window.location.href = "home.html";
   }
 }

@@ -404,7 +404,9 @@ async function init() {
     }
 
     const navExercicios = document.getElementById("nav-exercicios");
-    if (navExercicios) navExercicios.style.display = user.access_type === "padrao" ? "" : "none";
+    if (navExercicios) {
+      navExercicios.style.display = (user.role === "aluno" && user.access_type === "padrao" && user.is_approved === true) ? "" : "none";
+    }
 
     if (!user.is_approved) {
       showOnly(createViewEl);

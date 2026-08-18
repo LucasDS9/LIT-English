@@ -3337,12 +3337,17 @@ body.reader-fs-open {
 
 .learn-create-area {
   width: 100%;
+  min-height: calc(100vh - 120px);
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .learn-create-card {
   width: min(100%, 1020px);
+  margin: 0 auto;
   background: #fff;
   border: 1px solid #E7E7E7;
   border-radius: 18px;
@@ -3529,6 +3534,11 @@ body.reader-fs-open {
 }
 
 @media (max-width: 800px) {
+  .learn-create-area {
+    min-height: auto;
+    justify-content: flex-start;
+  }
+
   .learn-create-card {
     padding: 24px 20px 20px;
   }
@@ -4091,9 +4101,11 @@ body.reader-fs-open {
 }
 
 .learn-create-topbar {
+  width: min(100%, 1020px);
   max-width: 1020px;
   margin: 0 auto 18px;
   padding: 0 24px;
+  box-sizing: border-box;
 }
 
 .learn-create-topbar h1 {
