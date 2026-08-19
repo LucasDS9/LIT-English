@@ -184,7 +184,12 @@ async function speak(text, btn) {
 }
 
 function shouldShowPronounce(card) {
-  return isFlipMode(card) && card.status === "aprendendo";
+  // The "Aprendendo" section can contain cards without a persisted
+  // status from the backend. In review/flip mode, treat those cards
+  // as Aprendendo when they are not already in Dominando.
+  if (!isFlipMode(card)) return false;
+  const status = String(card?.status || "").toLowerCase();
+  return status === "aprendendo" || (!status && card?.mode !== "type_speak");
 }
 
 function listenTextForCard(card) {
