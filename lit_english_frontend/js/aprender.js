@@ -422,7 +422,8 @@ async function init() {
 
     const mode = getOnboardingMode(user);
     if (!mode) {
-      showChoice();
+      // Sem tela de escolha: aluno cai direto em "criar meus flashcards".
+      showCreateView();
       return;
     }
 

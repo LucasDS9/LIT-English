@@ -222,7 +222,7 @@ function buildCardBox(ex, badgeLabel) {
 
   if (ex.title) {
     const subjectLabel = document.createElement("div");
-    subjectLabel.innerHTML = `<span style="font-size:13px;font-weight:700;color:var(--primary);letter-spacing:1px;text-transform:uppercase;border-bottom:2px solid var(--primary);padding-bottom:2px;">Assunto</span>`;
+    subjectLabel.innerHTML = `<span style="font-size:13px;font-weight:700;color:var(--text);letter-spacing:1px;text-transform:uppercase;border-bottom:2px solid var(--text);padding-bottom:2px;">Assunto</span>`;
     body.appendChild(subjectLabel);
 
     const subjectTitle = document.createElement("p");
@@ -716,7 +716,7 @@ function buildTranslateCard(ex) {
   const { cardBox, body } = buildCardBox(ex, "Translate");
 
   const ptLabel = document.createElement("div");
-  ptLabel.style.cssText = "font-size:13px;font-weight:700;color:var(--primary);letter-spacing:1px;";
+  ptLabel.style.cssText = "font-size:13px;font-weight:700;color:var(--text);letter-spacing:1px;";
   ptLabel.textContent = "Traduza para o inglês:";
   body.appendChild(ptLabel);
 
@@ -745,7 +745,6 @@ function buildTranslateCard(ex) {
 
   const confirmBtn = makeButton("Confirmar", "outline");
   btnRow.appendChild(confirmBtn);
-  hint.textContent = "Digite a tradução em inglês e confirme.";
 
   const doConfirm = () => {
     const val = input.value.trim();
