@@ -38,6 +38,14 @@ const LANGUAGE_NAMES = {
   de: "alemão", alemao: "alemão", alemão: "alemão",
 };
 
+const TARGET_GREETING_EXAMPLES = {
+  ingles: "Hello",
+  italiano: "Ciao",
+  frances: "Bonjour",
+  espanhol: "Hola",
+  alemão: "Hallo",
+};
+
 function languageLabel(value, fallback) {
   const key = String(value || "").trim().toLowerCase();
   return LANGUAGE_NAMES[key] || fallback;
@@ -54,10 +62,17 @@ function getTargetLanguage(user) {
 function updateFrontHint(user) {
   const nativeLabel = languageLabel(getNativeLanguage(user), "português");
   const targetLabel = languageLabel(getTargetLanguage(user), "inglês");
+  const targetKey = getTargetKey(user);
+  const greeting = TARGET_GREETING_EXAMPLES[targetKey] || "Hello";
+
   frontHintEl.textContent = `Digite a palavra, frase ou expressão em ${nativeLabel} ou ${targetLabel}.`;
-  frontInput.placeholder = targetLabel === "inglês"
-    ? "Ex: Livro ou Book"
-    : `Ex: ${targetLabel} ou ${nativeLabel}`;
+  frontInput.placeholder = `Ex: ${greeting}`;
+
+  // Exemplos da área "Adicionar flashcard":
+  // frente = "Oi" na língua-alvo; verso permanece como o projeto já utiliza;
+  // descrição usa exatamente o texto solicitado.
+  backInput.placeholder = "Deixe em branco para gerar automaticamente.";
+  descriptionInput.placeholder = `Ex: É como falamos 'oi' de forma informal, ex: ${greeting}.`;
 }
 
 let toastTimer = null;

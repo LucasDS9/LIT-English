@@ -1622,16 +1622,16 @@ svg {
 .pronunciation-word.tier-good,
 .pronunciation-score-value.tier-good,
 .pronunciation-ai-feedback.tier-good .pronunciation-ai-icon {
-  color: #861E19;
+  color: #22C55E;
 }
 
-.pronunciation-legend-dot.tier-good { background: #861E19; }
-.pronunciation-legend-dot.tier-medium { background: #D18C8C; }
-.pronunciation-legend-dot.tier-bad { background: #F2C4C4; }
+.pronunciation-legend-dot.tier-good { background: #22C55E; }
+.pronunciation-legend-dot.tier-medium { background: #F59E0B; }
+.pronunciation-legend-dot.tier-bad { background: #EF4444; }
 
-.pronunciation-word.tier-good { color: #861E19; }
-.pronunciation-word.tier-medium { color: #D18C8C; }
-.pronunciation-word.tier-bad { color: #F2C4C4; }
+.pronunciation-word.tier-good { color: #22C55E; }
+.pronunciation-word.tier-medium { color: #F59E0B; }
+.pronunciation-word.tier-bad { color: #EF4444; }
 
 .learn-card--pronunciation-back {
   padding-top: 28px;
@@ -1775,8 +1775,8 @@ svg {
   color: var(--text-muted);
 }
 
-.pronunciation-score-value.tier-medium .score-num { color: #D18C8C; }
-.pronunciation-score-value.tier-bad .score-num { color: #E8A0A0; }
+.pronunciation-score-value.tier-medium .score-num { color: #F59E0B; }
+.pronunciation-score-value.tier-bad .score-num { color: #EF4444; }
 
 .pronunciation-ai-feedback {
   display: flex;
@@ -1796,9 +1796,9 @@ svg {
   margin-top: 1px;
 }
 
-.pronunciation-ai-feedback.tier-good .pronunciation-ai-icon { color: #861E19; }
-.pronunciation-ai-feedback.tier-medium .pronunciation-ai-icon { color: #D18C8C; }
-.pronunciation-ai-feedback.tier-bad .pronunciation-ai-icon { color: var(--primary); }
+.pronunciation-ai-feedback.tier-good .pronunciation-ai-icon { color: #22C55E; }
+.pronunciation-ai-feedback.tier-medium .pronunciation-ai-icon { color: #F59E0B; }
+.pronunciation-ai-feedback.tier-bad .pronunciation-ai-icon { color: #EF4444; }
 
 .pronunciation-ai-text {
   flex: 1;

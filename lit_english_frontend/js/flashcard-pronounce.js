@@ -15,9 +15,9 @@ const FlashcardPronounce = (() => {
   const PRONUNCIATION_MAX_DURATION_MS = 5000;
 
   const SCORE_TIERS = [
-    { min: 80, id: "good", legend: "Boa pronúncia (80-100)", color: "#861E19", className: "tier-good" },
-    { min: 60, id: "medium", legend: "Pode melhorar (60-79)", color: "#D18C8C", className: "tier-medium" },
-    { min: 0, id: "bad", legend: "Pronúncia incorreta (0-59)", color: "#F2C4C4", className: "tier-bad" },
+    { min: 80, id: "good", legend: "Boa pronúncia (80-100)", color: "#22C55E", className: "tier-good" },
+    { min: 60, id: "medium", legend: "Pode melhorar (60-79)", color: "#F59E0B", className: "tier-medium" },
+    { min: 0, id: "bad", legend: "Pronúncia incorreta (0-59)", color: "#EF4444", className: "tier-bad" },
   ];
 
   const LANGUAGE_META = {
@@ -326,8 +326,6 @@ const FlashcardPronounce = (() => {
     container.innerHTML = "";
     container.className = "review-pronunciation-feedback pronunciation-analyzer-panel";
 
-    container.appendChild(buildLegend());
-
     const phrase = document.createElement("p");
     phrase.className = "pronunciation-phrase";
     const phraseSplit = splitTopicLabel(phraseText);
@@ -408,7 +406,9 @@ const FlashcardPronounce = (() => {
     });
     if (!response.ok) {
       const errBody = await response.json().catch(() => ({}));
-      throw new Error(errBody.detail || `Erro ${response.status}`);
+      const error = new Error(errBody.detail || `Erro ${response.status}`);
+      error.status = response.status;
+      throw error;
     }
     return response.json();
   }

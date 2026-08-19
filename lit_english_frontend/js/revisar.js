@@ -50,6 +50,7 @@ const session = {
   limit: 15,
   typingLocked: false,
   targetLanguage: "ingles",
+  pronunciationResult: null,
 };
 
 // ---------------------------------------------------------------------------
@@ -183,7 +184,7 @@ async function speak(text, btn) {
 }
 
 function shouldShowPronounce(card) {
-  return isFlipMode(card) && card.status === "concluido";
+  return isFlipMode(card) && card.status === "aprendendo";
 }
 
 function listenTextForCard(card) {
@@ -200,7 +201,7 @@ function buildReviewAudioControls(card, body, { listenLabel = "Ouvir novamente" 
     listenLabel,
     onListen: () => speak(listenTextForCard(card), listenBtn),
     showPronounce: shouldShowPronounce(card),
-    pronounceLabel: "Pronunciar",
+    pronounceLabel: "Testar pronúncia",
     onPronounceReady: (btn) => {
       const recorder = FlashcardPronounce.attachRecordButton(btn, {
         recordingLabel: "Parar (5s máx)",
@@ -211,7 +212,12 @@ function buildReviewAudioControls(card, body, { listenLabel = "Ouvir novamente" 
               blob,
               `/flashcards/review/${card.flashcard_id}/pronounce`
             );
-            FlashcardPronounce.showFeedback(pronunciationFeedback, result);
+            // O resultado da pronúncia vira o verso do card.
+            // O card só muda de lado após o aluno iniciar o teste e receber
+            // a análise — nunca automaticamente antes de uma ação do aluno.
+            session.pronunciationResult = result;
+            session.flipped = true;
+            renderCard();
             SFX.play(result.correct ? "correct" : "wrong");
           } catch (err) {
             showToast(err.message || "Não foi possível analisar a pronúncia.");
@@ -225,13 +231,6 @@ function buildReviewAudioControls(card, body, { listenLabel = "Ouvir novamente" 
   });
 
   body.appendChild(controls);
-
-  if (shouldShowPronounce(card)) {
-    pronunciationFeedback = document.createElement("div");
-    pronunciationFeedback.className = "review-pronunciation-feedback";
-    pronunciationFeedback.hidden = true;
-    body.appendChild(pronunciationFeedback);
-  }
 
   return { listenBtn, pronounceBtn, pronunciationFeedback };
 }
@@ -344,6 +343,7 @@ function advanceToNextCard() {
   session.flipped = false;
   session.typingLocked = false;
   session.speakLocked = false;
+  session.pronunciationResult = null;
 
   if (session.index >= session.cards.length) {
     renderFinished();
@@ -668,7 +668,16 @@ function renderFlipCard(card) {
     const backWrap = document.createElement("div");
     backWrap.className = "review-card-back card-flip-anim";
 
-    const word = document.createElement("p");
+    if (session.pronunciationResult && shouldShowPronounce(card)) {
+      FlashcardPronounce.renderAnalyzerPanel(backWrap, {
+        phraseText: card.front,
+        translationText: card.back,
+        pronunciationResult: session.pronunciationResult,
+        onListen: (btn) => speak(listenTextForCard(card), btn),
+      });
+      body.appendChild(backWrap);
+    } else {
+      const word = document.createElement("p");
     word.className = `review-back-word ${statusClassName(card)}`.trim();
     word.textContent = card.front;
     backWrap.appendChild(word);
@@ -682,10 +691,11 @@ function renderFlipCard(card) {
     answer.textContent = card.back;
     backWrap.appendChild(answer);
 
-    const description = buildReviewDescription(card.description);
-    if (description) backWrap.appendChild(description);
+      const description = buildReviewDescription(card.description);
+      if (description) backWrap.appendChild(description);
 
-    body.appendChild(backWrap);
+      body.appendChild(backWrap);
+    }
   } else {
     appendPromptText(body, card.front, "front-text");
 
@@ -712,6 +722,7 @@ function renderFlipCard(card) {
   flipBtn.innerHTML = `${Icons.refresh}<span>${session.flipped ? "Ver frente" : "Virar card"}</span>`;
   flipBtn.addEventListener("click", () => {
     session.flipped = !session.flipped;
+    if (!session.flipped) session.pronunciationResult = null;
     renderCard();
   });
   actions.appendChild(flipBtn);
