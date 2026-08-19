@@ -324,7 +324,7 @@ const FlashcardPronounce = (() => {
 
     container.hidden = false;
     container.innerHTML = "";
-    container.className = "review-pronunciation-feedback pronunciation-analyzer-panel";
+    container.classList.add("review-pronunciation-feedback", "pronunciation-analyzer-panel");
 
     const phrase = document.createElement("p");
     phrase.className = "pronunciation-phrase";
