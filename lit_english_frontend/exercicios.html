@@ -53,6 +53,27 @@
           <span>Sair</span>
         </button>
       </nav>
+      <script>
+        // Aplica a visibilidade de "Exercises" já no primeiro paint, usando o
+        // usuário salvo em cache (localStorage), sem esperar a resposta da
+        // API — evita o item "pulando" no menu (pop) depois que a página já
+        // carregou. applyAccessRestrictions() roda de novo depois, com o
+        // dado fresco do servidor, e confirma/corrige se preciso.
+        (function () {
+          try {
+            var raw = localStorage.getItem("lit_user");
+            var user = raw ? JSON.parse(raw) : null;
+            var canUseExercises = !!(
+              user &&
+              user.role === "aluno" &&
+              user.access_type === "padrao" &&
+              user.is_approved === true
+            );
+            var el = document.getElementById("nav-exercicios");
+            if (el) el.style.visibility = canUseExercises ? "visible" : "hidden";
+          } catch (e) {}
+        })();
+      </script>
     </aside>
 
     <main class="main main-review">

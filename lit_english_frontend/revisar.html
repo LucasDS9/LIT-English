@@ -37,7 +37,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16"/><path d="M9 4v16"/><path d="M14 4l5 16"/></svg>
           <span>Flashcards</span>
         </a>
-        <a href="exercicios.html" id="nav-exercicios" class="nav-item" style="display:none">
+        <a href="exercicios.html" id="nav-exercicios" class="nav-item" style="visibility:hidden">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="16" rx="2.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
           <span>Exercises</span>
         </a>
@@ -52,6 +52,27 @@
           <span>Sair</span>
         </button>
       </nav>
+      <script>
+        // Aplica a visibilidade de "Exercises" já no primeiro paint, usando o
+        // usuário salvo em cache (localStorage), sem esperar a resposta da
+        // API — evita o item "pulando" no menu (pop) depois que a página já
+        // carregou. applyAccessRestrictions() roda de novo depois, com o
+        // dado fresco do servidor, e confirma/corrige se preciso.
+        (function () {
+          try {
+            var raw = localStorage.getItem("lit_user");
+            var user = raw ? JSON.parse(raw) : null;
+            var canUseExercises = !!(
+              user &&
+              user.role === "aluno" &&
+              user.access_type === "padrao" &&
+              user.is_approved === true
+            );
+            var el = document.getElementById("nav-exercicios");
+            if (el) el.style.visibility = canUseExercises ? "visible" : "hidden";
+          } catch (e) {}
+        })();
+      </script>
     </aside>
 
     <main class="main main-review">
