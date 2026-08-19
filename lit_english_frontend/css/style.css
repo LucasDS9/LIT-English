@@ -4289,3 +4289,171 @@ body.reader-fs-open {
   }
 }
 EOF
+
+
+/* ==========================================================================
+   Revisar — painel de resultado da pronúncia
+   Corrige o conflito entre .review-pronunciation-feedback (flex em linha)
+   e o analisador completo. O resultado deve permanecer vertical em PC e
+   celular, como no card Speak de Dominando.
+   ========================================================================== */
+
+.main-review .pronunciation-analyzer-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0;
+  width: min(100%, 680px);
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 4px 8px 0;
+  box-sizing: border-box;
+  border: 0;
+  background: transparent;
+  text-align: center;
+  overflow: visible;
+}
+
+.main-review .pronunciation-analyzer-panel .pronunciation-topic-label {
+  width: 100%;
+  margin: 0 0 6px;
+  text-align: center;
+}
+
+.main-review .pronunciation-analyzer-panel .pronunciation-phrase {
+  width: 100%;
+  max-width: 640px;
+  margin: 0;
+  text-align: center;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.main-review .pronunciation-analyzer-panel .pronunciation-translation {
+  width: 100%;
+  max-width: 560px;
+  margin: 14px 0 0;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.main-review .pronunciation-analyzer-panel .pronunciation-score-section {
+  width: 100%;
+  max-width: 420px;
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.main-review .pronunciation-analyzer-panel .pronunciation-score-label {
+  margin: 0;
+}
+
+.main-review .pronunciation-analyzer-panel .pronunciation-score-ring-wrap {
+  flex: 0 0 auto;
+}
+
+.main-review .pronunciation-analyzer-panel .pronunciation-ai-feedback {
+  width: 100%;
+  max-width: 420px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+}
+
+.main-review .pronunciation-analyzer-panel .pronunciation-listen-btn {
+  width: min(100%, 420px);
+  min-height: 56px;
+  margin: 20px auto 0;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+/* PC: aproveita melhor a largura sem deixar o resultado espremido. */
+@media (min-width: 901px) {
+  .main-review .pronunciation-analyzer-panel .pronunciation-phrase {
+    font-size: clamp(30px, 3.6vw, 44px);
+  }
+}
+
+/* Tablet/celular: tudo continua em uma única coluna e os controles
+   nunca ultrapassam a largura do card. */
+@media (max-width: 900px) {
+  .main-review .pronunciation-analyzer-panel {
+    width: 100%;
+    max-width: 100%;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .main-review .pronunciation-analyzer-panel .pronunciation-score-section {
+    margin-top: 20px;
+  }
+
+  .main-review .pronunciation-analyzer-panel .pronunciation-listen-btn {
+    width: min(100%, 420px);
+  }
+}
+
+@media (max-width: 560px) {
+  .main-review .pronunciation-analyzer-panel {
+    padding: 0;
+  }
+
+  .main-review .pronunciation-analyzer-panel .pronunciation-topic-label {
+    font-size: 12px;
+    margin-bottom: 5px;
+  }
+
+  .main-review .pronunciation-analyzer-panel .pronunciation-phrase {
+    font-size: clamp(25px, 8vw, 34px);
+    line-height: 1.2;
+    max-width: 100%;
+  }
+
+  .main-review .pronunciation-analyzer-panel .pronunciation-translation {
+    font-size: 18px;
+    line-height: 1.3;
+    margin-top: 11px;
+  }
+
+  .main-review .pronunciation-analyzer-panel .pronunciation-score-section {
+    margin-top: 18px;
+    gap: 11px;
+  }
+
+  .main-review .pronunciation-analyzer-panel .pronunciation-score-ring-wrap {
+    width: 124px;
+    height: 124px;
+  }
+
+  .main-review .pronunciation-analyzer-panel .pronunciation-score-value .score-num {
+    font-size: 30px;
+  }
+
+  .main-review .pronunciation-analyzer-panel .pronunciation-ai-feedback {
+    max-width: 100%;
+    padding: 0 4px;
+  }
+
+  .main-review .pronunciation-analyzer-panel .pronunciation-ai-text strong {
+    font-size: 15px;
+  }
+
+  .main-review .pronunciation-analyzer-panel .pronunciation-ai-text p {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .main-review .pronunciation-analyzer-panel .pronunciation-listen-btn {
+    width: 100%;
+    min-height: 54px;
+    margin-top: 16px;
+  }
+}
