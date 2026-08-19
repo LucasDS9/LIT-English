@@ -8,7 +8,7 @@ Frontend simples em HTML, CSS e JS puro (sem build, sem framework).
 - **Revisar** (`revisar.html`) — tela de revisão de flashcards com SM-2, em layout centralizado e ampliado:
   - busca a fila do dia (`GET /flashcards/review/next`)
   - vira o card, toca a pronúncia em inglês com voz neural (via endpoint `/tts/speak` do backend, que usa o serviço gratuito de TTS do Google Translate); se o backend ou a internet falharem, cai automaticamente para a Web Speech API nativa do navegador
-  - envia a avaliação do aluno (`POST /flashcards/review/{id}`) com os botões Esqueci / Difícil / Ok / Fácil
+  - envia a avaliação do alunos (`POST /flashcards/review/{id}`) com os botões Esqueci / Difícil / Ok / Fácil
   - trata os estados de "sem cards agora", "limite de revisões atingido" e "revisão concluída"
 - **Read and Listen** (`textos.html`, aluno) — lista os textos disponíveis (`GET /texts`) como cartões com título e nível CEFR; ao clicar em um, abre o texto completo (`GET /texts/{id}`) com tradução opcional e um player de áudio (play/pause) que usa o `/tts/speak` do backend, dividindo o texto em frases para contornar o limite de caracteres do TTS e tocá-las em sequência.
 - **Exercícios** (`exercicios.html`) — carrossel de flashcards de exercícios (fill in the blank, listen and type, speaking), um por vez, do mais antigo para o mais novo. Cada exercício tem botão "Confirmar" (trava a resposta/áudio) e depois "Enviar" (corrige com o backend e mostra o resultado), avançando para o próximo ao confirmar.
