@@ -384,30 +384,6 @@ async function renderTextList() {
 // contínua do player principal).
 const wordAudioBlobUrls = new Map();
 let activeWordAudioEl = null;
-let activeCueSourceNode = null;
-
-// Frases curtas de "sua vez" — sorteadas aleatoriamente a cada trecho do
-// Shadowing Mode, sem repetir a mesma duas vezes seguidas.
-const YOUR_TURN_PHRASES = [
-  "Your turn.",
-  "Now you.",
-  "Repeat.",
-  "You try.",
-  "Go ahead.",
-  "Say it.",
-];
-const yourTurnAudioBuffers = new Map();
-let lastYourTurnPhrase = null;
-
-function pickYourTurnPhrase() {
-  if (YOUR_TURN_PHRASES.length <= 1) return YOUR_TURN_PHRASES[0];
-  let phrase = lastYourTurnPhrase;
-  while (phrase === lastYourTurnPhrase) {
-    phrase = YOUR_TURN_PHRASES[Math.floor(Math.random() * YOUR_TURN_PHRASES.length)];
-  }
-  lastYourTurnPhrase = phrase;
-  return phrase;
-}
 
 function stopWordPronunciation() {
   if (activeWordAudioEl) {
@@ -417,58 +393,8 @@ function stopWordPronunciation() {
   }
 }
 
-function stopCueAudio() {
-  if (activeCueSourceNode) {
-    try {
-      activeCueSourceNode.stop();
-    } catch (err) {
-      // já parado
-    }
-    activeCueSourceNode = null;
-  }
-}
-
 function stopWordAudio() {
   stopWordPronunciation();
-  stopCueAudio();
-}
-
-async function loadYourTurnAudioBuffer(phrase) {
-  if (yourTurnAudioBuffers.has(phrase)) return yourTurnAudioBuffers.get(phrase);
-  const blob = await apiFetchBlob(ttsUrl(phrase));
-  const arrayBuffer = await blob.arrayBuffer();
-  const ctx = getAudioCtx();
-  const buffer = await ctx.decodeAudioData(arrayBuffer);
-  yourTurnAudioBuffers.set(phrase, buffer);
-  return buffer;
-}
-
-function preloadYourTurnAudioBuffers() {
-  return Promise.all(YOUR_TURN_PHRASES.map((phrase) => loadYourTurnAudioBuffer(phrase).catch(() => {})));
-}
-
-function playYourTurnAudio() {
-  const phrase = pickYourTurnPhrase();
-  return loadYourTurnAudioBuffer(phrase)
-    .then((buffer) => {
-      const ctx = getAudioCtx();
-      if (ctx.state === "suspended") ctx.resume();
-      stopCueAudio();
-      const source = ctx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(ctx.destination);
-      activeCueSourceNode = source;
-      return new Promise((resolve) => {
-        source.onended = () => {
-          if (activeCueSourceNode === source) activeCueSourceNode = null;
-          resolve();
-        };
-        source.start(0);
-      });
-    })
-    .catch(() => {
-      showToast("Não foi possível tocar o áudio \"Your turn\".");
-    });
 }
 
 async function getWordAudioUrl(word) {
@@ -964,7 +890,6 @@ function scheduleShadowingYourTurn(segment, audioDuration) {
     if (!shadowingMode.active || shadowingMode.isPaused) return;
     shadowingMode.phase = "your-turn";
     highlightShadowingSegment(segment);
-    playYourTurnAudio();
 
     const repeatMs = audioDuration * 1.5 * 1000;
     shadowingMode.turnEndsAt = Date.now() + repeatMs;
@@ -1042,7 +967,6 @@ function pauseShadowingPlayback() {
     shadowingMode.isSegmentPlaying = false;
   } else {
     clearShadowingTimers();
-    stopCueAudio();
     if (shadowingMode.phase === "your-turn") {
       shadowingMode.pauseState = {
         kind: "your-turn",
@@ -1125,8 +1049,6 @@ function startShadowingMode(segments) {
   shadowingMode.segments = segments;
   shadowingMode.index = 0;
   shadowingMode.active = true;
-
-  preloadYourTurnAudioBuffers();
 
   if (shadowingMode.bodyEl) {
     shadowingMode.bodyEl.classList.add("is-shadowing-mode");

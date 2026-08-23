@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.activity_queue import should_defer_flashcards
 from app.ai_judge import judge_answer
-from app.ai_translate import TranslationUnavailable, translate_flashcard_front
+from app.ai_translate import TranslationUnavailable, build_target_language_flashcard
 from app.flashcard_judge import judge_flashcard_answer
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
@@ -787,11 +787,10 @@ def self_add_flashcard(
     """
     Aluno cria um flashcard próprio, sem depender do professor — seja
     clicando em "Salvar frase nos flashcards" no popup de vocabulário (Read
-    and Listen, front+back sempre vêm preenchidos), seja pelo botão
-    "Adicionar flashcard" da tela de Flashcards (frente na língua-alvo do
-    aluno; verso opcional — se vier vazio, geramos a tradução
-    automaticamente pra português, na língua-alvo certa: inglês pro curso
-    normal, ou a língua do Acesso Especial, ex.: italiano).
+    and Listen, front+back sempre vêm preenchidos na língua-alvo/nativa),
+    seja pelo botão "Adicionar flashcard" da tela Aprender (frente em
+    língua nativa ou alvo; o verso é gerado automaticamente e a frente
+    gravada fica sempre na língua-alvo).
     Card já sai atribuído a ele mesmo, pra aparecer na fila de revisão
     (SM-2) igual a qualquer outro flashcard.
     """
@@ -800,13 +799,13 @@ def self_add_flashcard(
 
     front = data.front.strip()
     if not front:
-        raise HTTPException(status_code=422, detail="Escreva o termo ou frase na língua-alvo.")
+        raise HTTPException(status_code=422, detail="Digite uma palavra, frase ou expressão.")
 
     back = (data.back or "").strip()
     if not back:
         try:
             native_language = student.native_language or "pt"
-            back = translate_flashcard_front(
+            front, back = build_target_language_flashcard(
                 front,
                 native_language=native_language,
                 target_language=student_language(student),
@@ -814,7 +813,7 @@ def self_add_flashcard(
         except (TranslationUnavailable, ValueError):
             raise HTTPException(
                 status_code=502,
-                detail="Não foi possível gerar a tradução automaticamente agora. Preencha o verso e tente de novo.",
+                detail="Não foi possível gerar a tradução automaticamente agora. Tente de novo em instantes.",
             )
 
     card = Flashcard(

@@ -15,10 +15,11 @@ const FlashcardPronounce = (() => {
   const PRONUNCIATION_MAX_DURATION_MS = 5000;
 
   const SCORE_TIERS = [
-    { min: 80, id: "good", legend: "Boa pronúncia (80-100)", color: "#22C55E", className: "tier-good" },
-    { min: 60, id: "medium", legend: "Pode melhorar (60-79)", color: "#F59E0B", className: "tier-medium" },
-    { min: 0, id: "bad", legend: "Pronúncia incorreta (0-59)", color: "#EF4444", className: "tier-bad" },
+    { min: 80, id: "good", legend: "Boa pronúncia (80-100)", color: "#861E19", className: "tier-good" },
+    { min: 60, id: "medium", legend: "Pode melhorar (60-79)", color: "#D18C8C", className: "tier-medium" },
+    { min: 0, id: "bad", legend: "Pronúncia incorreta (0-59)", color: "#E8B8B8", className: "tier-bad" },
   ];
+  const SCORE_RING_COLOR = "#861E19";
 
   const LANGUAGE_META = {
     ingles: {
@@ -176,7 +177,7 @@ const FlashcardPronounce = (() => {
           cx="60"
           cy="60"
           r="${radius}"
-          stroke="${tier.color}"
+          stroke="${SCORE_RING_COLOR}"
           stroke-dasharray="${circumference.toFixed(2)}"
           stroke-dashoffset="${dashOffset.toFixed(2)}"
         />
@@ -381,10 +382,10 @@ const FlashcardPronounce = (() => {
       ? `<div style="font-weight:400;font-size:0.9em;margin-top:4px;">${result.reason}</div>`
       : "";
     if (result.correct) {
-      container.style.background = "#f0faf4";
-      container.style.border = "1px solid #b7dfc7";
+      container.style.background = "#FCEEEC";
+      container.style.border = "1px solid #F4D9D6";
       const said = result.transcribed_text ? ` Você disse: "${result.transcribed_text}"` : "";
-      container.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#155724" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><span style="color:#155724;font-weight:600;">Pronúncia correta!<span style="font-weight:400;">${said}</span>${reasonHtml}</span>`;
+      container.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#861E19" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><span style="color:#861E19;font-weight:600;">Pronúncia correta!<span style="font-weight:400;">${said}</span>${reasonHtml}</span>`;
     } else {
       container.style.background = "#fff5f5";
       container.style.border = "1px solid #f5c6cb";

@@ -14,30 +14,12 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models import PronunciationAttemptLog
-from app.timezone import start_of_day_brazil_utc
 
 logger = logging.getLogger(__name__)
 
-PRONUNCIATION_DAILY_LIMIT = 15
 PRONUNCIATION_MAX_SECONDS = 5
 # Tolerância para imprecisão de container/codec na duração medida.
 DURATION_TOLERANCE_SECONDS = 0.6
-
-
-def count_today_pronunciation_attempts(db: Session, student_id: int) -> int:
-    day_start = start_of_day_brazil_utc()
-    return (
-        db.query(PronunciationAttemptLog)
-        .filter(
-            PronunciationAttemptLog.student_id == student_id,
-            PronunciationAttemptLog.created_at >= day_start,
-        )
-        .count()
-    )
-
-
-def remaining_pronunciation_attempts(db: Session, student_id: int) -> int:
-    return max(0, PRONUNCIATION_DAILY_LIMIT - count_today_pronunciation_attempts(db, student_id))
 
 
 def _guess_suffix(audio_bytes: bytes) -> str:
@@ -87,17 +69,7 @@ def audio_duration_seconds(audio_bytes: bytes) -> float | None:
 
 
 def enforce_optional_pronunciation_limits(db: Session, student_id: int, audio_bytes: bytes) -> None:
-    """Valida limite diário e duração máxima antes de chamar Azure/Whisper."""
-    used = count_today_pronunciation_attempts(db, student_id)
-    if used >= PRONUNCIATION_DAILY_LIMIT:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=(
-                f"Limite diário de {PRONUNCIATION_DAILY_LIMIT} testes de pronúncia atingido. "
-                "Volte amanhã."
-            ),
-        )
-
+    """Valida a duração máxima antes de chamar Azure/Whisper."""
     duration = audio_duration_seconds(audio_bytes)
     if duration is not None and duration > PRONUNCIATION_MAX_SECONDS + DURATION_TOLERANCE_SECONDS:
         raise HTTPException(

@@ -5,9 +5,7 @@ const roleLabelEl = document.getElementById("role-label");
 const toastEl = document.getElementById("toast");
 const frontHintEl = document.getElementById("front-hint");
 const frontInput = document.getElementById("flashcard-front");
-const backInput = document.getElementById("flashcard-back");
 const frontCounter = document.getElementById("front-counter");
-const backCounter = document.getElementById("back-counter");
 const descriptionInput = document.getElementById("flashcard-description");
 const descriptionCounter = document.getElementById("description-counter");
 const form = document.getElementById("flashcard-form");
@@ -65,13 +63,8 @@ function updateFrontHint(user) {
   const targetKey = getTargetKey(user);
   const greeting = TARGET_GREETING_EXAMPLES[targetKey] || "Hello";
 
-  frontHintEl.textContent = `Digite a palavra, frase ou expressão em ${nativeLabel} ou ${targetLabel}.`;
+  frontHintEl.textContent = `Digite a palavra, frase ou expressão em ${nativeLabel} ou ${targetLabel}. O flashcard será salvo em ${targetLabel}.`;
   frontInput.placeholder = `Ex: ${greeting}`;
-
-  // Exemplos da área "Adicionar flashcard":
-  // frente = "Oi" na língua-alvo; verso permanece como o projeto já utiliza;
-  // descrição usa exatamente o texto solicitado.
-  backInput.placeholder = "Deixe em branco para gerar automaticamente.";
   descriptionInput.placeholder = `Ex: É como falamos 'oi' de forma informal, ex: ${greeting}.`;
 }
 
@@ -88,7 +81,6 @@ function updateCounter(input, counter, max = 200) {
 }
 
 frontInput.addEventListener("input", () => updateCounter(frontInput, frontCounter));
-backInput.addEventListener("input", () => updateCounter(backInput, backCounter));
 descriptionInput.addEventListener("input", () => updateCounter(descriptionInput, descriptionCounter, 300));
 
 document.getElementById("logout-btn").addEventListener("click", () => {
@@ -365,7 +357,6 @@ form.addEventListener("submit", async (event) => {
   errorBox.hidden = true;
 
   const front = frontInput.value.trim();
-  const back = backInput.value.trim();
   const description = descriptionInput.value.trim();
 
   if (!front) {
@@ -382,12 +373,11 @@ form.addEventListener("submit", async (event) => {
     await apiFetch("/flashcards/self-add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ front, back, description }),
+      body: JSON.stringify({ front, description }),
     });
 
     form.reset();
     updateCounter(frontInput, frontCounter);
-    updateCounter(backInput, backCounter);
     updateCounter(descriptionInput, descriptionCounter, 300);
     showToast("Flashcard criado!");
     frontInput.focus();
@@ -427,7 +417,6 @@ async function init() {
       showOnly(createViewEl);
       frontHintEl.textContent = "Sua conta ainda aguarda aprovação.";
       frontInput.disabled = true;
-      backInput.disabled = true;
       descriptionInput.disabled = true;
       createBtn.disabled = true;
       return;

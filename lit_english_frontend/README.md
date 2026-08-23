@@ -12,7 +12,7 @@ Frontend simples em HTML, CSS e JS puro (sem build, sem framework).
   - trata os estados de "sem cards agora", "limite de revisões atingido" e "revisão concluída"
 - **Read and Listen** (`textos.html`, aluno) — lista os textos disponíveis (`GET /texts`) como cartões com título e nível CEFR; ao clicar em um, abre o texto completo (`GET /texts/{id}`) com tradução opcional e um player de áudio (play/pause) que usa o `/tts/speak` do backend, dividindo o texto em frases para contornar o limite de caracteres do TTS e tocá-las em sequência.
 - **Exercícios** (`exercicios.html`) — carrossel de flashcards de exercícios (fill in the blank, listen and type, speaking), um por vez, do mais antigo para o mais novo. Cada exercício tem botão "Confirmar" (trava a resposta/áudio) e depois "Enviar" (corrige com o backend e mostra o resultado), avançando para o próximo ao confirmar.
-- **Painel do professor** (`professor.html`) — Flashcards (criar/editar/excluir), Read and Listen (criar/editar/excluir textos com título, nível CEFR, texto em inglês e tradução), Exercícios (criar/atribuir/ver submissões) e Configurações (que inclui a aprovação/bloqueio de alunos).
+- **Painel do professor ** (`professor.html`) — Flashcards (criar/editar/excluir), Read and Listen (criar/editar/excluir textos com título, nível CEFR, texto em inglês e tradução), Exercícios (criar/atribuir/ver submissões) e Configurações (que inclui a aprovação/bloqueio de alunos).
 
 O menu do aluno é simples: Revisar, Exercícios, Read and Listen e Meu Vocabulário. O item "Meu Vocabulário" ainda não tem página própria e mostra um aviso de "em construção". O botão "Sair" faz logout (tanto para aluno quanto para professor).
 

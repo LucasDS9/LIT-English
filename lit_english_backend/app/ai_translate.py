@@ -2,9 +2,9 @@
 Tradução automática de flashcards — LIT English
 
 Usado por app/routers/flashcards.py (rota /flashcards/self-add) quando o
-aluno cria um flashcard próprio e deixa o campo "Verso" em branco: a frente
-pode estar na língua nativa ou na língua-alvo, e a Groq gera automaticamente
-a tradução para a outra língua.
+aluno cria um flashcard em Aprender: a frente pode estar na língua nativa
+ou na língua-alvo, e a Groq devolve o card com a frente sempre na
+língua-alvo e o verso traduzido na língua nativa.
 
 Requer a variável de ambiente GROQ_API_KEY (carregada via .env por
 app/database.py). Se a API falhar por qualquer motivo (sem chave, rede
@@ -102,7 +102,7 @@ def translate_to_portuguese(text: str, source_language: str) -> str:
 
 # ---------------------------------------------------------------------------
 # Flashcard livre: a frente pode estar na língua nativa OU na língua-alvo.
-# Nesse caso, o verso automático deve ser a outra língua.
+# O card gravado fica sempre com a frente na língua-alvo e o verso na nativa.
 # ---------------------------------------------------------------------------
 
 _LANGUAGE_NAMES = {
@@ -118,23 +118,33 @@ _LANGUAGE_NAMES = {
     "frances": "francês",
     "francês": "francês",
     "fr": "francês",
+    "espanhol": "espanhol",
+    "es": "espanhol",
+    "alemão": "alemão",
+    "alemao": "alemão",
+    "de": "alemão",
 }
 
-_BIDIRECTIONAL_PROMPT = (
+_TARGET_FRONT_PROMPT = (
     "Você é um tradutor para estudantes de idiomas. O aluno está criando um flashcard. "
     "A língua nativa é {native_language} e a língua-alvo é {target_language}. "
     "A frase/expressão recebida pode estar em qualquer uma dessas duas línguas. "
-    "Identifique qual é a língua do texto e traduza naturalmente para a OUTRA língua. "
-    "Preserve o sentido completo da expressão, sem explicações, sem aspas e sem alternativas. "
+    "Monte o flashcard assim: `front` SEMPRE na língua-alvo e `back` SEMPRE na língua nativa. "
+    "Se o texto já estiver na língua-alvo, use-o como `front` e traduza para a língua nativa em `back`. "
+    "Se o texto estiver na língua nativa, traduza para a língua-alvo em `front` e use o original (ou uma "
+    "versão natural equivalente) em `back`. "
+    "Preserve o sentido completo, sem explicações, sem aspas e sem alternativas. "
     'Responda APENAS com um JSON válido no formato exato: '
-    '{{"translation": "tradução aqui", "detected_language": "idioma detectado"}}'
+    '{{"front": "frase na língua-alvo", "back": "frase na língua nativa", "detected_language": "idioma detectado"}}'
 )
 
 
-def translate_flashcard_front(text: str, native_language: str, target_language: str) -> str:
+def build_target_language_flashcard(
+    text: str, native_language: str, target_language: str
+) -> tuple[str, str]:
     """
-    Detecta se a frente está na língua nativa ou na língua-alvo e traduz para a outra.
-    Usada somente quando o aluno deixa o verso vazio.
+    Detecta se o texto está na língua nativa ou na língua-alvo e devolve
+    (frente na língua-alvo, verso na língua nativa).
     """
     clean_text = (text or "").strip()
     if not clean_text:
@@ -152,7 +162,7 @@ def translate_flashcard_front(text: str, native_language: str, target_language: 
         "messages": [
             {
                 "role": "system",
-                "content": _BIDIRECTIONAL_PROMPT.format(
+                "content": _TARGET_FRONT_PROMPT.format(
                     native_language=native_name,
                     target_language=target_name,
                 ),
@@ -161,7 +171,7 @@ def translate_flashcard_front(text: str, native_language: str, target_language: 
         ],
         "temperature": 0.2,
         "reasoning_effort": "low",
-        "max_tokens": 180,
+        "max_tokens": 220,
         "response_format": {"type": "json_object"},
     }
 
@@ -179,16 +189,17 @@ def translate_flashcard_front(text: str, native_language: str, target_language: 
         data = r.json()
         content = data["choices"][0]["message"]["content"]
         parsed = json.loads(content)
-        translation = str(parsed.get("translation", "")).strip()
+        front = str(parsed.get("front", "")).strip()
+        back = str(parsed.get("back", "")).strip()
         detected = str(parsed.get("detected_language", "")).strip().lower()
         allowed = {native_name.lower(), target_name.lower()}
 
-        if not translation:
-            raise ValueError("Tradução vazia devolvida pela IA.")
+        if not front or not back:
+            raise ValueError("Tradução incompleta devolvida pela IA.")
         if detected and detected not in allowed:
             raise ValueError("A IA detectou uma língua diferente das línguas do aluno.")
 
-        return translation
+        return front, back
     except (requests.RequestException, KeyError, ValueError, json.JSONDecodeError) as e:
-        logger.warning("Tradução bidirecional indisponível: %s", e)
+        logger.warning("Tradução do flashcard indisponível: %s", e)
         raise TranslationUnavailable(f"Falha ao consultar a API da Groq: {e}") from e
