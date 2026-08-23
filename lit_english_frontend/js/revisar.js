@@ -293,6 +293,44 @@ function promptText(card) {
 }
 
 // ---------------------------------------------------------------------------
+// Ciclo da sessão de revisão
+// ---------------------------------------------------------------------------
+// A API devolve os cards já selecionados pelo SM-2 (por vencimento), mas
+// misturados entre si. Para dar um fluxo mais didático, reordenamos o lote
+// em etapas: até 5 "Aprendendo" -> até 5 "Dominando" (digitar) -> até 5
+// "Dominando" (falar) -> até 5 "Concluído". Cada etapa não são
+// necessariamente os mesmos flashcards de uma sessão pra outra — quem decide
+// quais cards entram continua sendo o SM-2 (vencimento); aqui só decidimos a
+// ORDEM de apresentação. Se alguma etapa não tiver cards suficientes (ou
+// nenhum), simplesmente seguimos para a próxima com o que estiver
+// disponível — nada é bloqueado nem preenchido artificialmente. Cards que
+// sobrarem depois das 5 vagas de cada etapa vão para o final da sessão, sem
+// serem descartados.
+const REVIEW_CYCLE_STAGE_SIZE = 5;
+const REVIEW_CYCLE_ORDER = ["aprendendo", "dominando_type", "dominando_speak", "concluido"];
+
+function reviewCycleStage(card) {
+  const status = String(card?.status || "").toLowerCase();
+  if (status === "concluido") return "concluido";
+  if (status === "dominando") return isSpeakMode(card) ? "dominando_speak" : "dominando_type";
+  return "aprendendo"; // sem status (card novo) ou "aprendendo" -> etapa de aprendizado
+}
+
+function buildReviewCycle(cards) {
+  const buckets = { aprendendo: [], dominando_type: [], dominando_speak: [], concluido: [] };
+  (cards || []).forEach((card) => buckets[reviewCycleStage(card)].push(card));
+
+  const ordered = [];
+  const leftover = [];
+  REVIEW_CYCLE_ORDER.forEach((stage) => {
+    ordered.push(...buckets[stage].slice(0, REVIEW_CYCLE_STAGE_SIZE));
+    leftover.push(...buckets[stage].slice(REVIEW_CYCLE_STAGE_SIZE));
+  });
+
+  return [...ordered, ...leftover];
+}
+
+// ---------------------------------------------------------------------------
 // Flashcards do professor às vezes trazem um rótulo de tópico gramatical
 // antes da frase, ex: "Future: I will go to the store". Em vez de mostrar
 // isso tudo junto como frase, separamos o rótulo (ex: "Future") pra exibir
@@ -914,7 +952,7 @@ async function loadQueue() {
   try {
     const data = await apiFetch("/flashcards/review/next");
 
-    session.cards = data.cards;
+    session.cards = buildReviewCycle(data.cards);
     session.index = 0;
     session.flipped = false;
     session.remaining = data.remaining_in_window;

@@ -6,6 +6,8 @@ const toastEl = document.getElementById("toast");
 const frontHintEl = document.getElementById("front-hint");
 const frontInput = document.getElementById("flashcard-front");
 const frontCounter = document.getElementById("front-counter");
+const backInput = document.getElementById("flashcard-back");
+const backCounter = document.getElementById("back-counter");
 const descriptionInput = document.getElementById("flashcard-description");
 const descriptionCounter = document.getElementById("description-counter");
 const form = document.getElementById("flashcard-form");
@@ -81,6 +83,7 @@ function updateCounter(input, counter, max = 200) {
 }
 
 frontInput.addEventListener("input", () => updateCounter(frontInput, frontCounter));
+backInput.addEventListener("input", () => updateCounter(backInput, backCounter));
 descriptionInput.addEventListener("input", () => updateCounter(descriptionInput, descriptionCounter, 300));
 
 document.getElementById("logout-btn").addEventListener("click", () => {
@@ -357,6 +360,7 @@ form.addEventListener("submit", async (event) => {
   errorBox.hidden = true;
 
   const front = frontInput.value.trim();
+  const back = backInput.value.trim();
   const description = descriptionInput.value.trim();
 
   if (!front) {
@@ -373,11 +377,12 @@ form.addEventListener("submit", async (event) => {
     await apiFetch("/flashcards/self-add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ front, description }),
+      body: JSON.stringify({ front, back, description }),
     });
 
     form.reset();
     updateCounter(frontInput, frontCounter);
+    updateCounter(backInput, backCounter);
     updateCounter(descriptionInput, descriptionCounter, 300);
     showToast("Flashcard criado!");
     frontInput.focus();
@@ -417,6 +422,7 @@ async function init() {
       showOnly(createViewEl);
       frontHintEl.textContent = "Sua conta ainda aguarda aprovação.";
       frontInput.disabled = true;
+      backInput.disabled = true;
       descriptionInput.disabled = true;
       createBtn.disabled = true;
       return;
