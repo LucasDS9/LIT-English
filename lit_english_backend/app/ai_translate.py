@@ -110,19 +110,25 @@ _LANGUAGE_NAMES = {
     "pt-br": "português",
     "portugues": "português",
     "português": "português",
+    "portuguese": "português",
     "ingles": "inglês",
     "inglês": "inglês",
     "en": "inglês",
+    "english": "inglês",
     "italiano": "italiano",
     "it": "italiano",
+    "italian": "italiano",
     "frances": "francês",
     "francês": "francês",
     "fr": "francês",
+    "french": "francês",
     "espanhol": "espanhol",
     "es": "espanhol",
+    "spanish": "espanhol",
     "alemão": "alemão",
     "alemao": "alemão",
     "de": "alemão",
+    "german": "alemão",
 }
 
 _TARGET_FRONT_PROMPT = (
@@ -191,7 +197,13 @@ def build_target_language_flashcard(
         parsed = json.loads(content)
         front = str(parsed.get("front", "")).strip()
         back = str(parsed.get("back", "")).strip()
-        detected = str(parsed.get("detected_language", "")).strip().lower()
+        detected_raw = str(parsed.get("detected_language", "")).strip().lower()
+        # A IA às vezes responde o idioma em inglês (ex: "italian") em vez de
+        # português (ex: "italiano"), mesmo o prompt pedindo em português.
+        # Normaliza pelo mesmo mapa usado pros nomes nativo/alvo antes de
+        # comparar, pra não rejeitar um flashcard válido por causa de uma
+        # simples diferença de idioma na resposta da IA.
+        detected = _LANGUAGE_NAMES.get(detected_raw, detected_raw)
         allowed = {native_name.lower(), target_name.lower()}
 
         if not front or not back:
