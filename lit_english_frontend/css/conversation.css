@@ -1,0 +1,343 @@
+/* ==========================================================================
+   LIT English — conversation.css
+   Estilos exclusivos da tela "Conversa com IA Tutor" (conversa.html).
+   Reaproveita as variáveis de tema (--primary, --border, --radius-*, etc.)
+   já definidas em style.css:root — este arquivo não redefine .app-shell,
+   .sidebar nem .nav-item, que já vêm de style.css.
+   ========================================================================== */
+
+.main--conversa {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-width: 0;
+}
+
+.conv-header {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+
+.conv-header h1 {
+  margin: 0 0 6px;
+  font-size: 24px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+}
+
+.conv-header .conv-dot { color: var(--primary); font-size: 18px; }
+
+.conv-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14.5px;
+}
+
+.conv-locked {
+  background: var(--primary-pale);
+  border: 1px solid var(--primary-pale-border);
+  border-radius: var(--radius-lg);
+  padding: 28px 32px;
+  color: var(--text);
+  font-size: 15px;
+  max-width: 560px;
+}
+
+.conv-locked.hidden { display: none; }
+
+.conv-workspace {
+  flex: 1;
+  display: flex;
+  gap: 24px;
+  min-height: 0;
+}
+
+.conv-workspace.hidden { display: none; }
+
+/* ============== CHAT ============== */
+
+.conv-chat-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.chat-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 4px 16px;
+  min-height: 320px;
+}
+
+.bubble {
+  max-width: 68%;
+  padding: 16px 20px;
+  border-radius: var(--radius-lg);
+  line-height: 1.4;
+}
+
+.tutor-bubble {
+  align-self: flex-start;
+  background: #EEF0F1;
+  color: var(--text);
+}
+
+.student-bubble {
+  align-self: flex-end;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+  border-bottom-right-radius: 6px;
+}
+
+.bubble-text { margin: 0; font-size: 16.5px; white-space: pre-wrap; }
+
+.bubble-translation {
+  margin: 10px 0 0;
+  font-size: 15px;
+  color: #555;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.bubble-translation.hidden { display: none; }
+
+.bubble-translation svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; color: var(--primary); }
+
+.bubble-actions {
+  display: flex;
+  gap: 18px;
+  margin-top: 12px;
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.action-btn svg { width: 16px; height: 16px; }
+
+.action-btn.active {
+  border-bottom: 2px solid var(--primary);
+}
+
+/* -------- resumo de análise embutido na conversa -------- */
+
+.analysis-summary {
+  align-self: flex-end;
+  max-width: 68%;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  margin-top: -4px;
+}
+
+.analysis-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.analysis-summary-title {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 14.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.collapsed-summary .analysis-summary-title { opacity: 0.7; }
+
+.ver-analise-btn {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+}
+
+.ver-analise-btn:hover { background: #EEF0F1; }
+
+/* ============== MIC BAR ============== */
+
+.mic-bar {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.mic-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary-dark);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background .15s ease, box-shadow .2s ease;
+}
+
+.mic-btn svg { width: 26px; height: 26px; }
+
+.mic-btn:hover:not(:disabled) { background: var(--primary); }
+
+.mic-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.mic-btn.recording {
+  background: var(--primary);
+  box-shadow: 0 0 0 8px rgba(134, 30, 25, 0.15);
+  animation: conv-pulse 1.4s infinite;
+}
+
+@keyframes conv-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(134, 30, 25, 0.35); }
+  70%  { box-shadow: 0 0 0 14px rgba(134, 30, 25, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(134, 30, 25, 0); }
+}
+
+.mic-status { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+
+/* ============== PAINEL DE ANÁLISE (LATERAL) ============== */
+
+.analysis-panel {
+  width: 340px;
+  flex-shrink: 0;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 22px 22px 10px;
+  height: fit-content;
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+}
+
+.analysis-panel.hidden { display: none; }
+
+.analysis-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.analysis-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.chevron-btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--primary);
+  padding: 4px;
+}
+
+.chevron-btn svg { width: 16px; height: 16px; }
+
+.analysis-sentence {
+  font-size: 15.5px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.5;
+}
+
+.analysis-sentence .wrong { color: var(--primary); font-weight: 700; }
+
+.analysis-section-title {
+  font-weight: 700;
+  font-size: 14.5px;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.analysis-correction {
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px;
+}
+
+.analysis-feedback-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.analysis-feedback-list li { display: flex; gap: 8px; font-size: 14.5px; }
+
+.feedback-index { font-weight: 700; color: var(--primary); flex-shrink: 0; }
+
+.feedback-diff {
+  font-weight: 700;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.feedback-diff .wrong { color: var(--primary); }
+.feedback-diff .arrow { color: #999; margin: 0 4px; font-weight: 400; }
+.feedback-diff .right { color: var(--text); }
+
+.feedback-reason { color: var(--text-secondary); }
+
+.analysis-overall-feedback {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 14.5px;
+  color: var(--text-secondary);
+}
+
+/* ============== SCROLLBAR ============== */
+
+.chat-scroll::-webkit-scrollbar,
+.analysis-panel::-webkit-scrollbar { width: 6px; }
+
+.chat-scroll::-webkit-scrollbar-thumb,
+.analysis-panel::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+/* ============== RESPONSIVO ============== */
+
+@media (max-width: 960px) {
+  .conv-workspace { flex-direction: column; }
+  .analysis-panel { width: 100%; max-height: 340px; }
+}

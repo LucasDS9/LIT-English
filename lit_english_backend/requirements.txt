@@ -15,3 +15,4 @@ azure-cognitiveservices-speech==1.40.0
 faster-whisper==1.0.3
 g2p-en==2.1.0
 requests
+websockets>=12.0

@@ -8,7 +8,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine, run_migrations
-from app.routers import admin, auth, dashboard, exercises, flashcards, level_test, qa, site_leads, texts, tts
+from app.routers import admin, auth, conversation, dashboard, exercises, flashcards, level_test, qa, site_leads, texts, tts
+from app.services.conversation_session_manager import conversation_sessions
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -43,6 +44,14 @@ app.include_router(tts.router)
 app.include_router(dashboard.router)
 app.include_router(level_test.router)
 app.include_router(site_leads.router)
+app.include_router(conversation.router)
+
+
+@app.on_event("startup")
+async def _start_conversation_cleanup():
+    # Loop em background que expira sessões de Conversa com IA Tutor após
+    # LIT_CONVERSATION_TIMEOUT_MINUTES (default 30min) de inatividade.
+    conversation_sessions.start_background_cleanup()
 
 
 @app.get("/")

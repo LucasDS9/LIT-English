@@ -3,8 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🏠 Início — LIT English</title>
-  <link rel="stylesheet" href="css/style.css" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Conversa com IA Tutor — LIT English</title>
+  <link rel="stylesheet" href="css/style.css?v=20260813-3" />
+  <link rel="stylesheet" href="css/conversation.css" />
 </head>
 <body>
 
@@ -33,7 +37,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="m15.5 8.5 2-2"/></svg>
           <span>Learn</span>
         </a>
-        <a href="revisar.html" class="nav-item active">
+        <a href="revisar.html" class="nav-item">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16"/><path d="M9 4v16"/><path d="M14 4l5 16"/></svg>
           <span>Flashcards</span>
         </a>
@@ -45,10 +49,11 @@
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7c-1.5-1.3-4-2-7-2v13c3 0 5.5.7 7 2 1.5-1.3 4-2 7-2V5c-3 0-5.5.7-7 2Z"/><path d="M12 7v13"/></svg>
           <span>Immersion</span>
         </a>
-        <a href="conversa.html" class="nav-item" id="nav-conversa">
+        <a href="conversa.html" class="nav-item active" id="nav-conversa">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
           <span>Conversa IA</span>
         </a>
+
         <div class="nav-spacer"></div>
 
         <button class="nav-item" id="logout-btn">
@@ -79,40 +84,81 @@
       </script>
     </aside>
 
-    <main class="main main-review">
-      <header class="page-header page-header-with-action">
-        <h1>Revisar</h1>
-        <p>Revise seu vocabulário e fortaleça sua memória.</p>
+    <main class="main main--conversa">
+
+      <header class="conv-header">
+        <h1>Conversa <span class="conv-dot">•</span> IA Tutor</h1>
+        <p class="conv-subtitle">Pratique inglês falado com o tutor de IA e receba correções em tempo real.</p>
       </header>
 
-      <div class="vocab-status-legend" id="vocab-status-legend">
-        <div class="vocab-status-item">
-          <span class="vocab-status-dot is-aprendendo"></span>
-          <span>Aprendendo</span>
-        </div>
-        <div class="vocab-status-item">
-          <span class="vocab-status-dot is-dominando"></span>
-          <span>Dominando</span>
-        </div>
-        <div class="vocab-status-item">
-          <span class="vocab-status-dot is-concluido"></span>
-          <span>Concluído</span>
-        </div>
-      </div>
+      <div id="conv-locked" class="conv-locked hidden"></div>
 
-      <section id="review-area" class="review-area-centered">
-        <div class="skeleton">Carregando...</div>
-      </section>
+      <div id="conv-workspace" class="conv-workspace hidden">
+
+        <!-- ---------- COLUNA DO CHAT ---------- -->
+        <section class="conv-chat-column">
+          <div id="chat-scroll" class="chat-scroll"></div>
+
+          <div class="mic-bar">
+            <button id="mic-btn" class="mic-btn" title="Falar" disabled>
+              <svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" fill="currentColor"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </button>
+            <span id="mic-status" class="mic-status">Conectando…</span>
+          </div>
+        </section>
+
+        <!-- ---------- PAINEL SPEECH ANALYSIS ---------- -->
+        <aside id="analysis-panel" class="analysis-panel hidden">
+          <div class="analysis-header">
+            <h2>Speech Analysis</h2>
+            <button id="analysis-collapse-btn" class="chevron-btn" title="Recolher">
+              <svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+          <div id="analysis-body" class="analysis-body"></div>
+        </aside>
+
+      </div>
     </main>
 
   </div>
 
   <div class="toast" id="toast" hidden></div>
 
+  <!-- templates -->
+  <template id="tpl-tutor-bubble">
+    <div class="bubble tutor-bubble">
+      <p class="bubble-text"></p>
+      <p class="bubble-translation hidden"></p>
+      <div class="bubble-actions">
+        <button class="action-btn listen-btn">
+          <svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4Z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Ouvir
+        </button>
+        <button class="action-btn translate-btn">
+          <svg viewBox="0 0 24 24"><path d="M3 5h9M7 3v2m0 0c0 4-2 7-5 8m5-8c1 2 2.5 3.4 4 4.3M14 21l4-9 4 9M15.6 18h4.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Traduzir
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <template id="tpl-student-bubble">
+    <div class="bubble student-bubble">
+      <p class="bubble-text"></p>
+    </div>
+  </template>
+
+  <template id="tpl-analysis-summary">
+    <div class="analysis-summary">
+      <div class="analysis-summary-row">
+        <span class="analysis-summary-title">Speech Analysis <span class="chev">⌃</span></span>
+        <button class="ver-analise-btn">Ver análise <span class="chev-down">⌄</span></button>
+      </div>
+    </div>
+  </template>
+
   <script src="js/api.js"></script>
-  <script src="js/icons.js"></script>
-  <script src="js/sfx.js"></script>
-  <script src="js/flashcard-pronounce.js"></script>
-  <script src="js/revisar.js"></script>
+  <script src="js/conversation.js"></script>
 </body>
 </html>
