@@ -135,6 +135,84 @@ def default_session_config(student_name: str, voice: str, level: str | None = No
     }
 
 
+def extract_inline_tool_calls(text: str, tool_name: str) -> tuple[list[dict], str, str]:
+    """
+    Alguns modelos (ex: phi4-mm-realtime) às vezes não usam o protocolo
+    estruturado de function-calling da Voice Live (eventos
+    'response.function_call_arguments.*') e em vez disso "falam"/escrevem o
+    texto literal da chamada, tipo:
+
+        report_speech_analysis({"student_transcript": "...", ...})
+
+    dentro do próprio 'response.audio_transcript.delta' -- que é o texto
+    que vira a bolha de fala do tutor. Essa função varre um texto acumulado
+    em busca desse padrão, extrai e faz o parse do(s) JSON, e devolve:
+
+      - calls: lista de dicts já parseados (uma por chamada completa encontrada)
+      - clean_text: o texto SEM as chamadas (o que é seguro mostrar ao aluno)
+      - pending: um trecho no final do texto que pode ser o COMEÇO de uma
+                 chamada ainda incompleta (o modelo ainda está "digitando"
+                 o resto) -- não deve ser exibido ainda; deve ser prependado
+                 no próximo pedaço de texto que chegar e processado de novo.
+    """
+    marker = f"{tool_name}("
+    calls: list[dict] = []
+    out_parts: list[str] = []
+    i = 0
+
+    while True:
+        idx = text.find(marker, i)
+        if idx == -1:
+            out_parts.append(text[i:])
+            return calls, "".join(out_parts), ""
+
+        out_parts.append(text[i:idx])
+
+        # acha o parêntese de fechamento correspondente (contando aninhamento)
+        paren_start = idx + len(marker) - 1
+        depth = 0
+        end = None
+        j = paren_start
+        while j < len(text):
+            if text[j] == "(":
+                depth += 1
+            elif text[j] == ")":
+                depth -= 1
+                if depth == 0:
+                    end = j
+                    break
+            j += 1
+
+        if end is None:
+            # chamada ainda incompleta (mais deltas vão chegar) -- devolve
+            # tudo que já é seguro mostrar, e guarda o resto como pendente
+            return calls, "".join(out_parts), text[idx:]
+
+        inner = text[paren_start + 1 : end]
+        try:
+            calls.append(json.loads(inner))
+        except json.JSONDecodeError:
+            logger.warning("Não consegui parsear chamada inline de %s: %r", tool_name, inner)
+
+        i = end + 1
+
+
+def split_safe_tail(text: str, marker: str) -> tuple[str, str]:
+    """
+    Mesmo sem nenhuma chamada em andamento, o FINAL de 'text' pode ser o
+    início de um novo 'report_speech_analysis(' que ainda está chegando aos
+    poucos (delta por delta). Se mostrássemos esse pedaço agora, o aluno
+    veria por uma fração de segundo um "report_spe" solto na tela.
+
+    Devolve (parte_segura_para_mostrar, parte_a_reter_para_o_proximo_delta).
+    """
+    max_check = min(len(marker) - 1, len(text))
+    for size in range(max_check, 0, -1):
+        if marker.startswith(text[-size:]):
+            return text[:-size], text[-size:]
+    return text, ""
+
+
 @dataclass
 class VoiceLiveEvent:
     type: str

@@ -39,7 +39,11 @@ from ..services.conversation_session_manager import (
 from ..services.conversation_schemas import TranslateRequest, TranslateResponse, TTSRequest
 from ..services.translation_service import translate_to_pt_br
 from ..services.tts_service import synthesize_speech
-from ..services.voice_live_client import SPEECH_ANALYSIS_TOOL_NAME
+from ..services.voice_live_client import (
+    SPEECH_ANALYSIS_TOOL_NAME,
+    extract_inline_tool_calls,
+    split_safe_tail,
+)
 
 logger = logging.getLogger("lit.conversation_router")
 
@@ -112,6 +116,34 @@ async def conversation_ws(
     tutor_text_buffer = {"text": ""}
     pending_call = {"call_id": None, "name": None, "args_buffer": ""}
 
+    # Buffer usado pra filtrar chamadas de "report_speech_analysis(...)" que
+    # o modelo às vezes escreve como texto solto dentro do transcript da
+    # fala dele, em vez de usar o protocolo estruturado de function-calling
+    # (ver extract_inline_tool_calls em voice_live_client.py).
+    inline_call_pending = {"text": ""}
+
+    # O modelo às vezes repete a MESMA chamada de análise duas vezes seguidas
+    # (visto em produção). Isso evita mandar duas bolhas idênticas pro aluno.
+    last_analysis = {"json": None}
+
+    async def handle_speech_analysis(analysis: dict) -> None:
+        """Único ponto que trata uma análise de fala, venha ela do protocolo
+        estruturado de tool-calling ou "vazada" como texto (ver acima)."""
+        analysis_json = json.dumps(analysis, sort_keys=True)
+        if analysis_json == last_analysis["json"]:
+            return  # duplicata idêntica à análise anterior -- ignora
+        last_analysis["json"] = analysis_json
+
+        await websocket.send_json({"type": "speech_analysis", "analysis": analysis})
+        await conversation_sessions.record_turn(
+            student_id,
+            ConversationTurn(
+                role="student",
+                text=analysis.get("student_transcript", ""),
+                analysis=analysis,
+            ),
+        )
+
     async def reader():
         """Frontend -> backend -> Azure (áudio/texto do aluno)."""
         try:
@@ -177,16 +209,8 @@ async def conversation_ws(
                     except json.JSONDecodeError:
                         analysis = {}
 
-                    await websocket.send_json({"type": "speech_analysis", "analysis": analysis})
-
-                    await conversation_sessions.record_turn(
-                        student_id,
-                        ConversationTurn(
-                            role="student",
-                            text=analysis.get("student_transcript", ""),
-                            analysis=analysis,
-                        ),
-                    )
+                    if analysis:
+                        await handle_speech_analysis(analysis)
 
                     if call_id:
                         await session.voice_live.submit_tool_output(call_id, {"status": "received"})
@@ -196,8 +220,29 @@ async def conversation_ws(
 
                 elif etype == "response.audio_transcript.delta":
                     delta = raw.get("delta", "")
-                    tutor_text_buffer["text"] += delta
-                    await websocket.send_json({"type": "tutor_text_delta", "delta": delta})
+
+                    # Junta com o que ficou pendente do delta anterior (podia
+                    # ser o começo de uma chamada tipo "report_speech_ana...")
+                    chunk = inline_call_pending["text"] + delta
+                    calls, clean_text, pending = extract_inline_tool_calls(
+                        chunk, SPEECH_ANALYSIS_TOOL_NAME
+                    )
+
+                    for analysis in calls:
+                        if analysis:
+                            await handle_speech_analysis(analysis)
+
+                    # mesmo sem chamada em andamento, o final do texto pode
+                    # ser o início de uma nova chamada chegando aos poucos --
+                    # não mostra esse pedacinho ainda, guarda pro próximo delta
+                    safe_text, tail_pending = split_safe_tail(
+                        clean_text, f"{SPEECH_ANALYSIS_TOOL_NAME}("
+                    )
+                    inline_call_pending["text"] = pending + tail_pending
+
+                    if safe_text:
+                        tutor_text_buffer["text"] += safe_text
+                        await websocket.send_json({"type": "tutor_text_delta", "delta": safe_text})
 
                 elif etype == "response.audio.delta":
                     audio_b64 = raw.get("delta", "")
@@ -208,6 +253,15 @@ async def conversation_ws(
                     await websocket.send_json({"type": "tutor_audio_done"})
 
                 elif etype == "response.done":
+                    # Se sobrou algo pendente (ex: resposta terminou bem no
+                    # meio do que parecia o início de uma chamada, mas nunca
+                    # fechou), manda como texto normal em vez de perder.
+                    leftover = inline_call_pending["text"]
+                    inline_call_pending["text"] = ""
+                    if leftover:
+                        tutor_text_buffer["text"] += leftover
+                        await websocket.send_json({"type": "tutor_text_delta", "delta": leftover})
+
                     final_text = tutor_text_buffer["text"]
                     if final_text:
                         await conversation_sessions.record_turn(
