@@ -39,6 +39,16 @@ class ConversationSession:
     history: list[ConversationTurn] = field(default_factory=list)
     last_activity: dt.datetime = field(default_factory=lambda: dt.datetime.now(dt.timezone.utc))
 
+    # Tarefa asyncio que está atualmente "escutando" os eventos da Azure
+    # (voice_live.events()) para ESTA sessão. Um WebSocket da Azure só
+    # aguenta UM consumidor por vez -- se o aluno der refresh e uma nova
+    # conexão reaproveitar essa sessão antes da tarefa antiga terminar de
+    # verdade de cancelar, as duas concorrem pela mesma conexão e o
+    # resultado é a IA "parar de responder" (quem descreve o bug tem esse
+    # sintoma exato). O router usa esse campo pra esperar a tarefa antiga
+    # encerrar antes de criar a nova -- ver conversation_ws() no router.
+    active_forwarder_task: Optional["asyncio.Task"] = field(default=None, repr=False, compare=False)
+
     def touch(self) -> None:
         self.last_activity = dt.datetime.now(dt.timezone.utc)
 

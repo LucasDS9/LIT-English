@@ -300,13 +300,33 @@ async def conversation_ws(
             logger.exception("Erro no forwarder do WS de conversa (aluno=%s)", student_id)
 
     reader_task = asyncio.create_task(reader())
+
+    # Se essa sessão já tinha uma tarefa "escutando" a Azure de uma conexão
+    # anterior (aluno deu refresh, trocou de rede, etc.), garante que ela
+    # terminou de VERDADE antes de começar a escutar de novo -- senão as
+    # duas concorrem pela mesma conexão com a Azure e a IA para de responder
+    # (ver comentário em ConversationSession.active_forwarder_task).
+    old_forwarder = session.active_forwarder_task
+    if old_forwarder is not None and not old_forwarder.done():
+        old_forwarder.cancel()
+        try:
+            await old_forwarder
+        except asyncio.CancelledError:
+            pass
+        except Exception:
+            logger.exception("Erro ao encerrar forwarder anterior (aluno=%s)", student_id)
+
     forwarder_task = asyncio.create_task(forwarder())
+    session.active_forwarder_task = forwarder_task
 
     done, pending = await asyncio.wait(
         {reader_task, forwarder_task}, return_when=asyncio.FIRST_COMPLETED
     )
     for task in pending:
         task.cancel()
+
+    if session.active_forwarder_task is forwarder_task:
+        session.active_forwarder_task = None
 
     # Nota: não encerramos a sessão Voice Live aqui de propósito -- o aluno pode
     # ter caído a conexão (troca de rede, celular bloqueou) e volta em seguida.
