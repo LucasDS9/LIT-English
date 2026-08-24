@@ -1,13 +1,20 @@
 /* ==========================================================================
    LIT English — conversation.js
-   Tela "Conversa com IA Tutor". Conecta no WebSocket do backend
-   (/ws/conversation), captura o microfone em PCM16 16kHz via AudioWorklet,
-   manda pro backend, e renderiza as bolhas de chat + o painel
-   "Speech Analysis" com o que a IA devolve.
+   Tela "Conversa com IA Tutor".
 
-   Usa a autenticação real do app (Auth / apiFetch, de js/api.js): o aluno
-   nunca é passado como parâmetro solto — o backend identifica quem está
-   falando pelo token JWT.
+   Fluxo (requisição única, sem streaming ao vivo):
+     1. Aluno segura/toca o botão do microfone e grava a fala inteira
+        (MediaRecorder -- mesmo mecanismo já usado no "Speak it!" dos
+        exercícios, comprovadamente confiável).
+     2. Ao parar a gravação, o áudio completo é enviado de uma vez pro
+        backend (POST /conversation/turn, multipart/form-data).
+     3. O backend transcreve, manda pra IA analisar a gramática E gerar a
+        resposta do tutor, e devolve tudo (texto + análise + áudio da
+        resposta) numa única resposta JSON.
+     4. Essa tela só precisa desenhar o que voltou -- sem WebSocket, sem
+        AudioWorklet, sem lidar com deltas chegando aos poucos.
+
+   Usa a autenticação real do app (Auth / apiFetch, de js/api.js).
    ========================================================================== */
 
 // -----------------------------------------------------------------------
@@ -36,95 +43,62 @@ document.getElementById("logout-btn").addEventListener("click", () => {
 // ESTADO
 // -----------------------------------------------------------------------
 const state = {
-  ws: null,
-  audioContext: null,
-  workletNode: null,
+  mediaRecorder: null,
   micStream: null,
+  audioChunks: [],
+  recordedMimeType: "audio/webm",
   isRecording: false,
-  wantsReconnect: true,
+  isSending: false,
 
-  currentTutorBubbleEl: null, // bolha do tutor sendo montada via delta
-  tutorAudioChunks: [], // Int16Array[] acumulados da resposta atual do tutor
+  currentTutorBubbleEl: null,
 
   analysisById: new Map(), // id do bloco de análise -> dados, para reabrir no painel
   analysisCounter: 0,
 };
 
 // =========================================================================
-// WEBSOCKET
+// ENVIO DE UM TURNO (áudio -> transcrição + análise + resposta do tutor)
 // =========================================================================
 
-function wsBaseUrl() {
-  return API_BASE_URL.replace(/^http/, "ws");
-}
+async function sendTurnToServer(audioBlob) {
+  const formData = new FormData();
+  const ext = state.recordedMimeType.includes("ogg") ? "ogg" : "webm";
+  formData.append("audio", audioBlob, `fala.${ext}`);
 
-function connectWebSocket() {
   const token = Auth.getToken();
-  if (!token) return;
+  const response = await fetch(`${API_BASE_URL}/conversation/turn`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
 
-  const params = new URLSearchParams({ token });
-  const url = `${wsBaseUrl()}/ws/conversation?${params}`;
-
-  const ws = new WebSocket(url);
-  ws.onopen = () => console.log("[conversation] WS conectado");
-  ws.onclose = () => {
-    console.log("[conversation] WS desconectado");
-    setMicEnabled(false);
-    if (state.wantsReconnect) {
-      setTimeout(connectWebSocket, 3000);
+  if (!response.ok) {
+    let detail = `Erro inesperado (${response.status}).`;
+    try {
+      const body = await response.json();
+      if (body && body.detail) detail = body.detail;
+    } catch (e) {
+      /* resposta sem corpo JSON, mantém mensagem genérica */
     }
-  };
-  ws.onerror = (e) => console.error("[conversation] WS erro", e);
-  ws.onmessage = (evt) => handleServerMessage(JSON.parse(evt.data));
-
-  state.ws = ws;
-}
-
-function sendToServer(payload) {
-  if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-    state.ws.send(JSON.stringify(payload));
+    throw new Error(detail);
   }
+
+  return response.json();
 }
 
-function handleServerMessage(msg) {
-  switch (msg.type) {
-    case "session_ready":
-      setMicEnabled(true);
-      break;
-
-    case "student_transcript":
-      // já mostramos a bolha do aluno otimisticamente via speech_analysis;
-      // se quiser exibir só quando a transcrição chega, adapte aqui.
-      break;
-
-    case "speech_analysis":
-      onSpeechAnalysis(msg.analysis);
-      break;
-
-    case "tutor_text_delta":
-      onTutorTextDelta(msg.delta);
-      break;
-
-    case "tutor_text_done":
-      onTutorTextDone(msg.text);
-      break;
-
-    case "tutor_audio_chunk":
-      state.tutorAudioChunks.push(base64ToInt16Array(msg.audio_b64));
-      break;
-
-    case "tutor_audio_done":
-      playTutorAudio();
-      break;
-
-    case "error":
-      console.error("[conversation] erro do backend:", msg.message);
-      setMicStatus(`Erro: ${msg.message}`);
-      break;
-
-    default:
-      // ignora eventos não usados pela UI
-      break;
+function handleTurnResult(result) {
+  if (result.student_transcript) {
+    addStudentBubble(result.student_transcript);
+  }
+  if (result.analysis) {
+    addAnalysisSummaryBar(result.analysis);
+    renderAnalysisPanel(result.analysis);
+  }
+  if (result.tutor_reply) {
+    addTutorBubble(result.tutor_reply);
+  }
+  if (result.tutor_audio_b64) {
+    playTutorAudioFromBase64Mp3(result.tutor_audio_b64);
   }
 }
 
@@ -201,36 +175,6 @@ function addAnalysisSummaryBar(analysis) {
 }
 
 // =========================================================================
-// EVENTOS DE CONVERSA
-// =========================================================================
-
-function onSpeechAnalysis(analysis) {
-  if (analysis.student_transcript) {
-    addStudentBubble(analysis.student_transcript);
-  }
-  addAnalysisSummaryBar(analysis);
-  renderAnalysisPanel(analysis); // já abre o painel com a análise mais recente
-}
-
-function onTutorTextDelta(delta) {
-  if (!state.currentTutorBubbleEl) {
-    state.currentTutorBubbleEl = addTutorBubble("");
-  }
-  const textEl = state.currentTutorBubbleEl.querySelector(".bubble-text");
-  textEl.textContent += delta;
-  scrollChatToBottom();
-}
-
-function onTutorTextDone(fullText) {
-  if (state.currentTutorBubbleEl) {
-    state.currentTutorBubbleEl.querySelector(".bubble-text").textContent = fullText;
-  } else if (fullText) {
-    addTutorBubble(fullText);
-  }
-  state.currentTutorBubbleEl = null;
-}
-
-// =========================================================================
 // PAINEL "SPEECH ANALYSIS"
 // =========================================================================
 
@@ -286,7 +230,7 @@ els.analysisCollapseBtn.addEventListener("click", () => {
 });
 
 // =========================================================================
-// MICROFONE (captura PCM16 16kHz via AudioWorklet)
+// MICROFONE (grava a fala inteira com MediaRecorder, manda de uma vez)
 // =========================================================================
 
 function setMicEnabled(enabled) {
@@ -299,28 +243,44 @@ function setMicStatus(text) {
 }
 
 async function startRecording() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    setMicStatus("Seu navegador não suporta gravação de áudio.");
+    return;
+  }
+
   try {
     state.micStream = await navigator.mediaDevices.getUserMedia({
       audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
     });
 
-    state.audioContext = new AudioContext();
-    await state.audioContext.audioWorklet.addModule("js/pcm-worklet-processor.js");
+    const preferredMimeTypes = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/ogg;codecs=opus",
+      "audio/ogg",
+    ];
+    let mimeType = "";
+    for (const mt of preferredMimeTypes) {
+      if (MediaRecorder.isTypeSupported(mt)) {
+        mimeType = mt;
+        break;
+      }
+    }
+    state.recordedMimeType = mimeType || "audio/webm";
 
-    const source = state.audioContext.createMediaStreamSource(state.micStream);
-    state.workletNode = new AudioWorkletNode(state.audioContext, "pcm-recorder-processor");
-    state.audioChunkSentThisTurn = false; // reseta a cada nova gravação
+    state.audioChunks = [];
+    state.mediaRecorder = new MediaRecorder(
+      state.micStream,
+      mimeType ? { mimeType } : undefined
+    );
 
-    state.workletNode.port.onmessage = (evt) => {
-      const int16Buffer = evt.data; // ArrayBuffer
-      const audio_b64 = arrayBufferToBase64(int16Buffer);
-      state.audioChunkSentThisTurn = true;
-      sendToServer({ type: "audio_chunk", audio_b64 });
+    state.mediaRecorder.ondataavailable = (evt) => {
+      if (evt.data && evt.data.size > 0) state.audioChunks.push(evt.data);
     };
 
-    source.connect(state.workletNode);
-    // não conectamos workletNode ao destination -- não queremos ouvir o próprio mic
+    state.mediaRecorder.onstop = onRecordingStopped;
 
+    state.mediaRecorder.start();
     state.isRecording = true;
     els.micBtn.classList.add("recording");
     setMicStatus("Ouvindo... toque para parar");
@@ -331,37 +291,47 @@ async function startRecording() {
 }
 
 function stopRecording() {
+  if (!state.mediaRecorder || !state.isRecording) return;
   state.isRecording = false;
   els.micBtn.classList.remove("recording");
+  state.mediaRecorder.stop(); // dispara onRecordingStopped quando o blob estiver pronto
+}
 
-  // Se o toque foi rápido demais e nenhum pedaço de áudio chegou a ser
-  // capturado (o worklet só manda o primeiro chunk depois de ~128ms), NÃO
-  // manda "end_turn" -- isso faria o backend tentar commitar um buffer
-  // vazio na Azure e voltar um erro. Só avisa o aluno e reseta a UI.
-  if (!state.audioChunkSentThisTurn) {
-    setMicStatus("Fala muito curta, segure o botão e fale um pouco mais");
-  } else {
-    setMicStatus("Processando...");
-    sendToServer({ type: "end_turn" });
-  }
-
+async function onRecordingStopped() {
   if (state.micStream) {
     state.micStream.getTracks().forEach((t) => t.stop());
     state.micStream = null;
   }
-  if (state.workletNode) {
-    state.workletNode.disconnect();
-    state.workletNode = null;
-  }
-  if (state.audioContext) {
-    state.audioContext.close();
-    state.audioContext = null;
+
+  const blob = new Blob(state.audioChunks, { type: state.recordedMimeType });
+  state.audioChunks = [];
+
+  if (blob.size < 300) {
+    setMicStatus("Fala muito curta, segure o botão e fale um pouco mais");
+    setTimeout(() => setMicStatus("Toque para falar"), 1800);
+    return;
   }
 
-  setTimeout(() => setMicStatus("Toque para falar"), 1500);
+  state.isSending = true;
+  els.micBtn.disabled = true;
+  setMicStatus("Processando sua fala...");
+
+  try {
+    const result = await sendTurnToServer(blob);
+    handleTurnResult(result);
+    setMicStatus("Toque para falar");
+  } catch (err) {
+    console.error("Erro no turno de conversa:", err);
+    setMicStatus(err.message || "Erro ao processar áudio. Tente de novo.");
+    setTimeout(() => setMicStatus("Toque para falar"), 3000);
+  } finally {
+    state.isSending = false;
+    els.micBtn.disabled = false;
+  }
 }
 
 els.micBtn.addEventListener("click", () => {
+  if (state.isSending) return;
   if (state.isRecording) {
     stopRecording();
   } else {
@@ -370,26 +340,17 @@ els.micBtn.addEventListener("click", () => {
 });
 
 // =========================================================================
-// REPRODUÇÃO DE ÁUDIO DO TUTOR (PCM16 -> WAV -> <audio>)
+// REPRODUÇÃO DE ÁUDIO DO TUTOR (mp3 em base64, vindo pronto do backend)
 // =========================================================================
 
-function playTutorAudio() {
-  if (state.tutorAudioChunks.length === 0) return;
-
-  const totalLength = state.tutorAudioChunks.reduce((sum, c) => sum + c.length, 0);
-  const merged = new Int16Array(totalLength);
-  let offset = 0;
-  for (const chunk of state.tutorAudioChunks) {
-    merged.set(chunk, offset);
-    offset += chunk.length;
+function playTutorAudioFromBase64Mp3(base64Mp3) {
+  try {
+    const url = `data:audio/mpeg;base64,${base64Mp3}`;
+    const audio = new Audio(url);
+    audio.play().catch((e) => console.warn("Autoplay bloqueado, aguardando interação:", e));
+  } catch (err) {
+    console.warn("Falha ao reproduzir áudio do tutor:", err);
   }
-  state.tutorAudioChunks = [];
-
-  const wavBlob = pcm16ToWavBlob(merged, 24000); // Voice Live costuma devolver áudio a 24kHz
-  const url = URL.createObjectURL(wavBlob);
-  const audio = new Audio(url);
-  audio.play().catch((e) => console.warn("Autoplay bloqueado, aguardando interação:", e));
-  audio.addEventListener("ended", () => URL.revokeObjectURL(url));
 }
 
 /**
@@ -442,56 +403,6 @@ async function translateText(text) {
 // HELPERS
 // =========================================================================
 
-function arrayBufferToBase64(buffer) {
-  let binary = "";
-  const bytes = new Uint8Array(buffer);
-  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
-}
-
-function base64ToInt16Array(b64) {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return new Int16Array(bytes.buffer);
-}
-
-function pcm16ToWavBlob(int16Array, sampleRate) {
-  const numChannels = 1;
-  const bytesPerSample = 2;
-  const blockAlign = numChannels * bytesPerSample;
-  const byteRate = sampleRate * blockAlign;
-  const dataSize = int16Array.length * bytesPerSample;
-
-  const buffer = new ArrayBuffer(44 + dataSize);
-  const view = new DataView(buffer);
-
-  writeString(view, 0, "RIFF");
-  view.setUint32(4, 36 + dataSize, true);
-  writeString(view, 8, "WAVE");
-  writeString(view, 12, "fmt ");
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true); // PCM
-  view.setUint16(22, numChannels, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, byteRate, true);
-  view.setUint16(32, blockAlign, true);
-  view.setUint16(34, 16, true); // bits per sample
-  writeString(view, 36, "data");
-  view.setUint32(40, dataSize, true);
-
-  let offset = 44;
-  for (let i = 0; i < int16Array.length; i++, offset += 2) {
-    view.setInt16(offset, int16Array[i], true);
-  }
-
-  return new Blob([buffer], { type: "audio/wav" });
-}
-
-function writeString(view, offset, str) {
-  for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
-}
-
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -512,6 +423,28 @@ function showLocked(message) {
   els.lockedBox.textContent = message;
   els.lockedBox.classList.remove("hidden");
   els.workspace.classList.add("hidden");
+}
+
+async function tryResumeHistory() {
+  try {
+    const data = await apiFetch("/conversation/history");
+    if (data && data.active && Array.isArray(data.history) && data.history.length > 0) {
+      for (const turn of data.history) {
+        if (turn.role === "student") {
+          addStudentBubble(turn.text);
+          if (turn.analysis) {
+            addAnalysisSummaryBar(turn.analysis);
+          }
+        } else if (turn.role === "tutor") {
+          addTutorBubble(turn.text);
+        }
+      }
+      return true;
+    }
+  } catch (err) {
+    console.warn("Não foi possível retomar o histórico da conversa:", err);
+  }
+  return false;
 }
 
 async function init() {
@@ -544,12 +477,13 @@ async function init() {
   }
 
   els.workspace.classList.remove("hidden");
-  addTutorBubble("What did you do last weekend?");
-  connectWebSocket();
-}
 
-window.addEventListener("beforeunload", () => {
-  state.wantsReconnect = false;
-});
+  const resumed = await tryResumeHistory();
+  if (!resumed) {
+    addTutorBubble("What did you do last weekend?");
+  }
+
+  setMicEnabled(true);
+}
 
 init();
