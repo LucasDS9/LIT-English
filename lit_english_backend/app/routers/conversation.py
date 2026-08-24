@@ -271,6 +271,20 @@ async def conversation_ws(
                     tutor_text_buffer["text"] = ""
 
                 elif etype == "error":
+                    error_code = raw.get("error", {}).get("code")
+
+                    if error_code == "input_audio_buffer_commit_empty":
+                        # Não é fatal: só significa que um "end_turn" chegou
+                        # com o buffer de áudio vazio (gravação curta demais,
+                        # ou algum chunk que não chegou a tempo). A sessão
+                        # continua normal, então só loga -- não assusta o
+                        # aluno com uma mensagem de erro na tela.
+                        logger.info(
+                            "Commit de áudio vazio ignorado (aluno=%s): %s",
+                            student_id, raw.get("error", {}).get("message"),
+                        )
+                        continue
+
                     logger.warning("Erro vindo da Voice Live (aluno=%s): %s", student_id, raw)
                     await websocket.send_json({
                         "type": "error",

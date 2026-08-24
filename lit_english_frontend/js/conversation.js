@@ -309,10 +309,12 @@ async function startRecording() {
 
     const source = state.audioContext.createMediaStreamSource(state.micStream);
     state.workletNode = new AudioWorkletNode(state.audioContext, "pcm-recorder-processor");
+    state.audioChunkSentThisTurn = false; // reseta a cada nova gravação
 
     state.workletNode.port.onmessage = (evt) => {
       const int16Buffer = evt.data; // ArrayBuffer
       const audio_b64 = arrayBufferToBase64(int16Buffer);
+      state.audioChunkSentThisTurn = true;
       sendToServer({ type: "audio_chunk", audio_b64 });
     };
 
@@ -331,9 +333,17 @@ async function startRecording() {
 function stopRecording() {
   state.isRecording = false;
   els.micBtn.classList.remove("recording");
-  setMicStatus("Processando...");
 
-  sendToServer({ type: "end_turn" });
+  // Se o toque foi rápido demais e nenhum pedaço de áudio chegou a ser
+  // capturado (o worklet só manda o primeiro chunk depois de ~128ms), NÃO
+  // manda "end_turn" -- isso faria o backend tentar commitar um buffer
+  // vazio na Azure e voltar um erro. Só avisa o aluno e reseta a UI.
+  if (!state.audioChunkSentThisTurn) {
+    setMicStatus("Fala muito curta, segure o botão e fale um pouco mais");
+  } else {
+    setMicStatus("Processando...");
+    sendToServer({ type: "end_turn" });
+  }
 
   if (state.micStream) {
     state.micStream.getTracks().forEach((t) => t.stop());
