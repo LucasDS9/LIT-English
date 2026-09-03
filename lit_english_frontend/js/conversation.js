@@ -70,11 +70,28 @@ async function sendTurnToServer(audioBlob) {
   formData.append("native_language", state.nativeLanguage);
 
   const token = Auth.getToken();
-  const response = await fetch(`${API_BASE_URL}/conversation/turn`, {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: formData,
-  });
+  let response;
+  const apiBases = [API_BASE_URL];
+  // Compatibilidade com a URL antiga/alternativa do Railway.
+  if (API_BASE_URL === "https://litenglish.up.railway.app") {
+    apiBases.push("https://lit-english.up.railway.app");
+  }
+  let lastNetworkError = null;
+  for (const base of apiBases) {
+    try {
+      response = await fetch(`${base}/conversation/turn`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      break;
+    } catch (err) {
+      lastNetworkError = err;
+    }
+  }
+  if (!response) {
+    throw new Error("Não foi possível conectar ao servidor da conversa. Verifique sua conexão e tente novamente.");
+  }
 
   if (!response.ok) {
     let detail = `Erro inesperado (${response.status}).`;

@@ -185,6 +185,8 @@ def get_tutor_turn(
     student_text: str,
     history: list[dict],
     level: str | None = None,
+    target_language: str = "ingles",
+    native_language: str = "pt",
 ) -> dict:
     """
     Ponto de entrada usado pelo router.

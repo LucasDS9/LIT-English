@@ -197,7 +197,17 @@ async def translate_message(
     payload: TranslateRequest,
     user: User = Depends(get_current_approved_user),
 ):
-    translated = await translate_to_pt_br(payload.text, student_source_language(user))
+    # O idioma nativo enviado pela tela é usado quando presente; o cadastro do
+    # aluno continua sendo o fallback seguro.
+    native = (payload.native_language or student_source_language(user) or "pt").strip().lower()
+    aliases = {
+        "en": "ingles", "english": "ingles", "it": "italiano", "italian": "italiano",
+        "fr": "frances", "french": "frances", "es": "espanhol", "spanish": "espanhol",
+        "de": "alemao", "german": "alemao", "pt": "portugues", "pt-br": "portugues",
+        "portuguese": "portugues",
+    }
+    native = aliases.get(native, native)
+    translated = await translate_to_pt_br(payload.text, native)
     return TranslateResponse(original=payload.text, translated=translated)
 
 
