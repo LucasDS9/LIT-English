@@ -36,6 +36,7 @@ from fastapi.responses import Response
 
 from app.auth import get_current_approved_user
 from app.models import User, UserRole
+from app.language import student_language, student_source_language
 from app.routers.pronunciation import transcribe
 
 from ..services.conversation_ai import ConversationAiUnavailable, get_tutor_turn
@@ -53,6 +54,20 @@ router = APIRouter(tags=["conversation"])
 _MIN_AUDIO_BYTES = 300
 
 
+def _speech_language(language: str) -> str:
+    return {
+        "ingles": "english", "italiano": "italian", "frances": "french",
+        "espanhol": "spanish", "alemao": "german", "portugues": "portuguese",
+    }.get(language, "english")
+
+
+def _tts_locale(language: str) -> str:
+    return {
+        "ingles": "en-US", "italiano": "it-IT", "frances": "fr-FR",
+        "espanhol": "es-ES", "alemao": "de-DE", "portugues": "pt-BR",
+    }.get(language, "en-US")
+
+
 def _require_student(user: User) -> None:
     if user.role != UserRole.aluno:
         raise HTTPException(status_code=403, detail="Apenas alunos podem usar a Conversa com IA Tutor.")
@@ -68,11 +83,27 @@ def _require_student(user: User) -> None:
 async def conversation_turn(
     audio: UploadFile = File(...),
     level: str | None = Form(None),
+    target_language: str | None = Form(None),
+    native_language: str | None = Form(None),
     user: User = Depends(get_current_approved_user),
 ):
     _require_student(user)
 
     student_id = str(user.id)
+    target = (target_language or student_language(user) or "ingles").strip().lower()
+    native = (native_language or student_source_language(user) or "pt").strip().lower()
+    aliases = {
+        "en": "ingles", "english": "ingles", "it": "italiano", "italian": "italiano",
+        "fr": "frances", "french": "frances", "es": "espanhol", "spanish": "espanhol",
+        "de": "alemao", "german": "alemao", "pt": "portugues", "portuguese": "portugues",
+    }
+    target = aliases.get(target, target)
+    native = aliases.get(native, native)
+    allowed = {"ingles", "italiano", "frances", "espanhol", "alemao", "portugues"}
+    if target not in allowed:
+        raise HTTPException(status_code=400, detail="Língua-alvo não suportada para a conversa.")
+    if native not in allowed:
+        raise HTTPException(status_code=400, detail="Língua nativa não suportada para a conversa.")
     audio_bytes = await audio.read()
 
     if len(audio_bytes) < _MIN_AUDIO_BYTES:
@@ -84,7 +115,7 @@ async def conversation_turn(
     # 1) Transcrição -- mesmo motor confiável usado no "Speak it!" dos exercícios
     #    (Azure Speech REST, com fallback automático pro Whisper local).
     try:
-        student_transcript = transcribe(audio_bytes, "english")
+        student_transcript = transcribe(audio_bytes, _speech_language(target))
     except Exception:
         logger.exception("Falha na transcrição do áudio (aluno=%s)", student_id)
         raise HTTPException(
@@ -100,7 +131,11 @@ async def conversation_turn(
         )
 
     session = await conversation_sessions.get_or_create(
-        student_id=student_id, student_name=user.name, level=level
+        student_id=student_id,
+        student_name=user.name,
+        level=level,
+        target_language=target,
+        native_language=native,
     )
 
     # 2) Análise gramatical + resposta do tutor (uma única chamada de IA em texto)
@@ -110,6 +145,8 @@ async def conversation_turn(
             student_text=student_transcript,
             history=session.history_for_ai(),
             level=session.level,
+            target_language=session.target_language,
+            native_language=session.native_language,
         )
     except ConversationAiUnavailable:
         logger.exception("IA de conversa indisponível (aluno=%s)", student_id)
@@ -122,7 +159,8 @@ async def conversation_turn(
         "student_transcript": student_transcript,
         "errors": result["errors"],
         "corrected_sentence": result["corrected_sentence"],
-        "feedback_pt_br": result["feedback_pt_br"],
+        "feedback_native": result.get("feedback_native", result.get("feedback_pt_br", "")),
+        "feedback_pt_br": result.get("feedback_pt_br", result.get("feedback_native", "")),
     }
     tutor_reply = result["tutor_reply"]
 
@@ -137,7 +175,7 @@ async def conversation_turn(
     #    devolvemos texto + análise; o frontend só não toca áudio automático).
     tutor_audio_b64 = None
     try:
-        audio_bytes_reply = await synthesize_speech(tutor_reply, "en-US")
+        audio_bytes_reply = await synthesize_speech(tutor_reply, _tts_locale(target))
         tutor_audio_b64 = base64.b64encode(audio_bytes_reply).decode("ascii")
     except Exception:
         logger.warning("Falha ao gerar áudio da resposta do tutor (aluno=%s)", student_id, exc_info=True)
@@ -159,7 +197,7 @@ async def translate_message(
     payload: TranslateRequest,
     user: User = Depends(get_current_approved_user),
 ):
-    translated = await translate_to_pt_br(payload.text)
+    translated = await translate_to_pt_br(payload.text, student_source_language(user))
     return TranslateResponse(original=payload.text, translated=translated)
 
 

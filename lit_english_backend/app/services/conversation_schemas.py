@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 class TranslateRequest(BaseModel):
     text: str
+    native_language: str = "pt"
 
 
 class TranslateResponse(BaseModel):

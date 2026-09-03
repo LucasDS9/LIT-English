@@ -49,6 +49,8 @@ const state = {
   recordedMimeType: "audio/webm",
   isRecording: false,
   isSending: false,
+  targetLanguage: "ingles",
+  nativeLanguage: "pt",
 
   currentTutorBubbleEl: null,
 
@@ -64,6 +66,8 @@ async function sendTurnToServer(audioBlob) {
   const formData = new FormData();
   const ext = state.recordedMimeType.includes("ogg") ? "ogg" : "webm";
   formData.append("audio", audioBlob, `fala.${ext}`);
+  formData.append("target_language", state.targetLanguage);
+  formData.append("native_language", state.nativeLanguage);
 
   const token = Auth.getToken();
   const response = await fetch(`${API_BASE_URL}/conversation/turn`, {
@@ -120,7 +124,7 @@ function addTutorBubble(initialText = "") {
 
   listenBtn.addEventListener("click", () => {
     const text = node.querySelector(".bubble-text").textContent;
-    playTTS(text, "en-US");
+    playTTS(text, targetLocale(state.targetLanguage));
   });
 
   translateBtn.addEventListener("click", async () => {
@@ -129,7 +133,7 @@ function addTutorBubble(initialText = "") {
 
     translateBtn.classList.toggle("active");
     if (translationEl.classList.contains("hidden") && !translationEl.textContent) {
-      const { translated } = await translateText(text);
+      const { translated } = await translateText(text, state.nativeLanguage);
       translationEl.innerHTML = `
         <svg viewBox="0 0 24 24"><path d="M3 5h9M7 3v2m0 0c0 4-2 7-5 8m5-8c1 2 2.5 3.4 4 4.3M14 21l4-9 4 9M15.6 18h4.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>${escapeHtml(translated)}</span>`;
@@ -201,7 +205,7 @@ function renderAnalysisPanel(analysis) {
           <span class="arrow">→</span>
           <span class="right">${escapeHtml(err.correct_fragment)}</span>
         </span>
-        <span class="feedback-reason">${escapeHtml(err.explanation_pt_br)}</span>
+        <span class="feedback-reason">${escapeHtml(err.explanation_native || err.explanation_pt_br || "")}</span>
       </div>
     </li>
   `).join("");
@@ -221,7 +225,7 @@ function renderAnalysisPanel(analysis) {
       </ul>
     </div>
 
-    ${analysis.feedback_pt_br ? `<div class="analysis-overall-feedback">${escapeHtml(analysis.feedback_pt_br)}</div>` : ""}
+    ${(analysis.feedback_native || analysis.feedback_pt_br) ? `<div class="analysis-overall-feedback">${escapeHtml(analysis.feedback_native || analysis.feedback_pt_br)}</div>` : ""}
   `;
 }
 
@@ -386,12 +390,12 @@ async function playTTS(text, lang) {
   }
 }
 
-async function translateText(text) {
+async function translateText(text, nativeLanguage = "pt") {
   try {
     return await apiFetch("/conversation/translate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, native_language: nativeLanguage }),
     });
   } catch (err) {
     console.error("Erro na tradução:", err);
@@ -413,6 +417,20 @@ function escapeHtml(str) {
 
 function escapeRegExp(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeLanguage(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (["it", "italiano"].includes(raw)) return "italiano";
+  if (["fr", "frances", "francês", "français"].includes(raw)) return "frances";
+  if (["es", "espanhol", "español"].includes(raw)) return "espanhol";
+  if (["de", "alemao", "alemão", "deutsch"].includes(raw)) return "alemao";
+  if (["pt", "pt-br", "portugues", "português"].includes(raw)) return "portugues";
+  return "ingles";
+}
+
+function targetLocale(language) {
+  return { ingles: "en-US", italiano: "it-IT", frances: "fr-FR", espanhol: "es-ES", alemao: "de-DE", portugues: "pt-BR" }[normalizeLanguage(language)] || "en-US";
 }
 
 // =========================================================================
@@ -464,6 +482,8 @@ async function init() {
   }
 
   studentNameEl.textContent = user.name;
+  state.targetLanguage = normalizeLanguage(user.target_language || "ingles");
+  state.nativeLanguage = normalizeLanguage(user.native_language || "pt");
   roleLabelEl.textContent = user.role === "professor" ? "PROFESSOR" : "ALUNO";
 
   if (user.role !== "aluno") {
@@ -479,9 +499,9 @@ async function init() {
   els.workspace.classList.remove("hidden");
 
   const resumed = await tryResumeHistory();
-  if (!resumed) {
-    addTutorBubble("What did you do last weekend?");
-  }
+  // A nova conversa começa vazia: o aluno escolhe e inicia o assunto.
+  // Nenhuma mensagem automática é inserida aqui.
+
 
   setMicEnabled(true);
 }

@@ -50,48 +50,44 @@ class ConversationAiUnavailable(Exception):
     """A chamada à IA de conversa falhou (sem chave, rede, resposta inválida etc.)."""
 
 
-def _system_prompt(student_name: str, level: str | None) -> str:
+def _system_prompt(
+    student_name: str,
+    level: str | None,
+    target_language: str = "ingles",
+    native_language: str = "pt",
+) -> str:
     level_txt = f'O nível estimado do aluno é "{level}". ' if level else ""
-    return f"""Você é o IA Tutor de inglês da plataforma LIT English, conversando por voz com o
-aluno brasileiro {student_name}. {level_txt}
+    return f"""Você é o IA Tutor da plataforma LIT English, conversando por voz com o
+aluno {student_name}. A língua-alvo que o aluno está praticando é {target_language}.
+A língua nativa do aluno é {native_language}. {level_txt}
 
 Você recebe o HISTÓRICO da conversa (se houver) e a ÚLTIMA fala do aluno, já transcrita por
-reconhecimento de voz (pode ter pequenas falhas de pontuação/capitalização típicas de
-transcrição -- isso NÃO é erro do aluno e não deve ser reportado).
+reconhecimento de voz. A transcrição pode ter pequenas falhas de pontuação/capitalização,
+que não devem ser tratadas como erros do aluno.
 
-Sua tarefa tem duas partes, sempre nessa ordem de importância:
+Sua tarefa tem duas partes:
 
 1) ANÁLISE GRAMATICAL da fala do aluno (campo "errors"):
-   - Releia a frase do aluno com atenção e procure ATIVAMENTE por erros reais de gramática:
-     tempo verbal errado (ex.: presente no lugar de passado, "I buy" quando deveria ser
-     "I bought"), concordância verbal (ex.: "she go" em vez de "she goes"), artigo errado ou
-     faltando, preposição errada, ordem de palavras errada, escolha de palavra errada.
-   - Cada erro encontrado vira um item em "errors" com: o trecho exato errado
-     (wrong_fragment), a forma correta (correct_fragment), e uma explicação curta e clara em
-     português do Brasil (explanation_pt_br).
-   - NÃO invente erros que não existem, mas também NÃO deixe passar erros reais só para ser
-     gentil -- isso prejudica o aprendizado do aluno. Se a frase tiver erro, "errors" JAMAIS
-     deve vir vazio.
-   - "corrected_sentence": a frase inteira do aluno reescrita corretamente em inglês. Se não
-     houver nenhum erro, repita a frase original aqui.
-   - "feedback_pt_br": 1 frase curta e encorajadora em português sobre a fala como um todo.
+   - Procure ativamente erros reais de gramática na língua-alvo.
+   - Cada erro deve conter wrong_fragment, correct_fragment e uma explicação curta em {native_language}.
+   - Não invente erros, mas também não ignore erros reais.
+   - "corrected_sentence": a frase inteira corrigida na língua-alvo. Se não houver erro, repita a original.
+   - "feedback_native": uma frase curta e encorajadora na língua nativa do aluno.
 
 2) CONTINUAÇÃO DA CONVERSA (campo "tutor_reply"):
-   - Responda ao aluno em INGLÊS (nunca em português), com uma frase curta e natural que dê
-     continuidade à conversa -- comente o que ele disse e/ou faça uma pergunta de
-     acompanhamento, adequada ao nível do aluno.
-   - NÃO repita a correção gramatical em voz alta aqui (ela já aparece na tela separadamente).
-   - Seja gentil, caloroso e encorajador -- é um ambiente de aprendizado.
+   - Responda EXCLUSIVAMENTE na língua-alvo {target_language}.
+   - Seja natural, curto, gentil e adequado ao nível do aluno.
+   - Não repita a correção gramatical em voz alta.
+   - Continue o assunto trazido pelo aluno e faça uma pergunta de acompanhamento quando fizer sentido.
 
-Se a fala do aluno estiver vazia, incompreensível, ou não fizer sentido nenhum em inglês,
-deixe "errors" vazio, explique isso em "feedback_pt_br", e em "tutor_reply" peça gentilmente
-para ele repetir, em inglês simples.
+Se a fala estiver vazia ou incompreensível, deixe errors vazio, escreva feedback_native na língua nativa
+e peça gentilmente para o aluno repetir em {target_language}.
 
-Responda APENAS com um JSON válido, sem nenhum texto antes ou depois, no formato exato:
+Responda APENAS com JSON válido, no formato exato:
 {{
-  "errors": [{{"wrong_fragment": "...", "correct_fragment": "...", "explanation_pt_br": "..."}}],
+  "errors": [{{"wrong_fragment": "...", "correct_fragment": "...", "explanation_native": "..."}}],
   "corrected_sentence": "...",
-  "feedback_pt_br": "...",
+  "feedback_native": "...",
   "tutor_reply": "..."
 }}"""
 
@@ -101,8 +97,10 @@ def _build_messages(
     level: str | None,
     history: list[dict],
     student_text: str,
+    target_language: str = "ingles",
+    native_language: str = "pt",
 ) -> list[dict]:
-    messages = [{"role": "system", "content": _system_prompt(student_name, level)}]
+    messages = [{"role": "system", "content": _system_prompt(student_name, level, target_language, native_language)}]
 
     for turn in history[-_MAX_HISTORY_TURNS:]:
         role = "assistant" if turn.get("role") == "tutor" else "user"
@@ -149,7 +147,9 @@ def _call_groq(messages: list[dict]) -> dict:
                 {
                     "wrong_fragment": str(e.get("wrong_fragment", "")),
                     "correct_fragment": str(e.get("correct_fragment", "")),
-                    "explanation_pt_br": str(e.get("explanation_pt_br", "")),
+                    "explanation_native": str(
+                        e.get("explanation_native", e.get("explanation_pt_br", ""))
+                    ),
                 }
                 for e in errors_raw
                 if isinstance(e, dict) and e.get("wrong_fragment")
@@ -159,10 +159,15 @@ def _call_groq(messages: list[dict]) -> dict:
             if not tutor_reply:
                 raise ValueError("Resposta da IA sem o campo 'tutor_reply'.")
 
+            feedback_native = str(
+                parsed.get("feedback_native", parsed.get("feedback_pt_br", ""))
+            ).strip()
             return {
                 "errors": errors,
                 "corrected_sentence": str(parsed.get("corrected_sentence", "")).strip(),
-                "feedback_pt_br": str(parsed.get("feedback_pt_br", "")).strip(),
+                "feedback_native": feedback_native,
+                # Compatibility with older frontend/backend consumers.
+                "feedback_pt_br": feedback_native,
                 "tutor_reply": tutor_reply,
             }
         except (requests.RequestException, KeyError, ValueError, json.JSONDecodeError) as e:
@@ -189,12 +194,14 @@ def get_tutor_turn(
     aluno -- essa vai em `student_text`.
 
     Retorna:
-      {"errors": [...], "corrected_sentence": str, "feedback_pt_br": str, "tutor_reply": str}
+      {"errors": [...], "corrected_sentence": str, "feedback_native": str, "tutor_reply": str}
 
     Levanta ConversationAiUnavailable se a IA não puder ser consultada -- o
     chamador (router) decide como avisar o aluno (não inventamos aqui uma
     análise falsa de "sem erros" só pra não travar, como acontecia antes).
     """
     student_text = (student_text or "").strip()
-    messages = _build_messages(student_name, level, history, student_text)
+    messages = _build_messages(
+        student_name, level, history, student_text, target_language, native_language
+    )
     return _call_groq(messages)

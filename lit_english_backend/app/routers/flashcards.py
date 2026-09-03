@@ -160,8 +160,30 @@ def _apply_sm2(progress: CardProgress, quality: int) -> None:
 
 def _card_mode(progress: CardProgress | None) -> ReviewMode:
     if progress and progress.review_mode:
+        # Cards in Dominando must never fall back to the normal flip card.
+        # This also repairs older progress records created before the
+        # Dominando -> type_pt -> type_speak flow was enforced.
+        if progress.review_status == ReviewCardStatus.dominando and progress.review_mode == ReviewMode.flip:
+            return ReviewMode.type_pt
+        if progress.review_mode == ReviewMode.type_target:
+            return ReviewMode.type_speak
         return progress.review_mode
-    return ReviewMode.flip
+    return ReviewMode.type_pt if progress and progress.review_status == ReviewCardStatus.dominando else ReviewMode.flip
+
+
+def _normalize_progress_mode(progress: CardProgress | None) -> bool:
+    """Repair inconsistent persisted progress and report whether it changed."""
+    if not progress:
+        return False
+    changed = False
+    if progress.review_status == ReviewCardStatus.dominando:
+        if progress.review_mode in (None, ReviewMode.flip, ReviewMode.type_target):
+            progress.review_mode = ReviewMode.type_pt if progress.review_mode != ReviewMode.type_target else ReviewMode.type_speak
+            changed = True
+    elif progress.review_status == ReviewCardStatus.concluido and progress.review_mode == ReviewMode.type_target:
+        progress.review_mode = ReviewMode.flip
+        changed = True
+    return changed
 
 
 def _card_status(progress: CardProgress | None) -> ReviewCardStatus | None:
@@ -913,17 +935,21 @@ def get_review_queue(
     )
 
 
-    cards_out = [
-        ReviewCardOut(
+    cards_out = []
+    repaired = False
+    for card, progress in due_cards:
+        if _normalize_progress_mode(progress):
+            repaired = True
+        cards_out.append(ReviewCardOut(
             flashcard_id=card.id,
             front=card.front,
             back=card.back,
             description=card.description,
             status=_card_status(progress),
             mode=_card_mode(progress),
-        )
-        for card, progress in due_cards
-    ]
+        ))
+    if repaired:
+        db.commit()
     return ReviewQueueOut(
         cards=cards_out,
         remaining_in_window=remaining,
@@ -970,6 +996,9 @@ def submit_review(
         db.add(progress)
         db.flush()
 
+    # Normalize legacy/inconsistent records before deciding which UI mode
+    # is allowed. In particular, Dominando + flip must become type_pt.
+    _normalize_progress_mode(progress)
     mode = progress.review_mode or ReviewMode.flip
 
     # ── Digitação em português (Dominando — type_pt) ─────────────────────

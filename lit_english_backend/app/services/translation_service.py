@@ -19,15 +19,24 @@ logger = logging.getLogger("lit.translation")
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
-_SYSTEM_PROMPT = (
-    "Você traduz frases curtas de inglês para português do Brasil, de forma "
-    "natural e coloquial, como uma pessoa falaria. Responda APENAS com um "
+_LANGUAGE_NAMES = {
+    "pt": "português do Brasil", "portugues": "português do Brasil",
+    "en": "inglês", "ingles": "inglês", "it": "italiano", "italiano": "italiano",
+    "fr": "francês", "frances": "francês", "es": "espanhol", "espanhol": "espanhol",
+    "de": "alemão", "alemao": "alemão",
+}
+
+
+def _system_prompt(native_language: str) -> str:
+    name = _LANGUAGE_NAMES.get((native_language or "pt").strip().lower(), "português do Brasil")
+    return (
+    f"Você traduz frases curtas para {name}, de forma natural e coloquial, como uma pessoa falaria. Responda APENAS com um "
     'JSON no formato exato: {"translated": "..."}, sem nenhum texto antes ou '
     "depois, sem repetir o texto original dentro da tradução."
 )
 
 
-async def translate_to_pt_br(text: str) -> str:
+async def translate_to_pt_br(text: str, native_language: str = "pt") -> str:
     text = text.strip()
     if not text:
         return ""
@@ -40,7 +49,7 @@ async def translate_to_pt_br(text: str) -> str:
     payload = {
         "model": GROQ_MODEL,
         "messages": [
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": _system_prompt(native_language)},
             {"role": "user", "content": text},
         ],
         "temperature": 0.2,

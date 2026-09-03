@@ -40,6 +40,8 @@ class ConversationSession:
     student_id: str
     student_name: str
     level: str | None = None
+    target_language: str = "ingles"
+    native_language: str = "pt"
     history: list[ConversationTurn] = field(default_factory=list)
     last_activity: dt.datetime = field(default_factory=lambda: dt.datetime.now(dt.timezone.utc))
 
@@ -96,7 +98,12 @@ class ConversationSessionManager:
                 del self._sessions[sid]
 
     async def get_or_create(
-        self, student_id: str, student_name: str, level: str | None = None
+        self,
+        student_id: str,
+        student_name: str,
+        level: str | None = None,
+        target_language: str = "ingles",
+        native_language: str = "pt",
     ) -> ConversationSession:
         async with self._lock:
             existing = self._sessions.get(student_id)
@@ -104,12 +111,16 @@ class ConversationSessionManager:
                 existing.touch()
                 if level:
                     existing.level = level
+                existing.target_language = target_language or existing.target_language
+                existing.native_language = native_language or existing.native_language
                 return existing
 
             session = ConversationSession(
                 student_id=student_id,
                 student_name=student_name,
                 level=level,
+                target_language=target_language or "ingles",
+                native_language=native_language or "pt",
             )
             self._sessions[student_id] = session
             return session

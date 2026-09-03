@@ -20,9 +20,16 @@ logger = logging.getLogger("lit.tts")
 
 
 def _voice_for_lang(lang: str) -> str:
-    if lang.startswith("pt"):
-        return "pt-BR-FranciscaNeural"
-    return cfg.DEFAULT_TUTOR_VOICE
+    voices = {
+        "pt": "pt-BR-FranciscaNeural",
+        "en": "en-US-JennyNeural",
+        "it": "it-IT-IsabellaNeural",
+        "fr": "fr-FR-DeniseNeural",
+        "es": "es-ES-ElviraNeural",
+        "de": "de-DE-KatjaNeural",
+    }
+    prefix = (lang or "en-US").lower().split("-")[0]
+    return voices.get(prefix, cfg.DEFAULT_TUTOR_VOICE)
 
 
 def _ssml(text: str, voice: str, lang: str) -> str:
