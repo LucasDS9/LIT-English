@@ -66,9 +66,10 @@ from app.sm2 import calculate_sm2
 router = APIRouter(prefix="/flashcards", tags=["Flashcards"])
 logger = logging.getLogger(__name__)
 
-# Limite de revisões por janela de tempo (igual ao seu app antigo: 15 cards a cada 12h)
-LIMIT_PER_WINDOW = 15
-WINDOW_HOURS = 12
+# A revisão não possui mais limite diário/por janela. Cada carregamento
+# monta um ciclo de no máximo 20 interações, e o frontend pergunta se o aluno
+# quer continuar quando houver mais cards devidos.
+REVIEW_CYCLE_SIZE = 20
 
 
 def _normalize_answer(text: str) -> str:
@@ -888,14 +889,23 @@ def self_add_flashcard(
 # ============================================================
 
 def _remaining_in_window(student_id: int, db: Session) -> int:
-    """Quantas revisões o aluno ainda pode fazer na janela de tempo atual."""
-    window_start = datetime.utcnow() - timedelta(hours=WINDOW_HOURS)
-    used = (
-        db.query(ReviewLog)
-        .filter(ReviewLog.student_id == student_id, ReviewLog.reviewed_at >= window_start)
-        .count()
+    """Compatibilidade: retorna quantos cards estão devidos agora.
+
+    Não existe mais limite de 15/12h; o nome é mantido para não quebrar
+    integrações antigas.
+    """
+    now = datetime.utcnow()
+    assigned = db.query(FlashcardAssignment.flashcard_id).filter(
+        FlashcardAssignment.student_id == student_id
     )
-    return max(0, LIMIT_PER_WINDOW - used)
+    not_due = db.query(CardProgress.flashcard_id).filter(
+        CardProgress.student_id == student_id,
+        CardProgress.next_review > now,
+    )
+    return db.query(Flashcard.id).filter(
+        Flashcard.id.in_(assigned),
+        ~Flashcard.id.in_(not_due),
+    ).count()
 
 
 def _require_student(user: User) -> None:
@@ -908,9 +918,13 @@ def get_review_queue(
     db: Session = Depends(get_db),
     student: User = Depends(get_current_approved_user),
 ):
-    """
-    Retorna os próximos flashcards que o aluno precisa revisar agora,
-    respeitando o limite de cards por janela de tempo.
+    """Retorna um ciclo de até 20 cards, distribuído por etapa.
+
+    Ordem do ciclo:
+      5 Aprendendo -> 5 Dominando/type -> 5 Dominando/speak -> 5 Concluído.
+    Se uma etapa tiver menos de 5 (ou zero), os disponíveis são usados e o
+    sistema simplesmente segue para a próxima. Cards além das 20 ficam para
+    o próximo ciclo.
     """
     _require_student(student)
 
@@ -918,73 +932,81 @@ def get_review_queue(
         return ReviewQueueOut(
             cards=[],
             remaining_in_window=0,
-            limit_per_window=LIMIT_PER_WINDOW,
+            limit_per_window=REVIEW_CYCLE_SIZE,
             blocked_by="exercises",
             blocked_message=(
                 "Complete os exercícios atribuídos pelo professor antes de revisar flashcards."
             ),
         )
 
-    remaining = _remaining_in_window(student.id, db)
-
-    if remaining == 0:
-        return ReviewQueueOut(cards=[], remaining_in_window=0, limit_per_window=LIMIT_PER_WINDOW)
-
-
     now = datetime.utcnow()
-
-    # IDs de cards atribuídos a este aluno
     assigned_subquery = db.query(FlashcardAssignment.flashcard_id).filter(
         FlashcardAssignment.student_id == student.id
     )
-
-    # IDs de cards que ainda NÃO estão prontos para revisão (next_review no
-    # futuro).
     not_due_subquery = db.query(CardProgress.flashcard_id).filter(
         CardProgress.student_id == student.id,
         CardProgress.next_review > now,
     )
 
-    # Flashcards do professor entram primeiro na fila — dentro de cada grupo
-    # (professor / aluno), a ordem continua sendo por vencimento (SM-2).
     source_priority = case((Flashcard.source == FlashcardSource.professor, 0), else_=1)
-
     due_cards = (
         db.query(Flashcard, CardProgress)
         .outerjoin(
             CardProgress,
-            (CardProgress.flashcard_id == Flashcard.id) & (CardProgress.student_id == student.id),
+            (CardProgress.flashcard_id == Flashcard.id) &
+            (CardProgress.student_id == student.id),
         )
         .filter(Flashcard.id.in_(assigned_subquery))
         .filter(~Flashcard.id.in_(not_due_subquery))
-        .order_by(
-            source_priority,
-            nullsfirst(CardProgress.next_review),
-        )
-        .limit(remaining)
+        .order_by(source_priority, nullsfirst(CardProgress.next_review), Flashcard.id)
         .all()
     )
 
-
-    cards_out = []
+    buckets = {
+        "aprendendo": [],
+        "dominando_type": [],
+        "dominando_speak": [],
+        "concluido": [],
+    }
     repaired = False
+
     for card, progress in due_cards:
         if _normalize_progress_mode(progress):
             repaired = True
-        cards_out.append(ReviewCardOut(
+
+        mode = _card_mode(progress)
+        status_value = _card_status(progress)
+        if status_value == ReviewCardStatus.concluido:
+            stage = "concluido"
+        elif status_value == ReviewCardStatus.dominando:
+            stage = "dominando_speak" if mode in _SPEAK_MODES else "dominando_type"
+        else:
+            stage = "aprendendo"
+
+        buckets[stage].append(ReviewCardOut(
             flashcard_id=card.id,
             front=card.front,
             back=card.back,
             description=card.description,
-            status=_card_status(progress),
-            mode=_card_mode(progress),
+            status=status_value,
+            mode=mode,
         ))
+
     if repaired:
         db.commit()
+
+    selected = []
+    for stage in ("aprendendo", "dominando_type", "dominando_speak", "concluido"):
+        selected.extend(buckets[stage][:5])
+
+    total_due = sum(len(items) for items in buckets.values())
+    has_more = total_due > len(selected)
+
     return ReviewQueueOut(
-        cards=cards_out,
-        remaining_in_window=remaining,
-        limit_per_window=LIMIT_PER_WINDOW,
+        cards=selected,
+        remaining_in_window=total_due,
+        limit_per_window=REVIEW_CYCLE_SIZE,
+        has_more=has_more,
     )
 
 
@@ -1000,13 +1022,6 @@ def submit_review(
     Cada etapa agenda a próxima via SM-2 (next_review).
     """
     _require_student(student)
-
-    remaining = _remaining_in_window(student.id, db)
-    if remaining <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Limite de {LIMIT_PER_WINDOW} cards a cada {WINDOW_HOURS}h atingido. Volte mais tarde.",
-        )
 
     flashcard = db.query(Flashcard).filter(Flashcard.id == flashcard_id).first()
     if not flashcard:
@@ -1051,6 +1066,7 @@ def submit_review(
 
         if is_correct:
             progress.review_mode = ReviewMode.type_speak
+            progress.next_review = datetime.utcnow()
 
         db.add(ReviewLog(student_id=student.id, flashcard_id=flashcard_id))
         db.flush()
@@ -1159,13 +1175,6 @@ async def submit_speak_review(
     frase em português, aluno fala na língua-alvo. Atualiza SM-2.
     """
     _require_student(student)
-
-    remaining = _remaining_in_window(student.id, db)
-    if remaining <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Limite de {LIMIT_PER_WINDOW} cards a cada {WINDOW_HOURS}h atingido. Volte mais tarde.",
-        )
 
     flashcard = _require_assigned_flashcard(flashcard_id, student.id, db)
 

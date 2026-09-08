@@ -47,7 +47,8 @@ const session = {
   index: 0,
   flipped: false,
   remaining: 0,
-  limit: 15,
+  limit: 20,
+  hasMore: false,
   typingLocked: false,
   targetLanguage: "ingles",
   pronunciationResult: null,
@@ -696,7 +697,7 @@ async function submitSpeakAnswer(card, getBlob, feedback, submitBtn, getLocked, 
     }
   } catch (err) {
     if (err.status === 429) {
-      renderLimitReached();
+      renderError("A revisão não possui limite diário. Tente novamente.");
     } else {
       showToast(err.message || "Não foi possível salvar sua resposta. Tente novamente.");
       setLocked(false);
@@ -956,7 +957,7 @@ async function submitTypedAnswer(card, input, feedback, submitBtn) {
     setTimeout(() => advanceToNextCard(), 900);
   } catch (err) {
     if (err.status === 429) {
-      renderLimitReached();
+      renderError("A revisão não possui limite diário. Tente novamente.");
     } else {
       showToast(err.message || "Não foi possível salvar sua resposta. Tente novamente.");
       session.typingLocked = false;
@@ -979,7 +980,7 @@ async function submitReview(flashcardId, quality, qualityRow) {
     advanceToNextCard();
   } catch (err) {
     if (err.status === 429) {
-      renderLimitReached();
+      renderError("A revisão não possui limite diário. Tente novamente.");
     } else {
       showToast(err.message || "Não foi possível salvar sua resposta. Tente novamente.");
       qualityRow.querySelectorAll("button").forEach((b) => (b.disabled = false));
@@ -990,20 +991,15 @@ async function submitReview(flashcardId, quality, qualityRow) {
 function renderFinished() {
   SFX.play("finish");
 
-  // Terminou o lote inteiro que veio do servidor (até `limit` cards, hoje
-  // 15) e ainda sobra espaço na janela de revisão: provavelmente há mais
-  // cards devidos esperando, então oferece "Continuar" em vez de dar a
-  // sessão por encerrada.
-  const finishedFullBatch = session.cards.length >= session.limit;
-  const canContinue = finishedFullBatch && session.remaining > 0;
+  const canContinue = session.hasMore;
 
   renderStateBox({
     icon: Icons.checkCircle,
-    title: canContinue ? `Você revisou ${session.cards.length} flashcards! 🎉` : "Revisão concluída! 🎉",
+    title: "Ciclo concluído! 🎉",
     text: canContinue
-      ? "Mandou bem! Ainda há mais cards esperando por você agora — quer continuar revisando?"
-      : "Você revisou todos os cards disponíveis por agora. Volte mais tarde para continuar fortalecendo sua memória.",
-    actionLabel: canContinue ? "Continuar" : "Verificar novamente",
+      ? `Você concluiu ${session.cards.length} flashcards deste ciclo. Quer prosseguir para o próximo?`
+      : "Você concluiu todos os flashcards disponíveis por agora.",
+    actionLabel: canContinue ? "Prosseguir" : "Verificar novamente",
     onAction: loadQueue,
   });
 }
@@ -1019,13 +1015,7 @@ function renderEmpty() {
 }
 
 function renderLimitReached() {
-  renderStateBox({
-    icon: Icons.clock,
-    title: "Limite de revisões atingido",
-    text: `Você já revisou o máximo de ${session.limit} cards nas últimas 12 horas. Volte mais tarde para continuar.`,
-    actionLabel: "Verificar novamente",
-    onAction: loadQueue,
-  });
+  renderEmpty();
 }
 
 function renderPendingApproval() {
@@ -1064,7 +1054,8 @@ async function loadQueue() {
     session.index = 0;
     session.flipped = false;
     session.remaining = data.remaining_in_window;
-    session.limit = data.limit_per_window;
+    session.limit = data.limit_per_window || 20;
+    session.hasMore = Boolean(data.has_more);
 
     if (data.showcase_started) {
       showToast("Prévia especial: 3 palavras foram direto pro Dominando! 🚀");
@@ -1082,8 +1073,8 @@ async function loadQueue() {
           window.location.href = "exercicios.html";
         },
       });
-    } else if (session.remaining <= 0 && session.cards.length === 0) {
-      renderLimitReached();
+    } else if (session.cards.length === 0) {
+      renderEmpty();
     } else if (session.cards.length === 0) {
       renderEmpty();
     } else {
