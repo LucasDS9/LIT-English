@@ -19,6 +19,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 import httpx
 
+from app.services.tts_service import synthesize_speech
+
 from app.auth import get_current_approved_user
 from app.models import User
 from app.language import student_language
@@ -57,6 +59,19 @@ async def speak(
     revisão de flashcards, Exercícios e Read and Listen.
     """
     tts_language = student_language(user)
+
+    # Para italiano, a Immersion usa Azure Speech com a voz Imelda.
+    # As demais línguas continuam no fluxo legado abaixo.
+    if tts_language == "italiano":
+        try:
+            audio_bytes = await synthesize_speech(text.strip(), "it-IT")
+            return Response(content=audio_bytes, media_type="audio/mpeg")
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Não foi possível gerar o áudio em italiano agora: {exc}",
+            )
+
     tl = TTS_LANGUAGE_CODES.get(tts_language, DEFAULT_TTS_LANGUAGE_CODE)
 
     # O cache precisa levar a língua em conta — o mesmo texto pode existir

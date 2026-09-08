@@ -53,6 +53,7 @@ from app.schemas import (
     StarterCatalogUpsert,
     FlashcardStarterClaim,
     FlashcardUpdate,
+    FlashcardFrontUpdate,
     ReviewCardOut,
     ReviewQueueOut,
     ReviewResultOut,
@@ -259,6 +260,36 @@ def update_flashcard(
         for student_id in set(data.student_ids):
             db.add(FlashcardAssignment(flashcard_id=card.id, student_id=student_id))
 
+    db.commit()
+    db.refresh(card)
+    return card
+
+
+@router.patch("/{flashcard_id}/front", response_model=FlashcardOut)
+def update_student_flashcard_front(
+    flashcard_id: int,
+    data: FlashcardFrontUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_approved_user),
+):
+    """Aluno aprovado pode ajustar somente a frente de um card ao qual foi atribuído."""
+    if current_user.role != UserRole.aluno:
+        raise HTTPException(status_code=403, detail="Apenas alunos podem editar a frente dos flashcards.")
+
+    card = (
+        db.query(Flashcard)
+        .join(FlashcardAssignment, FlashcardAssignment.flashcard_id == Flashcard.id)
+        .filter(Flashcard.id == flashcard_id, FlashcardAssignment.student_id == current_user.id)
+        .first()
+    )
+    if not card:
+        raise HTTPException(status_code=404, detail="Flashcard não encontrado para este aluno.")
+
+    front = data.front.strip()
+    if not front:
+        raise HTTPException(status_code=422, detail="A frente do flashcard não pode ficar vazia.")
+
+    card.front = front
     db.commit()
     db.refresh(card)
     return card

@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import re
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
@@ -52,6 +53,55 @@ router = APIRouter(tags=["conversation"])
 # Áudio menor que isso é quase certamente um toque acidental / gravação vazia
 # -- evita gastar chamada de transcrição/IA à toa e dar um erro confuso.
 _MIN_AUDIO_BYTES = 300
+
+# Interjeições comuns que não carregam conteúdo linguístico. São removidas
+# antes da análise para que "uh... hmm... I think..." não vire vocabulário/erro.
+_FILLER_RE = re.compile(
+    r"(?i)(?<![\wÀ-ÿ])(?:uh+|um+|umm+|uhm+|erm+|er+|hmm+|hm+|mmm+|mm+|ah+|eh+|ehm+|euh+)(?![\wÀ-ÿ])"
+)
+_NATIVE_HELP_RE = {
+    "pt": re.compile(r"(?i)\b(?:como\s+(?:posso|eu\s+posso)\s+dizer|como\s+se\s+diz|como\s+digo|qual\s+(?:é|e)\s+a\s+palavra)\b"),
+    "portugues": re.compile(r"(?i)\b(?:como\s+(?:posso|eu\s+posso)\s+dizer|como\s+se\s+diz|como\s+digo|qual\s+(?:é|e)\s+a\s+palavra)\b"),
+}
+_TARGET_HELP_RE = {
+    "ingles": re.compile(r"(?i)\b(?:how\s+(?:can|do)\s+i\s+say|what\s+do\s+you\s+call)\b"),
+    "italiano": re.compile(r"(?i)\b(?:come\s+(?:posso|si)\s+dire|come\s+si\s+dice)\b"),
+    "frances": re.compile(r"(?i)\b(?:comment\s+(?:je\s+peux|dire)|comment\s+dit[- ]on)\b"),
+    "espanhol": re.compile(r"(?i)\b(?:como\s+(?:puedo|se)\s+decir|como\s+se\s+dice)\b"),
+    "alemao": re.compile(r"(?i)\b(?:wie\s+(?:kann\s+ich|sagt\s+man)|wie\s+sagt\s+man)\b"),
+}
+
+
+def _clean_transcript(text: str) -> str:
+    """Remove hesitations/interjections without deleting real words."""
+    text = (text or "").strip()
+    if not text:
+        return ""
+    text = _FILLER_RE.sub(" ", text)
+    text = re.sub(r"\s+", " ", text).strip(" ,;:-")
+    return text
+
+
+def _looks_like_help_request(text: str, native: str, target: str) -> bool:
+    if _NATIVE_HELP_RE.get(native, _NATIVE_HELP_RE["pt"]).search(text or ""):
+        return True
+    if _TARGET_HELP_RE.get(target, _TARGET_HELP_RE["ingles"]).search(text or ""):
+        return True
+    return False
+
+
+def _pick_bilingual_transcript(target_text: str, native_text: str, native: str, target: str) -> str:
+    """Prefer the native transcription only when it clearly captures a help request.
+
+    Normal target-language conversation remains on the target transcript, avoiding
+    the quality/cost penalty of replacing good target recognition with a weaker
+    native-language pass.
+    """
+    target_text = _clean_transcript(target_text)
+    native_text = _clean_transcript(native_text)
+    if native_text and _looks_like_help_request(native_text, native, target):
+        return native_text
+    return target_text or native_text
 
 
 def _speech_language(language: str) -> str:
@@ -112,10 +162,21 @@ async def conversation_turn(
             detail="Áudio muito curto. Segure o botão e fale um pouco mais.",
         )
 
-    # 1) Transcrição -- mesmo motor confiável usado no "Speak it!" dos exercícios
-    #    (Azure Speech REST, com fallback automático pro Whisper local).
+    # 1) Transcrição -- normalmente na língua-alvo, mas fazemos uma segunda
+    #    leitura na língua nativa quando as duas são diferentes. Isso permite
+    #    frases como "como posso dizer pedra em italiano?" e "how can I say
+    #    pedra in English?" sem perder o sentido da pergunta.
     try:
-        student_transcript = transcribe(audio_bytes, _speech_language(target))
+        target_transcript = transcribe(audio_bytes, _speech_language(target))
+        native_transcript = ""
+        if native != target:
+            try:
+                native_transcript = transcribe(audio_bytes, _speech_language(native))
+            except Exception:
+                logger.warning("Falha na segunda transcrição na língua nativa", exc_info=True)
+        student_transcript = _pick_bilingual_transcript(
+            target_transcript, native_transcript, native, target
+        )
     except Exception:
         logger.exception("Falha na transcrição do áudio (aluno=%s)", student_id)
         raise HTTPException(
@@ -123,7 +184,7 @@ async def conversation_turn(
             detail="Não consegui processar o áudio agora. Tente novamente em alguns segundos.",
         )
 
-    student_transcript = (student_transcript or "").strip()
+    student_transcript = _clean_transcript(student_transcript)
     if not student_transcript:
         raise HTTPException(
             status_code=422,

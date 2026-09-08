@@ -74,7 +74,7 @@
               user.is_approved === true
             );
             var el = document.getElementById("nav-exercicios");
-            if (el) el.style.visibility = canUseExercises ? "visible" : "hidden";
+            if (el) el.style.display = canUseExercises ? "" : "none";
           } catch (e) {}
         })();
       </script>

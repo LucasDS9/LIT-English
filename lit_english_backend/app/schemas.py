@@ -81,6 +81,10 @@ class FlashcardUpdate(BaseModel):
     student_ids: Optional[List[int]] = None
 
 
+class FlashcardFrontUpdate(BaseModel):
+    front: str = Field(min_length=1, max_length=500)
+
+
 class FlashcardStudentOut(BaseModel):
     id: int
     name: str

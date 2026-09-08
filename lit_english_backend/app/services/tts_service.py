@@ -23,7 +23,7 @@ def _voice_for_lang(lang: str) -> str:
     voices = {
         "pt": "pt-BR-FranciscaNeural",
         "en": "en-US-JennyNeural",
-        "it": "it-IT-IsabellaNeural",
+        "it": "it-IT-ImeldaNeural",
         "fr": "fr-FR-DeniseNeural",
         "es": "es-ES-ElviraNeural",
         "de": "de-DE-KatjaNeural",

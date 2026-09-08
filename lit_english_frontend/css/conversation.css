@@ -137,49 +137,101 @@
   border-bottom: 2px solid var(--primary);
 }
 
-/* -------- resumo de análise embutido na conversa -------- */
+/* -------- análise embutida em cada mensagem do aluno -------- */
 
-.analysis-summary {
-  align-self: flex-end;
-  max-width: 68%;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 14px 18px;
-  margin-top: -4px;
+.inline-analysis {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.28);
 }
-
-.analysis-summary-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.analysis-summary-title {
-  font-weight: 700;
-  color: var(--primary);
-  font-size: 14.5px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-}
-
-.collapsed-summary .analysis-summary-title { opacity: 0.7; }
 
 .ver-analise-btn {
-  border: 1px solid var(--border);
-  background: #fff;
-  border-radius: 8px;
-  padding: 6px 12px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.92);
   font-size: 13px;
-  font-weight: 600;
-  color: var(--primary);
+  font-weight: 700;
   cursor: pointer;
 }
 
-.ver-analise-btn:hover { background: #EEF0F1; }
+.ver-analise-btn:hover { text-decoration: underline; }
+
+.ver-analise-btn.is-open {
+  color: #fff;
+}
+
+.inline-analysis-body {
+  margin-top: 12px;
+  padding: 13px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--text);
+  font-size: 13.5px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.inline-analysis-body[hidden], .inline-analysis[hidden] { display: none; }
+
+.inline-analysis-body .analysis-sentence {
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: #f3f4f4;
+  margin-bottom: 10px;
+}
+
+.inline-analysis-body .analysis-correction {
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.inline-analysis-body .analysis-section-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .55px;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+
+.inline-analysis-body .analysis-feedback-list {
+  margin: 0;
+  padding-left: 21px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inline-analysis-body .feedback-diff {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-weight: 700;
+}
+
+.inline-analysis-body .feedback-reason {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+}
+
+.inline-analysis-body .wrong { color: #b33a34; text-decoration: line-through; }
+.inline-analysis-body .right { color: #2f7d4f; }
+.inline-analysis-body .arrow { color: var(--text-muted); }
+
+.inline-analysis-body .analysis-overall-feedback {
+  margin-top: 10px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: var(--primary-pale);
+  color: var(--primary);
+}
+
+/* Compatibilidade: nenhum painel lateral deve reaparecer. */
+.analysis-panel { display: none !important; }
 
 /* ============== MIC BAR ============== */
 

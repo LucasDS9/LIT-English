@@ -3578,6 +3578,96 @@ body.reader-fs-open {
   }
 }
 
+
+/* Edição rápida da frente do flashcard */
+.front-edit-line {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+}
+
+.front-edit-btn {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: .72;
+  transition: opacity .15s ease, background .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.front-edit-btn:hover {
+  opacity: 1;
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-pale);
+}
+
+.front-edit-btn svg { width: 15px; height: 15px; }
+
+.review-back-word-line {
+  width: auto;
+  max-width: 100%;
+}
+
+.review-back-word-line .review-back-word { margin: 0; }
+
+.front-edit-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  width: 100%;
+}
+
+.front-edit-input {
+  width: min(520px, 78vw);
+  min-width: 180px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--primary);
+  border-radius: 9px;
+  outline: none;
+  font: inherit;
+  font-size: 20px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.front-edit-save,
+.front-edit-cancel {
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.front-edit-save {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+.front-edit-cancel {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+}
+
+@media (max-width: 560px) {
+  .front-edit-btn { width: 28px; height: 28px; flex-basis: 28px; }
+  .front-edit-input { width: 100%; font-size: 18px; }
+}
+
 /* ==========================================================================
    Revisar — flashcard visual final (modelo LIT)
    Mantém o painel de pronúncia existente intacto e estiliza apenas o modo

@@ -29,9 +29,6 @@ const els = {
   chatScroll: document.getElementById("chat-scroll"),
   micBtn: document.getElementById("mic-btn"),
   micStatus: document.getElementById("mic-status"),
-  analysisPanel: document.getElementById("analysis-panel"),
-  analysisBody: document.getElementById("analysis-body"),
-  analysisCollapseBtn: document.getElementById("analysis-collapse-btn"),
 };
 
 document.getElementById("logout-btn").addEventListener("click", () => {
@@ -54,8 +51,6 @@ const state = {
 
   currentTutorBubbleEl: null,
 
-  analysisById: new Map(), // id do bloco de análise -> dados, para reabrir no painel
-  analysisCounter: 0,
 };
 
 // =========================================================================
@@ -109,11 +104,7 @@ async function sendTurnToServer(audioBlob) {
 
 function handleTurnResult(result) {
   if (result.student_transcript) {
-    addStudentBubble(result.student_transcript);
-  }
-  if (result.analysis) {
-    addAnalysisSummaryBar(result.analysis);
-    renderAnalysisPanel(result.analysis);
+    addStudentBubble(result.student_transcript, result.analysis || null);
   }
   if (result.tutor_reply) {
     addTutorBubble(result.tutor_reply);
@@ -163,45 +154,39 @@ function addTutorBubble(initialText = "") {
   return node;
 }
 
-function addStudentBubble(text) {
+function addStudentBubble(text, analysis = null) {
   const tpl = document.getElementById("tpl-student-bubble");
   const node = tpl.content.firstElementChild.cloneNode(true);
   node.querySelector(".bubble-text").textContent = text;
+
+  if (analysis) {
+    const analysisWrap = node.querySelector(".inline-analysis");
+    const analysisBtn = node.querySelector(".ver-analise-btn");
+    const analysisBody = node.querySelector(".inline-analysis-body");
+    analysisWrap.hidden = false;
+
+    analysisBtn.addEventListener("click", () => {
+      const opening = analysisBody.hidden;
+      if (opening && !analysisBody.innerHTML) {
+        analysisBody.innerHTML = buildAnalysisMarkup(analysis);
+      }
+      analysisBody.hidden = !opening;
+      analysisBtn.classList.toggle("is-open", opening);
+      analysisBtn.innerHTML = opening
+        ? 'Ocultar análise <span class="chev-down">⌃</span>'
+        : 'Ver análise <span class="chev-down">⌄</span>';
+      scrollChatToBottom();
+    });
+  } else {
+    node.querySelector(".inline-analysis").remove();
+  }
+
   els.chatScroll.appendChild(node);
   scrollChatToBottom();
   return node;
 }
 
-function addAnalysisSummaryBar(analysis) {
-  const tpl = document.getElementById("tpl-analysis-summary");
-  const node = tpl.content.firstElementChild.cloneNode(true);
-
-  const id = ++state.analysisCounter;
-  state.analysisById.set(id, analysis);
-
-  const titleEl = node.querySelector(".analysis-summary-title");
-  const chevEl = titleEl.querySelector(".chev");
-  titleEl.addEventListener("click", () => {
-    node.classList.toggle("collapsed-summary");
-    chevEl.textContent = chevEl.textContent === "⌃" ? "⌄" : "⌃";
-  });
-
-  node.querySelector(".ver-analise-btn").addEventListener("click", () => {
-    renderAnalysisPanel(analysis);
-  });
-
-  els.chatScroll.appendChild(node);
-  scrollChatToBottom();
-  return node;
-}
-
-// =========================================================================
-// PAINEL "SPEECH ANALYSIS"
-// =========================================================================
-
-function renderAnalysisPanel(analysis) {
-  els.analysisPanel.classList.remove("hidden");
-
+function buildAnalysisMarkup(analysis) {
   const sentence = analysis.student_transcript || "";
   const errors = analysis.errors || [];
 
@@ -227,28 +212,21 @@ function renderAnalysisPanel(analysis) {
     </li>
   `).join("");
 
-  els.analysisBody.innerHTML = `
+  return `
     <div class="analysis-sentence">${highlightedSentence || "-"}</div>
-
     <div class="analysis-correction">
       <div class="analysis-section-title">Correção</div>
       ${escapeHtml(analysis.corrected_sentence || "-")}
     </div>
-
     <div>
       <div class="analysis-section-title">Feedback</div>
       <ul class="analysis-feedback-list">
         ${feedbackItems || "<li>Nenhum erro encontrado. 🎉</li>"}
       </ul>
     </div>
-
     ${(analysis.feedback_native || analysis.feedback_pt_br) ? `<div class="analysis-overall-feedback">${escapeHtml(analysis.feedback_native || analysis.feedback_pt_br)}</div>` : ""}
   `;
 }
-
-els.analysisCollapseBtn.addEventListener("click", () => {
-  els.analysisPanel.classList.add("hidden");
-});
 
 // =========================================================================
 // MICROFONE (grava a fala inteira com MediaRecorder, manda de uma vez)
@@ -466,10 +444,7 @@ async function tryResumeHistory() {
     if (data && data.active && Array.isArray(data.history) && data.history.length > 0) {
       for (const turn of data.history) {
         if (turn.role === "student") {
-          addStudentBubble(turn.text);
-          if (turn.analysis) {
-            addAnalysisSummaryBar(turn.analysis);
-          }
+          addStudentBubble(turn.text, turn.analysis || null);
         } else if (turn.role === "tutor") {
           addTutorBubble(turn.text);
         }

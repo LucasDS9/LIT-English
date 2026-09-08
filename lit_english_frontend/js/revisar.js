@@ -347,7 +347,87 @@ function splitTopicLabel(text) {
 // Cria (e anexa em `container`) o parágrafo de frase principal, com o
 // rótulo de tópico (se houver) num parágrafo pequeno e preto logo acima.
 // `className` é a classe do texto principal (ex: "front-text").
-function appendPromptText(container, text, className) {
+function pencilIcon() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m4 20 4.2-1 10.2-10.2a2.1 2.1 0 0 0-3-3L5.2 16 4 20Z"/><path d="m14.8 7.2 3 3"/><path d="M4 20h4.1"/></svg>`;
+}
+
+async function editFlashcardFront(card, textEl, editBtn) {
+  if (!card?.flashcard_id || editBtn.dataset.editing === "true") return;
+
+  const original = textEl.textContent.trim();
+  const holder = textEl.parentElement;
+  const editRow = document.createElement("div");
+  editRow.className = "front-edit-row is-editing";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "front-edit-input";
+  input.maxLength = 500;
+  input.value = card.front || original;
+  input.setAttribute("aria-label", "Editar frente do flashcard");
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "front-edit-save";
+  saveBtn.textContent = "Salvar";
+
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.className = "front-edit-cancel";
+  cancelBtn.textContent = "Cancelar";
+
+  editRow.append(input, saveBtn, cancelBtn);
+  const parent = holder || textEl.parentElement;
+  parent.replaceChild(editRow, textEl);
+  editBtn.style.display = "none";
+  editBtn.dataset.editing = "true";
+  input.focus();
+  input.select();
+
+  const restore = () => {
+    if (!editRow.isConnected) return;
+    parent.replaceChild(textEl, editRow);
+    editBtn.style.display = "inline-flex";
+    editBtn.dataset.editing = "false";
+  };
+
+  cancelBtn.addEventListener("click", restore);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") restore();
+    if (event.key === "Enter") saveBtn.click();
+  });
+
+  saveBtn.addEventListener("click", async () => {
+    const front = input.value.trim();
+    if (!front) {
+      showToast("A frente não pode ficar vazia.");
+      input.focus();
+      return;
+    }
+    saveBtn.disabled = true;
+    cancelBtn.disabled = true;
+    try {
+      const updated = await apiFetch(`/flashcards/${card.flashcard_id}/front`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ front }),
+      });
+      card.front = updated?.front || front;
+      textEl.textContent = card.front;
+      restore();
+      // Mantém os textos auxiliares coerentes após a edição.
+      renderCard();
+      showToast("Frente do flashcard atualizada.");
+    } catch (err) {
+      showToast(err.message || "Não foi possível atualizar o flashcard.");
+      saveBtn.disabled = false;
+      cancelBtn.disabled = false;
+      input.focus();
+    }
+  });
+}
+
+function appendPromptText(container, text, className, card = null) {
   const { label, text: mainText } = splitTopicLabel(text);
   const holder = document.createElement("div");
   holder.className = "prompt-text-holder";
@@ -359,11 +439,26 @@ function appendPromptText(container, text, className) {
     holder.appendChild(labelEl);
   }
 
+  const line = document.createElement("div");
+  line.className = "front-edit-line";
+
   const mainEl = document.createElement("p");
   mainEl.className = className;
   mainEl.textContent = mainText;
-  holder.appendChild(mainEl);
+  line.appendChild(mainEl);
 
+  if (card?.flashcard_id) {
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "front-edit-btn";
+    editBtn.title = "Editar frente";
+    editBtn.setAttribute("aria-label", "Editar frente do flashcard");
+    editBtn.innerHTML = pencilIcon();
+    editBtn.addEventListener("click", () => editFlashcardFront(card, mainEl, editBtn));
+    line.appendChild(editBtn);
+  }
+
+  holder.appendChild(line);
   container.appendChild(holder);
   return mainEl;
 }
@@ -423,7 +518,7 @@ function renderTypeCard(card) {
   const body = document.createElement("div");
   body.className = "card-body";
 
-  appendPromptText(body, promptText(card), "front-text");
+  appendPromptText(body, promptText(card), "front-text", card);
 
   const hint = document.createElement("p");
   hint.className = "review-hint";
@@ -487,7 +582,7 @@ function renderSpeakCard(card) {
   const body = document.createElement("div");
   body.className = "card-body";
 
-  appendPromptText(body, card.back, "front-text");
+  appendPromptText(body, card.back, "front-text", null);
 
   const hint = document.createElement("p");
   hint.className = "review-hint";
@@ -720,10 +815,23 @@ function renderFlipCard(card) {
       });
       body.appendChild(backWrap);
     } else {
-      const word = document.createElement("p");
+      const frontLine = document.createElement("div");
+    frontLine.className = "front-edit-line review-back-word-line";
+
+    const word = document.createElement("p");
     word.className = `review-back-word ${statusClassName(card)}`.trim();
     word.textContent = card.front;
-    backWrap.appendChild(word);
+    frontLine.appendChild(word);
+
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "front-edit-btn";
+    editBtn.title = "Editar frente";
+    editBtn.setAttribute("aria-label", "Editar frente do flashcard");
+    editBtn.innerHTML = pencilIcon();
+    editBtn.addEventListener("click", () => editFlashcardFront(card, word, editBtn));
+    frontLine.appendChild(editBtn);
+    backWrap.appendChild(frontLine);
 
     const divider = document.createElement("div");
     divider.className = "review-card-divider";
@@ -740,7 +848,7 @@ function renderFlipCard(card) {
       body.appendChild(backWrap);
     }
   } else {
-    appendPromptText(body, card.front, "front-text");
+    appendPromptText(body, card.front, "front-text", card);
 
     const question = document.createElement("p");
     question.className = "review-meaning-question";
