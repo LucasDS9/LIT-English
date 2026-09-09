@@ -161,10 +161,22 @@ function addStudentBubble(text, analysis = null) {
 
   if (analysis) {
     const analysisWrap = node.querySelector(".inline-analysis");
+    const analysisBtn = node.querySelector(".ver-analise-btn");
     const analysisBody = node.querySelector(".inline-analysis-body");
     analysisWrap.hidden = false;
-    analysisBody.hidden = false;
-    analysisBody.innerHTML = buildAnalysisMarkup(analysis);
+
+    analysisBtn.addEventListener("click", () => {
+      const opening = analysisBody.hidden;
+      if (opening && !analysisBody.innerHTML) {
+        analysisBody.innerHTML = buildAnalysisMarkup(analysis);
+      }
+      analysisBody.hidden = !opening;
+      analysisBtn.classList.toggle("is-open", opening);
+      analysisBtn.innerHTML = opening
+        ? 'Ocultar análise <span class="chev-down">⌃</span>'
+        : 'Ver análise <span class="chev-down">⌄</span>';
+      scrollChatToBottom();
+    });
   } else {
     node.querySelector(".inline-analysis").remove();
   }
@@ -176,12 +188,11 @@ function addStudentBubble(text, analysis = null) {
 
 function buildAnalysisMarkup(analysis) {
   const sentence = analysis.student_transcript || "";
-  const errors = Array.isArray(analysis.errors) ? analysis.errors : [];
+  const errors = analysis.errors || [];
 
-  // Destaca somente os trechos realmente incorretos da resposta do aluno.
   let highlightedSentence = escapeHtml(sentence);
   errors.forEach((err) => {
-    if (!err || !err.wrong_fragment) return;
+    if (!err.wrong_fragment) return;
     const safe = escapeHtml(err.wrong_fragment);
     const re = new RegExp(escapeRegExp(safe), "i");
     highlightedSentence = highlightedSentence.replace(re, `<span class="wrong">${safe}</span>`);
@@ -192,9 +203,9 @@ function buildAnalysisMarkup(analysis) {
       <span class="feedback-index">${idx + 1}.</span>
       <div>
         <span class="feedback-diff">
-          <span class="wrong">${escapeHtml(err.wrong_fragment || "")}</span>
+          <span class="wrong">${escapeHtml(err.wrong_fragment)}</span>
           <span class="arrow">→</span>
-          <span class="right">${escapeHtml(err.correct_fragment || "")}</span>
+          <span class="right">${escapeHtml(err.correct_fragment)}</span>
         </span>
         <span class="feedback-reason">${escapeHtml(err.explanation_native || err.explanation_pt_br || "")}</span>
       </div>
@@ -202,20 +213,18 @@ function buildAnalysisMarkup(analysis) {
   `).join("");
 
   return `
-    <div class="analysis-section">
-      <div class="analysis-section-title">Sua resposta</div>
-      <div class="analysis-field">${highlightedSentence || "-"}</div>
-    </div>
-    <div class="analysis-section">
+    <div class="analysis-sentence">${highlightedSentence || "-"}</div>
+    <div class="analysis-correction">
       <div class="analysis-section-title">Correção</div>
-      <div class="analysis-field">${escapeHtml(analysis.corrected_sentence || "-")}</div>
+      ${escapeHtml(analysis.corrected_sentence || "-")}
     </div>
-    <div class="analysis-section">
+    <div>
       <div class="analysis-section-title">Feedback</div>
       <ul class="analysis-feedback-list">
-        ${feedbackItems || '<li class="analysis-correct-feedback">Nenhum erro encontrado.</li>'}
+        ${feedbackItems || "<li>Nenhum erro encontrado. 🎉</li>"}
       </ul>
     </div>
+    ${(analysis.feedback_native || analysis.feedback_pt_br) ? `<div class="analysis-overall-feedback">${escapeHtml(analysis.feedback_native || analysis.feedback_pt_br)}</div>` : ""}
   `;
 }
 

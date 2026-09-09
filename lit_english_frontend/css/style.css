@@ -1369,6 +1369,42 @@ svg {
   cursor: wait;
 }
 
+/* Gravação concluída: mantém o botão em vinho e oferece uma repetição pequena ao lado. */
+.review-audio-btn.is-recorded {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.record-repeat-btn {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--primary);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.record-repeat-btn svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+}
+
+.record-repeat-btn:hover {
+  background: var(--primary-pale);
+}
+
+.record-repeat-btn[hidden] {
+  display: none;
+}
+
 @keyframes micPreparing {
   0%, 100% { opacity: 0.45; transform: scale(0.92); }
   50% { opacity: 1; transform: scale(1); }

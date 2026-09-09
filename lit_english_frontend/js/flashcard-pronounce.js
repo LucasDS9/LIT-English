@@ -578,7 +578,8 @@ const FlashcardPronounce = (() => {
     const listenBtn = document.createElement("button");
     listenBtn.type = "button";
     listenBtn.className = "btn btn-outline review-audio-btn";
-    listenBtn.innerHTML = `${Icons.volume}<span>${listenLabel}</span>`;
+    const listenIcon = listenLabel === "Ouvir novamente" ? Icons.mic : Icons.volume;
+    listenBtn.innerHTML = `${listenIcon}<span>${listenLabel}</span>`;
     listenBtn.addEventListener("click", onListen);
     controls.appendChild(listenBtn);
 

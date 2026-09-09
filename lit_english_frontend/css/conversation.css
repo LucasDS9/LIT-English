@@ -139,141 +139,96 @@
 
 /* -------- análise embutida em cada mensagem do aluno -------- */
 
-/* A análise faz parte da própria mensagem do aluno, mas visualmente segue
-   o mesmo padrão leve do card de análise da versão original: cabeçalho vinho,
-   corpo branco e campos cinza claros. Não há um card dentro de outro card. */
-.student-bubble {
-  align-self: flex-end;
-  width: min(320px, 68%);
-  max-width: 320px;
-  padding: 0;
-  background: #fff;
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  overflow: hidden;
-  box-shadow: 0 1px 2px rgba(20, 20, 20, 0.04);
-}
-
-.student-bubble .bubble-text {
-  margin: 0;
-  padding: 12px 14px;
-  background: var(--primary);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.35;
-  white-space: pre-wrap;
-}
-
 .inline-analysis {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: #fff;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.28);
 }
 
-.ver-analise-btn { display: none; }
+.ver-analise-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ver-analise-btn:hover { text-decoration: underline; }
+
+.ver-analise-btn.is-open {
+  color: #fff;
+}
 
 .inline-analysis-body {
-  display: block;
-  margin: 0;
-  padding: 13px 14px 15px;
-  border: 0;
-  border-radius: 0;
-  background: #fff;
+  margin-top: 12px;
+  padding: 13px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
   color: var(--text);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 13.5px;
+  line-height: 1.5;
   text-align: left;
 }
 
-.inline-analysis-body[hidden],
-.inline-analysis[hidden] { display: block; }
+.inline-analysis-body[hidden], .inline-analysis[hidden] { display: none; }
 
-.inline-analysis-body .analysis-section {
-  margin: 0 0 11px;
+.inline-analysis-body .analysis-sentence {
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: #f3f4f4;
+  margin-bottom: 10px;
 }
 
-.inline-analysis-body .analysis-section:last-child {
-  margin-bottom: 0;
+.inline-analysis-body .analysis-correction {
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
 }
 
 .inline-analysis-body .analysis-section-title {
-  margin: 0 0 5px;
-  font-size: 9.5px;
-  line-height: 1.2;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: .5px;
+  letter-spacing: .55px;
   color: var(--primary);
-}
-
-.inline-analysis-body .analysis-field {
-  padding: 8px 10px;
-  border: 1px solid #e5e8eb;
-  border-radius: 7px;
-  background: #f5f6f7;
-  color: var(--text);
-  min-height: 16px;
+  margin-bottom: 4px;
 }
 
 .inline-analysis-body .analysis-feedback-list {
   margin: 0;
-  padding: 0;
-  list-style: none;
+  padding-left: 21px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.inline-analysis-body .analysis-feedback-list li {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  font-size: 12.5px;
-}
-
-.inline-analysis-body .feedback-index {
-  flex-shrink: 0;
-  font-weight: 700;
-  color: var(--primary);
-}
-
 .inline-analysis-body .feedback-diff {
-  display: block;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
   font-weight: 700;
-  line-height: 1.35;
-}
-
-.inline-analysis-body .wrong {
-  color: var(--primary);
-  font-weight: 700;
-}
-
-.inline-analysis-body .right {
-  color: var(--text);
-}
-
-.inline-analysis-body .arrow {
-  color: #999;
-  margin: 0 4px;
-  font-weight: 400;
 }
 
 .inline-analysis-body .feedback-reason {
   display: block;
   margin-top: 2px;
-  color: var(--text-secondary);
-  font-size: 11.5px;
-  line-height: 1.4;
+  color: var(--text-muted);
 }
 
-.inline-analysis-body .analysis-correct-feedback {
-  color: var(--text-secondary);
-}
+.inline-analysis-body .wrong { color: #b33a34; text-decoration: line-through; }
+.inline-analysis-body .right { color: #2f7d4f; }
+.inline-analysis-body .arrow { color: var(--text-muted); }
 
-.inline-analysis-body .analysis-overall-feedback { display: none; }
+.inline-analysis-body .analysis-overall-feedback {
+  margin-top: 10px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: var(--primary-pale);
+  color: var(--primary);
+}
 
 /* Compatibilidade: nenhum painel lateral deve reaparecer. */
 .analysis-panel { display: none !important; }
@@ -438,5 +393,3 @@
   .conv-workspace { flex-direction: column; }
   .analysis-panel { width: 100%; max-height: 340px; }
 }
-
-@media (max-width: 900px) { .bubble { max-width: 82%; } }
