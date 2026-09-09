@@ -38,7 +38,7 @@ from fastapi.responses import Response
 from app.auth import get_current_approved_user
 from app.models import User, UserRole
 from app.language import student_language, student_source_language
-from app.routers.pronunciation import transcribe_with_confidence
+from app.routers.pronunciation import transcribe_with_confidence, detect_spoken_language
 
 from ..services.conversation_ai import ConversationAiUnavailable, get_tutor_turn
 from ..services.conversation_schemas import TranslateRequest, TranslateResponse, TTSRequest
@@ -91,9 +91,11 @@ def _looks_like_help_request(text: str, native: str, target: str) -> bool:
 
 
 
-# Margem mínima de confiança pra preferir a transcrição nativa em vez da
-# target quando não há uma fórmula explícita tipo "como se diz". Evita ficar
-# trocando de transcrição por ruído/flutuação pequena entre as duas passadas.
+# Probabilidade mínima do LID do Whisper pra confiarmos nele como sinal
+# decisivo. Abaixo disso, o áudio é curto/ambíguo demais e caímos no
+# fallback de confiança entre as duas passadas.
+_LID_MIN_PROBABILITY = 0.55
+
 _CONFIDENCE_MARGIN = 0.15
 
 
@@ -104,20 +106,20 @@ def _pick_bilingual_transcript(
     target: str,
     target_confidence: float | None = None,
     native_confidence: float | None = None,
+    detected_language: str | None = None,
+    detected_probability: float = 0.0,
 ) -> str:
     """Escolhe qual das duas transcrições (língua-alvo x língua nativa) usar.
 
-    Antes isso dependia só de bater um regex tipo "como se diz / how can I
-    say" na transcrição nativa. Isso deixava passar batido o caso comum do
-    aluno falar inteiramente em português sem usar uma dessas fórmulas: a
-    transcrição na língua-alvo (ex.: inglês) era usada mesmo estando errada,
-    porque o modelo de inglês tenta "encaixar" fonemas em palavras inglesas.
-
-    Agora, além do regex (que continua útil pra frases mescladas, tipo "how
-    can I say pedra"), comparamos a confiança que cada reconhecedor teve na
-    própria transcrição. Se o aluno falou só em português, o reconhecedor de
-    português tende a ter confiança bem mais alta que o de inglês -- mesmo
-    sem nenhuma fórmula de ajuda -- e é isso que usamos pra pegar esse caso.
+    Ordem de decisão (do sinal mais barato/específico pro mais genérico):
+      1. Fórmula explícita de ajuda ("como se diz", "how can I say") na
+         transcrição nativa -- cobre frases mescladas.
+      2. Identificação automática de idioma feita pelo Whisper sobre o
+         áudio bruto (sem forçar língua nenhuma) -- é o sinal "de verdade"
+         de que língua o aluno falou, equivalente ao que o realtime da
+         OpenAI faz. Usado sempre que a probabilidade é razoável.
+      3. Comparação de confiança entre as duas passadas fixas, só como
+         último recurso (ex.: Whisper indisponível).
     """
     target_text = _clean_transcript(target_text)
     native_text = _clean_transcript(native_text)
@@ -127,21 +129,23 @@ def _pick_bilingual_transcript(
     if not target_text:
         return native_text
 
-    # Fórmula explícita de ajuda ("como se diz", "how can I say") -- sinal
-    # forte e barato, mantido como está.
     if _looks_like_help_request(native_text, native, target):
         return native_text
 
-    # Sem fórmula explícita: decide pela confiança de cada passada, quando
-    # disponível. Isso cobre o aluno falando inteiramente na língua nativa.
+    if detected_language and detected_probability >= _LID_MIN_PROBABILITY:
+        if detected_language == native and native != target:
+            return native_text
+        if detected_language == target:
+            return target_text
+        # Detectou uma terceira língua (nem native nem target) -- não temos
+        # transcrição pra ela, então segue pro fallback de confiança abaixo.
+
     if target_confidence is not None and native_confidence is not None:
         if native_confidence > target_confidence + _CONFIDENCE_MARGIN:
             return native_text
         if target_confidence > native_confidence + _CONFIDENCE_MARGIN:
             return target_text
 
-    # Sem sinal de confiança utilizável (ex.: Azure indisponível nos dois
-    # lados) -- mantém o comportamento conservador anterior.
     return target_text or native_text
 
 
@@ -204,11 +208,11 @@ async def conversation_turn(
         )
 
     # 1) Transcrição -- normalmente na língua-alvo, mas fazemos uma segunda
-    #    leitura na língua nativa quando as duas são diferentes. Isso permite
-    #    tanto frases mescladas ("como posso dizer pedra em italiano?") quanto
-    #    o aluno falando inteiramente na língua nativa sem nenhuma fórmula de
-    #    ajuda -- nesse caso a escolha é guiada pela confiança de cada
-    #    reconhecedor na própria transcrição (ver _pick_bilingual_transcript).
+    #    leitura na língua nativa quando as duas são diferentes, MAIS uma
+    #    detecção automática de idioma (Whisper LID, sem forçar língua) que é
+    #    o sinal decisivo de verdade -- é isso que permite entender o aluno
+    #    falando inteiramente na língua nativa, sem nenhuma fórmula de ajuda,
+    #    e sem depender de heurística de confiança frágil.
     try:
         target_transcript, target_confidence = transcribe_with_confidence(
             audio_bytes, _speech_language(target)
@@ -222,6 +226,15 @@ async def conversation_turn(
                 )
             except Exception:
                 logger.warning("Falha na segunda transcrição na língua nativa", exc_info=True)
+
+        detected_language: str | None = None
+        detected_probability = 0.0
+        if native != target:
+            try:
+                detected_language, detected_probability = detect_spoken_language(audio_bytes)
+            except Exception:
+                logger.warning("Falha na detecção automática de idioma", exc_info=True)
+
         student_transcript = _pick_bilingual_transcript(
             target_transcript,
             native_transcript,
@@ -229,6 +242,8 @@ async def conversation_turn(
             target,
             target_confidence,
             native_confidence,
+            detected_language,
+            detected_probability,
         )
     except Exception:
         logger.exception("Falha na transcrição do áudio (aluno=%s)", student_id)

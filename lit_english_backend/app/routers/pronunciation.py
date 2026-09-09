@@ -26,9 +26,26 @@ LANGUAGE_LOCALES = {
     "english": "en-US",
     "italian": "it-IT",
     "french": "fr-FR",
+    "spanish": "es-ES",
+    "german": "de-DE",
+    "portuguese": "pt-BR",
     "ingles": "en-US",
     "italiano": "it-IT",
     "frances": "fr-FR",
+    "espanhol": "es-ES",
+    "alemao": "de-DE",
+    "portugues": "pt-BR",
+}
+
+# Mapa ISO 639-1 (o que o Whisper devolve na detecção automática) -> nomes
+# internos usados no resto do app.
+WHISPER_ISO_TO_LANGUAGE = {
+    "en": "english",
+    "it": "italian",
+    "fr": "french",
+    "es": "spanish",
+    "de": "german",
+    "pt": "portuguese",
 }
 
 
@@ -558,7 +575,10 @@ def _prepare_audio_paths(audio_bytes: bytes) -> tuple[str, str]:
 
 def _transcribe_whisper(audio_bytes: bytes, language: str) -> tuple[str, float | None]:
     model = get_whisper_model()
-    lang_map = {"english": "en", "german": "de", "french": "fr", "italian": "it"}
+    lang_map = {
+        "english": "en", "german": "de", "french": "fr",
+        "italian": "it", "spanish": "es", "portuguese": "pt",
+    }
     whisper_lang = lang_map.get(language, "en")
 
     tmp_path, wav_path = _prepare_audio_paths(audio_bytes)
@@ -642,6 +662,50 @@ def transcribe_with_confidence(audio_bytes: bytes, language: str) -> tuple[str, 
         logger.warning("LIT_SPEECH_API definida, mas LIT_SPEECH_REGION ausente — usando Whisper.")
 
     return _transcribe_whisper(audio_bytes, language)
+
+
+def detect_spoken_language(audio_bytes: bytes) -> tuple[str | None, float]:
+    """Identifica automaticamente em que língua o áudio foi falado.
+
+    Isso é o que faltava pra ser "automático de verdade" (como o realtime da
+    OpenAI): em vez de comparar confiança entre duas transcrições forçadas
+    numa língua fixa, deixamos o Whisper fazer o que ele já faz nativamente
+    -- detecção de idioma -- sem passar `language=`. O Whisper roda essa
+    detecção sobre os primeiros segundos de áudio ANTES de decodificar
+    qualquer texto, então isso é rápido (não é uma transcrição completa).
+
+    Devolve (nome_interno_do_idioma, probabilidade) -- ex: ("portuguese",
+    0.94). Se o idioma detectado não for um dos que o app conhece, ou o
+    Whisper não estiver disponível, devolve (None, 0.0).
+    """
+    try:
+        model = get_whisper_model()
+    except Exception:
+        logger.warning("Whisper indisponível para detecção automática de idioma", exc_info=True)
+        return None, 0.0
+
+    tmp_path, wav_path = _prepare_audio_paths(audio_bytes)
+    try:
+        # language=None é o que ativa a detecção automática do Whisper.
+        # Não iteramos `segments` (é um generator lazy) -- só queremos o
+        # `info`, que já vem pronto, então isso não paga o custo de
+        # transcrever o áudio inteiro.
+        _segments, info = model.transcribe(
+            wav_path,
+            language=None,
+            beam_size=1,
+            vad_filter=True,
+            vad_parameters={"min_silence_duration_ms": 300},
+        )
+        iso_code = getattr(info, "language", None)
+        probability = float(getattr(info, "language_probability", 0.0) or 0.0)
+        detected = WHISPER_ISO_TO_LANGUAGE.get(iso_code) if iso_code else None
+        return detected, probability
+    except Exception:
+        logger.warning("Falha na detecção automática de idioma", exc_info=True)
+        return None, 0.0
+    finally:
+        _cleanup_paths(tmp_path, wav_path if wav_path != tmp_path else None)
 
 
 def transcribe(audio_bytes: bytes, language: str) -> str:
