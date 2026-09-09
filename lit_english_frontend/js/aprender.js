@@ -91,6 +91,51 @@ document.getElementById("logout-btn").addEventListener("click", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Abas "Vocabulário" / "Criar"
+// ---------------------------------------------------------------------------
+// "Vocabulário" por enquanto é só o template visual (ver aprender.html) --
+// ainda não busca flashcards de verdade, só reaproveita o mesmo padrão de
+// card já usado em Revisar. "Criar" continua exatamente como já estava,
+// só que agora dentro de um painel que pode ser escondido/mostrado.
+const vocabTabBtn = document.getElementById("learn-tab-vocab-btn");
+const criarTabBtn = document.getElementById("learn-tab-criar-btn");
+const vocabPanel = document.getElementById("learn-tab-vocab");
+const criarPanel = document.getElementById("learn-tab-criar");
+const vocabFlagEl = document.getElementById("vocab-browse-flag");
+
+const ITALIAN_FLAG_SVG = `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#fff"/><rect x="16" width="8" height="16" fill="#CE2B37"/><rect width="8" height="16" fill="#009246"/></svg>`;
+
+function setLearnTab(tab) {
+  const isVocab = tab === "vocab";
+  vocabTabBtn.classList.toggle("active", isVocab);
+  criarTabBtn.classList.toggle("active", !isVocab);
+  vocabTabBtn.setAttribute("aria-selected", String(isVocab));
+  criarTabBtn.setAttribute("aria-selected", String(!isVocab));
+  vocabPanel.hidden = !isVocab;
+  criarPanel.hidden = isVocab;
+}
+
+vocabTabBtn?.addEventListener("click", () => setLearnTab("vocab"));
+criarTabBtn?.addEventListener("click", () => setLearnTab("criar"));
+
+if (vocabTabBtn) vocabTabBtn.querySelector(".learn-tab-icon").innerHTML = Icons.bookOpen;
+if (criarTabBtn) criarTabBtn.querySelector(".learn-tab-icon").innerHTML = Icons.edit;
+if (vocabFlagEl) vocabFlagEl.innerHTML = ITALIAN_FLAG_SVG;
+
+const vocabListenBtn = document.getElementById("vocab-listen-btn");
+const vocabMoreExamplesBtn = document.getElementById("vocab-more-examples-btn");
+const vocabSaveBtn = document.getElementById("vocab-save-btn");
+const vocabFlipBtn = document.getElementById("vocab-flip-btn");
+if (vocabListenBtn) vocabListenBtn.querySelector(".vocab-browse-action-icon").innerHTML = Icons.volume;
+if (vocabMoreExamplesBtn) vocabMoreExamplesBtn.querySelector(".vocab-browse-action-icon").innerHTML = Icons.bookOpen;
+if (vocabSaveBtn) vocabSaveBtn.querySelector(".vocab-browse-action-icon").innerHTML = bookmarkIcon(false);
+if (vocabFlipBtn) vocabFlipBtn.querySelector(".vocab-browse-action-icon").innerHTML = Icons.refresh;
+
+// Aba inicial: "Criar" continua sendo a entrada padrão (comportamento atual
+// preservado). O aluno chega em "Vocabulário" só clicando na aba.
+setLearnTab("criar");
+
+// ---------------------------------------------------------------------------
 // Primeiro acesso ao Aprender
 // ---------------------------------------------------------------------------
 // Esta lista é o ponto único para os cards iniciais. Quando você me enviar a

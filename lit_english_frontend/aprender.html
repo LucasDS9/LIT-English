@@ -81,6 +81,69 @@
     </aside>
 
     <main class="main main-learn-create">
+      <header class="page-header learn-page-header">
+        <h1>Aprender</h1>
+        <div class="page-title-rule"></div>
+      </header>
+
+      <div class="learn-tabs" role="tablist" aria-label="Seções de Aprender">
+        <button type="button" class="learn-tab-btn active" id="learn-tab-vocab-btn" role="tab" aria-selected="true">
+          <span class="learn-tab-icon"></span>
+          <span>Vocabulário</span>
+        </button>
+        <button type="button" class="learn-tab-btn" id="learn-tab-criar-btn" role="tab" aria-selected="false">
+          <span class="learn-tab-icon"></span>
+          <span>Criar</span>
+        </button>
+      </div>
+
+      <!-- ----------------------------------------------------------------
+           Aba "Vocabulário" -- template estático (visual apenas, sem dados
+           reais ainda). Mantém o exemplo "calcio" só pra referência visual;
+           a ligação com os flashcards de verdade do aluno fica pra depois.
+           ---------------------------------------------------------------- -->
+      <section id="learn-tab-vocab" class="learn-vocab-panel">
+        <div class="vocab-browse-card">
+          <div class="vocab-browse-card-header">
+            <span class="vocab-browse-flag" id="vocab-browse-flag"></span>
+            <span class="vocab-browse-counter">1 / 10</span>
+          </div>
+
+          <div class="vocab-browse-body">
+            <h2 class="vocab-browse-word">calcio</h2>
+            <p class="vocab-browse-pos">(sostantivo maschile)</p>
+
+            <div class="vocab-browse-divider"></div>
+
+            <p class="vocab-browse-example">Gioco a <strong>calcio</strong> tutti i sabati.</p>
+          </div>
+
+          <div class="vocab-browse-actions">
+            <button type="button" class="btn btn-outline vocab-browse-action" id="vocab-listen-btn">
+              <span class="vocab-browse-action-icon"></span>
+              <span>Ouvir novamente</span>
+            </button>
+            <button type="button" class="btn btn-outline vocab-browse-action" id="vocab-more-examples-btn">
+              <span class="vocab-browse-action-icon"></span>
+              <span>Ver mais exemplos</span>
+            </button>
+            <button type="button" class="btn btn-outline vocab-browse-action" id="vocab-save-btn">
+              <span class="vocab-browse-action-icon"></span>
+              <span>Salvar</span>
+            </button>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-outline vocab-browse-flip-btn" id="vocab-flip-btn">
+          <span class="vocab-browse-action-icon"></span>
+          <span>Virar card</span>
+        </button>
+      </section>
+
+      <!-- ----------------------------------------------------------------
+           Aba "Criar" -- comportamento original, inalterado.
+           ---------------------------------------------------------------- -->
+      <div id="learn-tab-criar">
       <section id="learn-onboarding" class="learn-onboarding" hidden>
         <div class="learn-onboarding-hero">
           <div class="learn-fire-icon" aria-hidden="true">
@@ -233,6 +296,7 @@
           </form>
         </div>
       </section>
+      </div>
     </main>
 
   </div>
