@@ -124,12 +124,93 @@ if (vocabFlagEl) vocabFlagEl.innerHTML = ITALIAN_FLAG_SVG;
 
 const vocabListenBtn = document.getElementById("vocab-listen-btn");
 const vocabMoreExamplesBtn = document.getElementById("vocab-more-examples-btn");
+const vocabMoreExamplesLabel = document.getElementById("vocab-more-examples-label");
+const vocabMoreExamplesBox = document.getElementById("vocab-more-examples");
 const vocabSaveBtn = document.getElementById("vocab-save-btn");
-const vocabFlipBtn = document.getElementById("vocab-flip-btn");
+const vocabSaveLabel = document.getElementById("vocab-save-label");
+const vocabWordEl = document.getElementById("vocab-browse-word");
+const vocabExampleEl = document.getElementById("vocab-browse-example");
+const vocabOptionsEl = document.getElementById("vocab-browse-options");
+
 if (vocabListenBtn) vocabListenBtn.querySelector(".vocab-browse-action-icon").innerHTML = Icons.volume;
 if (vocabMoreExamplesBtn) vocabMoreExamplesBtn.querySelector(".vocab-browse-action-icon").innerHTML = Icons.bookOpen;
 if (vocabSaveBtn) vocabSaveBtn.querySelector(".vocab-browse-action-icon").innerHTML = bookmarkIcon(false);
-if (vocabFlipBtn) vocabFlipBtn.querySelector(".vocab-browse-action-icon").innerHTML = Icons.refresh;
+
+// ---- "Ouvir novamente" -- toca a frase de exemplo via TTS (mesmo endpoint
+// já usado em Revisar/Textos/Exercícios: GET /tts/speak) ----
+let vocabAudioCache = null;
+async function playVocabAudio() {
+  if (!vocabListenBtn) return;
+  const text = vocabExampleEl?.textContent?.trim();
+  if (!text) return;
+  vocabListenBtn.disabled = true;
+  try {
+    if (!vocabAudioCache) {
+      const blob = await apiFetchBlob(`/tts/speak?text=${encodeURIComponent(text)}`);
+      vocabAudioCache = URL.createObjectURL(blob);
+    }
+    const audio = new Audio(vocabAudioCache);
+    audio.addEventListener("ended", () => { vocabListenBtn.disabled = false; });
+    audio.addEventListener("error", () => { vocabListenBtn.disabled = false; });
+    await audio.play();
+  } catch (err) {
+    showToast("Não foi possível reproduzir o áudio.");
+  } finally {
+    vocabListenBtn.disabled = false;
+  }
+}
+vocabListenBtn?.addEventListener("click", playVocabAudio);
+
+// ---- "Ver mais N exemplos" -- mostra/esconde as frases extras ----
+vocabMoreExamplesBtn?.addEventListener("click", () => {
+  if (!vocabMoreExamplesBox) return;
+  const nowHidden = !vocabMoreExamplesBox.hidden;
+  vocabMoreExamplesBox.hidden = nowHidden;
+  if (vocabMoreExamplesLabel) {
+    vocabMoreExamplesLabel.textContent = nowHidden ? "Ver mais 3 exemplos" : "Ocultar exemplos";
+  }
+});
+
+// ---- "Salvar" -- adiciona esse vocabulário como flashcard do aluno e leva
+// pra tela de Flashcards (Revisar) ----
+vocabSaveBtn?.addEventListener("click", async () => {
+  const front = vocabWordEl?.textContent?.trim();
+  if (!front || vocabSaveBtn.disabled) return;
+
+  vocabSaveBtn.disabled = true;
+  if (vocabSaveLabel) vocabSaveLabel.textContent = "Salvando...";
+
+  try {
+    await apiFetch("/flashcards/self-add", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ front, back: "", description: vocabExampleEl?.textContent?.trim() || "" }),
+    });
+    window.location.href = "revisar.html";
+  } catch (err) {
+    showToast(err.message || "Não foi possível salvar o flashcard.");
+    vocabSaveBtn.disabled = false;
+    if (vocabSaveLabel) vocabSaveLabel.textContent = "Salvar";
+  }
+});
+
+// ---- Opções de múltipla escolha (2x2), no lugar do antigo "virar card" ----
+if (vocabOptionsEl) {
+  const options = Array.from(vocabOptionsEl.querySelectorAll(".vocab-browse-option"));
+  vocabOptionsEl.addEventListener("click", (event) => {
+    const chosen = event.target.closest(".vocab-browse-option");
+    if (!chosen || chosen.disabled) return;
+
+    options.forEach(opt => { opt.disabled = true; });
+
+    const isRight = chosen.dataset.correct === "true";
+    chosen.classList.add(isRight ? "is-correct" : "is-wrong");
+    if (!isRight) {
+      const correctOpt = options.find(opt => opt.dataset.correct === "true");
+      correctOpt?.classList.add("is-correct");
+    }
+  });
+}
 
 // Aba inicial: "Criar" continua sendo a entrada padrão (comportamento atual
 // preservado). O aluno chega em "Vocabulário" só clicando na aba.
