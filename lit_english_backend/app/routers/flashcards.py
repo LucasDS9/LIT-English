@@ -1033,10 +1033,14 @@ def submit_review(
         .first()
     )
     if not progress:
+        # Card sendo revisado pela primeira vez: começa em "Aprendendo",
+        # igual ao fluxo de vocab_words.py. Criar já como "concluido" aqui
+        # travava o card nesse estágio para sempre, pois a promoção para
+        # Dominando exige review_status == aprendendo.
         progress = CardProgress(
             student_id=student.id,
             flashcard_id=flashcard_id,
-            review_status=ReviewCardStatus.concluido,
+            review_status=ReviewCardStatus.aprendendo,
             review_mode=ReviewMode.flip,
         )
         db.add(progress)
@@ -1065,8 +1069,10 @@ def submit_review(
         _apply_sm2(progress, quality)
 
         if is_correct:
+            # Só troca o modo de exercício (type_pt -> type_speak); o
+            # next_review calculado pelo _apply_sm2 acima é respeitado,
+            # igual às demais transições de etapa (Aprendendo -> Dominando).
             progress.review_mode = ReviewMode.type_speak
-            progress.next_review = datetime.utcnow()
 
         db.add(ReviewLog(student_id=student.id, flashcard_id=flashcard_id))
         db.flush()

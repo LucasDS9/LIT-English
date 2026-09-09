@@ -10,6 +10,7 @@ Variáveis de ambiente (Azure Speech):
 import base64
 import json
 import logging
+import math
 import os
 import re
 import tempfile
@@ -555,7 +556,7 @@ def _prepare_audio_paths(audio_bytes: bytes) -> tuple[str, str]:
     return tmp_path, wav_path
 
 
-def _transcribe_whisper(audio_bytes: bytes, language: str) -> str:
+def _transcribe_whisper(audio_bytes: bytes, language: str) -> tuple[str, float | None]:
     model = get_whisper_model()
     lang_map = {"english": "en", "german": "de", "french": "fr", "italian": "it"}
     whisper_lang = lang_map.get(language, "en")
@@ -569,12 +570,32 @@ def _transcribe_whisper(audio_bytes: bytes, language: str) -> str:
             vad_filter=True,
             vad_parameters={"min_silence_duration_ms": 300},
         )
-        return " ".join(seg.text.strip() for seg in segments).strip()
+        segments = list(segments)
+        text = " ".join(seg.text.strip() for seg in segments).strip()
+        # faster-whisper não devolve uma "confiança" 0-1 diretamente, mas
+        # avg_logprob de cada segmento é um bom proxy: quanto mais perto de 0
+        # (menos negativo), mais o modelo "acreditou" no que reconheceu nessa
+        # língua. Convertendo com exp() cai numa faixa comparável a 0-1, o que
+        # permite comparar a passada em inglês com a passada em português.
+        confidence: float | None = None
+        logprobs = [seg.avg_logprob for seg in segments if seg.avg_logprob is not None]
+        if logprobs:
+            avg_logprob = sum(logprobs) / len(logprobs)
+            confidence = math.exp(avg_logprob)
+        return text, confidence
     finally:
         _cleanup_paths(tmp_path, wav_path if wav_path != tmp_path else None)
 
 
-def transcribe(audio_bytes: bytes, language: str) -> str:
+def transcribe_with_confidence(audio_bytes: bytes, language: str) -> tuple[str, float | None]:
+    """Transcreve e devolve também uma confiança 0-1 (quando disponível).
+
+    A confiança é o sinal que permite decidir, sem depender de regex, se uma
+    transcrição feita com o reconhecedor de uma língua específica realmente
+    corresponde ao que foi falado -- essencial para notar que o aluno falou
+    inteiramente na língua nativa mesmo sem usar uma fórmula tipo "como se
+    diz".
+    """
     locale = _resolve_locale(language)
     if _azure_available():
         cleanup: list[str] = []
@@ -585,7 +606,10 @@ def transcribe(audio_bytes: bytes, language: str) -> str:
             url = f"https://{region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1"
             response = requests.post(
                 url,
-                params={"language": locale, "format": "simple"},
+                # "detailed" (em vez de "simple") é o que faz a Azure devolver
+                # NBest[0].Confidence -- sem isso não temos como comparar as
+                # duas passadas (língua-alvo x língua nativa).
+                params={"language": locale, "format": "detailed"},
                 headers={
                     "Ocp-Apim-Subscription-Key": key,
                     "Accept": "application/json",
@@ -597,7 +621,19 @@ def transcribe(audio_bytes: bytes, language: str) -> str:
             if response.ok:
                 data = response.json()
                 if data.get("RecognitionStatus") == "Success":
-                    return (data.get("DisplayText") or "").strip()
+                    nbest = (data.get("NBest") or [{}])[0]
+                    text = (
+                        nbest.get("Display")
+                        or nbest.get("Lexical")
+                        or data.get("DisplayText")
+                        or ""
+                    ).strip()
+                    confidence = nbest.get("Confidence")
+                    return text, (float(confidence) if confidence is not None else None)
+                if data.get("RecognitionStatus") == "NoMatch":
+                    # Reconhecedor dessa língua não achou nada plausível --
+                    # sinal forte de que o áudio não está nessa língua.
+                    return "", 0.0
         except Exception as exc:
             logger.exception("Falha no Azure Speech STT, usando Whisper: %s", exc)
         finally:
@@ -606,6 +642,11 @@ def transcribe(audio_bytes: bytes, language: str) -> str:
         logger.warning("LIT_SPEECH_API definida, mas LIT_SPEECH_REGION ausente — usando Whisper.")
 
     return _transcribe_whisper(audio_bytes, language)
+
+
+def transcribe(audio_bytes: bytes, language: str) -> str:
+    text, _confidence = transcribe_with_confidence(audio_bytes, language)
+    return text
 
 
 def assess_pronunciation(
