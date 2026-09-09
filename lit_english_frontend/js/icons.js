@@ -79,4 +79,8 @@ const Icons = {
   trophyFilled: `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M6 4h12v4.5a6 6 0 0 1-4.75 5.87V16h2.25a1 1 0 0 1 1 1v.5H9.5V17a1 1 0 0 1 1-1h2.25v-1.63A6 6 0 0 1 6 8.5V4Z"/><path d="M6 5.3H3.3a2.7 2.7 0 0 0 2.85 3.85 6 6 0 0 1-.15-1.15V5.3Z"/><path d="M18 5.3h2.7a2.7 2.7 0 0 1-2.85 3.85c.1-.37.15-.76.15-1.15V5.3Z"/><path d="M8.5 19h7l.6 2H7.9l.6-2Z"/></svg>`,
 
   arrowRight: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15.5"/><path d="M13.5 5.5 20 12l-6.5 6.5"/></svg>`,
+
+  infoCircle: `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5" stroke-width="2"/><circle cx="12" cy="7.8" r="1.05" fill="currentColor" stroke="none"/></svg>`,
+
+  listCheck: `<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="6.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="5.5" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="5.5" cy="17.5" r="1.4" fill="currentColor" stroke="none"/><path d="M10 6.5h10M10 12h10M10 17.5h10"/></svg>`,
 };

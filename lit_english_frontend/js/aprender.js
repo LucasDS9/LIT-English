@@ -133,8 +133,11 @@ const vocabExampleEl = document.getElementById("vocab-browse-example");
 const vocabOptionsEl = document.getElementById("vocab-browse-options");
 
 if (vocabListenBtn) vocabListenBtn.querySelector(".vocab-browse-action-icon").innerHTML = Icons.volume;
-if (vocabMoreExamplesBtn) vocabMoreExamplesBtn.querySelector(".vocab-browse-action-icon").innerHTML = Icons.bookOpen;
+if (vocabMoreExamplesBtn) vocabMoreExamplesBtn.querySelector(".vocab-browse-action-icon").innerHTML = Icons.listCheck;
 if (vocabSaveBtn) vocabSaveBtn.querySelector(".vocab-browse-action-icon").innerHTML = bookmarkIcon(false);
+
+const vocabMoreExamplesIcon = document.getElementById("vocab-more-examples-icon");
+if (vocabMoreExamplesIcon) vocabMoreExamplesIcon.innerHTML = Icons.infoCircle;
 
 // ---- "Ouvir novamente" -- toca a frase de exemplo via TTS (mesmo endpoint
 // já usado em Revisar/Textos/Exercícios: GET /tts/speak) ----
