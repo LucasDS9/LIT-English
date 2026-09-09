@@ -27,7 +27,6 @@ const els = {
   lockedBox: document.getElementById("conv-locked"),
   workspace: document.getElementById("conv-workspace"),
   chatScroll: document.getElementById("chat-scroll"),
-  analysisColumn: document.getElementById("analysis-column"),
   micBtn: document.getElementById("mic-btn"),
   micStatus: document.getElementById("mic-status"),
 };
@@ -160,10 +159,12 @@ function addStudentBubble(text, analysis = null) {
   const node = tpl.content.firstElementChild.cloneNode(true);
   node.querySelector(".bubble-text").textContent = text;
 
-  // A bolha do aluno continua sendo exibida normalmente. A análise é
-  // apresentada separadamente no painel lateral, sem alterar o fluxo da conversa.
   if (analysis) {
-    addAnalysisCard(analysis);
+    const analysisWrap = node.querySelector(".inline-analysis");
+    const analysisBody = node.querySelector(".inline-analysis-body");
+    analysisWrap.hidden = false;
+    analysisBody.hidden = false;
+    analysisBody.innerHTML = buildAnalysisMarkup(analysis);
   } else {
     node.querySelector(".inline-analysis").remove();
   }
@@ -173,69 +174,49 @@ function addStudentBubble(text, analysis = null) {
   return node;
 }
 
-function addAnalysisCard(analysis) {
-  if (!els.analysisColumn) return null;
-
-  const card = document.createElement("article");
-  card.className = "analysis-card";
-
+function buildAnalysisMarkup(analysis) {
   const sentence = analysis.student_transcript || "";
   const errors = Array.isArray(analysis.errors) ? analysis.errors : [];
-  const hasErrors = errors.length > 0;
 
   // Destaca somente os trechos realmente incorretos da resposta do aluno.
   let highlightedSentence = escapeHtml(sentence);
   errors.forEach((err) => {
     if (!err || !err.wrong_fragment) return;
-    const wrong = escapeHtml(err.wrong_fragment);
-    const re = new RegExp(escapeRegExp(wrong), "i");
-    highlightedSentence = highlightedSentence.replace(
-      re,
-      `<span class="wrong">${wrong}</span>`
-    );
+    const safe = escapeHtml(err.wrong_fragment);
+    const re = new RegExp(escapeRegExp(safe), "i");
+    highlightedSentence = highlightedSentence.replace(re, `<span class="wrong">${safe}</span>`);
   });
 
-  const feedbackItems = hasErrors
-    ? errors.map((err, idx) => `
-        <li>
-          <span class="feedback-index">${idx + 1}.</span>
-          <div>
-            <span class="feedback-diff">
-              <span class="wrong">${escapeHtml(err.wrong_fragment || "")}</span>
-              <span class="arrow">→</span>
-              <span class="right">${escapeHtml(err.correct_fragment || "")}</span>
-            </span>
-            <span class="feedback-reason">${escapeHtml(err.explanation_native || err.explanation_pt_br || "")}</span>
-          </div>
-        </li>
-      `).join("")
-    : `<li class="analysis-correct-feedback">Nenhum erro encontrado.</li>`;
-
-  card.innerHTML = `
-    <div class="analysis-card-header">${escapeHtml(sentence || "Resposta")}</div>
-    <div class="analysis-card-body">
-      <div class="analysis-field">
-        <div class="analysis-section-title">Sua resposta</div>
-        <div class="analysis-value analysis-sentence">${highlightedSentence || "-"}</div>
+  const feedbackItems = errors.map((err, idx) => `
+    <li>
+      <span class="feedback-index">${idx + 1}.</span>
+      <div>
+        <span class="feedback-diff">
+          <span class="wrong">${escapeHtml(err.wrong_fragment || "")}</span>
+          <span class="arrow">→</span>
+          <span class="right">${escapeHtml(err.correct_fragment || "")}</span>
+        </span>
+        <span class="feedback-reason">${escapeHtml(err.explanation_native || err.explanation_pt_br || "")}</span>
       </div>
+    </li>
+  `).join("");
 
-      <div class="analysis-field">
-        <div class="analysis-section-title">Correção</div>
-        <div class="analysis-value analysis-correction">${escapeHtml(analysis.corrected_sentence || "-")}</div>
-      </div>
-
-      <div class="analysis-field">
-        <div class="analysis-section-title">Feedback</div>
-        <ul class="analysis-feedback-list">
-          ${feedbackItems}
-        </ul>
-      </div>
+  return `
+    <div class="analysis-sentence">
+      <div class="analysis-section-title">Sua resposta</div>
+      ${highlightedSentence || "-"}
+    </div>
+    <div class="analysis-correction">
+      <div class="analysis-section-title">Correção</div>
+      ${escapeHtml(analysis.corrected_sentence || "-")}
+    </div>
+    <div>
+      <div class="analysis-section-title">Feedback</div>
+      <ul class="analysis-feedback-list">
+        ${feedbackItems || '<li class="analysis-correct-feedback">Nenhum erro encontrado.</li>'}
+      </ul>
     </div>
   `;
-
-  els.analysisColumn.appendChild(card);
-  els.analysisColumn.scrollTop = els.analysisColumn.scrollHeight;
-  return card;
 }
 
 // =========================================================================
