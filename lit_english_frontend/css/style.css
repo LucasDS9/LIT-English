@@ -4437,7 +4437,7 @@ body.reader-fs-open {
 /* ---------- Aprender: aba Vocabulário (template estático) ---------- */
 .learn-vocab-panel {
   width: 100%;
-  max-width: 780px;
+  max-width: 810px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -4451,11 +4451,15 @@ body.reader-fs-open {
 
 .vocab-browse-card {
   width: 100%;
+  height: 584px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  padding: 26px 32px 30px;
+  border-radius: 18px;
+  box-shadow: var(--shadow-sm);
+  padding: 34px 44px 42px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .vocab-browse-card-header {
@@ -4463,6 +4467,7 @@ body.reader-fs-open {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 26px;
+  flex-shrink: 0;
 }
 
 .vocab-browse-flag {
@@ -4486,6 +4491,10 @@ body.reader-fs-open {
 
 .vocab-browse-body {
   text-align: center;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .vocab-browse-word {
@@ -4523,6 +4532,7 @@ body.reader-fs-open {
   justify-content: center;
   gap: 14px;
   margin-top: 30px;
+  flex-shrink: 0;
 }
 
 .vocab-browse-action-icon {
@@ -4542,6 +4552,7 @@ body.reader-fs-open {
 
 @media (max-width: 640px) {
   .vocab-browse-card {
+    height: auto;
     padding: 20px;
   }
   .vocab-browse-word {
