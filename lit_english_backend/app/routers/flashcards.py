@@ -943,23 +943,13 @@ def get_review_queue(
     assigned_subquery = db.query(FlashcardAssignment.flashcard_id).filter(
         FlashcardAssignment.student_id == student.id
     )
-    # Cards em "Dominando" (type_pt/type_speak) estão no meio da progressão
-    # de forma do MESMO ciclo (Aprendendo -> type -> speak -> Concluído).
-    # O SM-2 ainda roda normalmente nessas etapas (repetitions/ease_factor/
-    # next_review continuam corretos para o histórico e para quando o card
-    # volta como flip normal), mas o `next_review` calculado ali NÃO deve
-    # esconder o card da sessão atual — senão o aluno nunca vê a próxima
-    # forma do mesmo card no mesmo ciclo. Por isso, só respeitamos
-    # `next_review` de fato para cards ainda "Aprendendo" (flip) ou já
-    # "Concluído" (flip); cards em progressão de forma (Dominando +
-    # type_pt/type_speak) ficam sempre devidos.
+    # Todas as etapas (Aprendendo / Dominando-type / Dominando-speak /
+    # Concluído) respeitam o `next_review` calculado pelo SM-2. Trocar de
+    # forma (type_pt -> type_speak) só muda o `review_mode`; a data em que
+    # o card volta a aparecer continua sendo a do agendamento do SM-2.
     not_due_subquery = db.query(CardProgress.flashcard_id).filter(
         CardProgress.student_id == student.id,
         CardProgress.next_review > now,
-        ~(
-            (CardProgress.review_status == ReviewCardStatus.dominando)
-            & (CardProgress.review_mode.in_([ReviewMode.type_pt, ReviewMode.type_speak]))
-        ),
     )
 
     source_priority = case((Flashcard.source == FlashcardSource.professor, 0), else_=1)

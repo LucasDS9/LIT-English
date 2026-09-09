@@ -297,7 +297,22 @@ function stopRecording() {
   if (!state.mediaRecorder || !state.isRecording) return;
   state.isRecording = false;
   els.micBtn.classList.remove("recording");
-  state.mediaRecorder.stop(); // dispara onRecordingStopped quando o blob estiver pronto
+  setMicStatus("Processando sua fala...");
+
+  // O aluno costuma tocar em "parar" exatamente NO FIM da última palavra
+  // (às vezes até um pouco antes de terminar de falar). Se cortarmos a
+  // gravação instantaneamente, a última sílaba/palavra fica de fora do
+  // áudio enviado -- e não tem transcrição que resolva isso, porque o som
+  // nunca chegou a ser gravado. Damos uma folga curta (só captura mais
+  // áudio, não afeta a percepção de "resposta rápida" porque a UI já
+  // mostra "Processando..." nesse meio tempo) antes de parar o
+  // MediaRecorder de verdade, pra garantir a cauda da fala.
+  const TAIL_PADDING_MS = 450;
+  setTimeout(() => {
+    if (state.mediaRecorder && state.mediaRecorder.state !== "inactive") {
+      state.mediaRecorder.stop(); // dispara onRecordingStopped quando o blob estiver pronto
+    }
+  }, TAIL_PADDING_MS);
 }
 
 async function onRecordingStopped() {
