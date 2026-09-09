@@ -13,7 +13,7 @@ Google Translate usa no navegador (client=tw-ob).
 A pronúncia sai na LÍNGUA-ALVO do aluno logado (curso normal = inglês;
 Acesso Especial = a língua do cadastro, ex.: italiano) — nunca fixa em
 inglês, senão um aluno de italiano ouviria a palavra pronunciada em
-inglês, o que não faz sentido.
+inglês, o que não faz sentido .
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
