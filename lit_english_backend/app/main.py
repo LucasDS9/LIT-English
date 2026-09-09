@@ -7,9 +7,10 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import Base, engine, run_migrations
-from app.routers import admin, auth, conversation, dashboard, exercises, flashcards, level_test, qa, site_leads, texts, tts
+from app.database import Base, engine, run_migrations, SessionLocal
+from app.routers import admin, analytics, auth, conversation, dashboard, exercises, flashcards, level_test, qa, site_leads, texts, tts
 from app.services.conversation_session_manager import conversation_sessions
+from app.services.analytics_service import daily_cost_sync_loop
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ run_migrations()
 
 logger.info("Banco de dados pronto.")
 
-app = FastAPI(title="LIT English API", version="0.18.0")
+app = FastAPI(title="LIT English API", version="0.19.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,6 +36,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(analytics.router)
 app.include_router(admin.router)
 app.include_router(flashcards.router)
 app.include_router(texts.router)
@@ -52,6 +54,10 @@ async def _start_conversation_cleanup():
     # Loop em background que expira sessões de Conversa com IA Tutor após
     # LIT_CONVERSATION_TIMEOUT_MINUTES (default 30min) de inatividade.
     conversation_sessions.start_background_cleanup()
+    # Primeira sincronização de custos imediatamente; depois, no máximo uma vez
+    # por dia. O loop é idempotente porque os snapshots têm chave única.
+    import asyncio
+    asyncio.create_task(daily_cost_sync_loop(SessionLocal))
 
 
 @app.get("/")

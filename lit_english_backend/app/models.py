@@ -2,11 +2,12 @@
 Modelos do banco de dados.
 """
 import enum
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     Enum,
     Float,
@@ -479,3 +480,47 @@ class SiteLead(Base):
     mensagem = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+
+
+class AIUsageLog(Base):
+    """Uma linha por turno de IA, usada para observabilidade e custo por aluno."""
+    __tablename__ = "ai_usage_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    endpoint = Column(String, nullable=False, default="conversation/turn")
+    status = Column(String, nullable=False, default="success")
+    error_type = Column(String, nullable=True)
+    upload_ms = Column(Float, default=0, nullable=False)
+    stt_ms = Column(Float, default=0, nullable=False)
+    llm_ms = Column(Float, default=0, nullable=False)
+    tts_ms = Column(Float, default=0, nullable=False)
+    total_ms = Column(Float, default=0, nullable=False)
+    audio_seconds = Column(Float, default=0, nullable=False)
+    stt_provider = Column(String, nullable=True)
+    stt_fallback = Column(Boolean, default=False, nullable=False)
+    llm_provider = Column(String, nullable=True)
+    llm_model = Column(String, nullable=True)
+    input_tokens = Column(Integer, default=0, nullable=False)
+    output_tokens = Column(Integer, default=0, nullable=False)
+    total_tokens = Column(Integer, default=0, nullable=False)
+    tts_provider = Column(String, nullable=True)
+    tts_characters = Column(Integer, default=0, nullable=False)
+
+    student = relationship("User")
+
+
+class AzureCostSnapshot(Base):
+    """Custo real diário retornado pelo Azure Cost Management."""
+    __tablename__ = "azure_cost_snapshots"
+    __table_args__ = (UniqueConstraint("usage_date", "service_name", "meter", "currency", name="uq_azure_cost_day_service_meter_currency"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    usage_date = Column(Date, nullable=False, index=True)
+    service_name = Column(String, nullable=False)
+    meter = Column(String, nullable=True, default="")
+    cost = Column(Float, nullable=False, default=0)
+    currency = Column(String, nullable=False, default="USD")
+    fx_usd_brl = Column(Float, nullable=True)
+    synced_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)

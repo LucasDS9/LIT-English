@@ -607,7 +607,7 @@ def _transcribe_whisper(audio_bytes: bytes, language: str) -> tuple[str, float |
         _cleanup_paths(tmp_path, wav_path if wav_path != tmp_path else None)
 
 
-def transcribe_with_confidence(audio_bytes: bytes, language: str) -> tuple[str, float | None]:
+def transcribe_with_confidence(audio_bytes: bytes, language: str, with_provider: bool = False):
     """Transcreve e devolve também uma confiança 0-1 (quando disponível).
 
     A confiança é o sinal que permite decidir, sem depender de regex, se uma
@@ -649,11 +649,11 @@ def transcribe_with_confidence(audio_bytes: bytes, language: str) -> tuple[str, 
                         or ""
                     ).strip()
                     confidence = nbest.get("Confidence")
-                    return text, (float(confidence) if confidence is not None else None)
+                    return (text, (float(confidence) if confidence is not None else None), "azure") if with_provider else (text, (float(confidence) if confidence is not None else None))
                 if data.get("RecognitionStatus") == "NoMatch":
                     # Reconhecedor dessa língua não achou nada plausível --
                     # sinal forte de que o áudio não está nessa língua.
-                    return "", 0.0
+                    return ("", 0.0, "azure") if with_provider else ("", 0.0)
         except Exception as exc:
             logger.exception("Falha no Azure Speech STT, usando Whisper: %s", exc)
         finally:
@@ -661,7 +661,8 @@ def transcribe_with_confidence(audio_bytes: bytes, language: str) -> tuple[str, 
     elif _azure_speech_key() and not _azure_speech_region():
         logger.warning("LIT_SPEECH_API definida, mas LIT_SPEECH_REGION ausente — usando Whisper.")
 
-    return _transcribe_whisper(audio_bytes, language)
+    whisper_result = _transcribe_whisper(audio_bytes, language)
+    return (whisper_result[0], whisper_result[1], "whisper") if with_provider else whisper_result
 
 
 def detect_spoken_language(audio_bytes: bytes) -> tuple[str | None, float]:

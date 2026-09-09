@@ -93,3 +93,44 @@ Um arquivo `lit_english.db` (SQLite) será criado automaticamente na primeira ve
 6. ✅ QA (banco de perguntas do professor + registro de respostas + geração automática de flashcard)
 7. ⏳ Frontend
 
+
+## AI Analytics & Cost Monitoring
+
+O painel do professor em Configurações agora usa telemetria real do backend e snapshots reais do Azure Cost Management. O frontend não consulta a Azure diretamente.
+
+### Azure — configuração única
+
+Crie um Microsoft Entra service principal e conceda a ele a role **Cost Management Reader** no escopo da assinatura que paga os recursos do LIT. Depois configure estas variáveis no ambiente do backend (Railway em produção):
+
+```env
+AZURE_SUBSCRIPTION_ID=...
+AZURE_TENANT_ID=...
+AZURE_CLIENT_ID=...
+AZURE_CLIENT_SECRET=...
+AZURE_COST_API_VERSION=2026-06-01
+ANALYTICS_COST_SYNC_HOURS=24
+ANALYTICS_INITIAL_LOOKBACK_DAYS=90
+```
+
+O primeiro startup com essas credenciais faz uma sincronização imediata dos custos dos últimos 90 dias. Depois o processo verifica uma vez por hora se já passaram 24 horas desde a última sincronização; os dados só são consultados na Azure quando necessário.
+
+### Groq
+
+Cada chamada de conversa salva os `prompt_tokens`, `completion_tokens` e `total_tokens` retornados pela API do Groq. O custo do Groq é calculado a partir dos tokens reais e das tarifas on-demand configuradas para o modelo:
+
+```env
+GROQ_MODEL=openai/gpt-oss-120b
+GROQ_INPUT_USD_PER_MILLION=0.15
+GROQ_OUTPUT_USD_PER_MILLION=0.60
+```
+
+Essas tarifas são configuráveis porque podem mudar. O uso de tokens é real; o Groq não é consultado pelo frontend para cada visualização do dashboard.
+
+### O que é armazenado
+
+- `ai_usage_logs`: aluno, timestamp, latência STT/LLM/TTS/total, tokens, duração de áudio, fallback do STT e erros.
+- `azure_cost_snapshots`: custo diário real retornado pelo Cost Management, serviço, meter, moeda e momento da sincronização.
+
+### Segurança
+
+As credenciais Azure ficam somente nas variáveis de ambiente do backend. O navegador nunca recebe `AZURE_CLIENT_SECRET`, `AZURE_CLIENT_ID` ou token do Azure. As rotas `/analytics/*` são protegidas para `professor`.

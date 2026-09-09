@@ -171,57 +171,12 @@ function renderStateBox(container, { icon, title, text, actionLabel, onAction })
 
 // ---------------------------------------------------------------------------
 // AI Analytics & Cost Monitoring
-// Inicialmente visível somente no painel do professor, dentro de
-// Configurações. Os números abaixo são uma camada de apresentação isolada:
-// quando a telemetria/Azure Cost Management estiver conectada, basta substituir
-// getAnalyticsData() sem refazer o layout.
+// Dados reais vindos do backend. O navegador nunca chama Azure Cost Management.
 // ---------------------------------------------------------------------------
 
-const ANALYTICS_DEMO = {
-  activeStudents: 428,
-  apiCalls: 12438,
-  totalCost: 2487.32,
-  avgLatency: 2.32,
-  tokens: 4800000,
-  audioHours: 384.0,
-  audioMinutes: 23040,
-  errorRate: 1.8,
-  fallbackRate: 6.4,
-  costServices: [
-    { name: "TTS (Azure)", value: 1123.45, share: 45.2, tone: "burgundy" },
-    { name: "STT (Azure)", value: 713.62, share: 28.7, tone: "black" },
-    { name: "LLM (Groq)", value: 462.31, share: 18.6, tone: "gray" },
-    { name: "Infraestrutura", value: 187.94, share: 7.5, tone: "pale" },
-  ],
-  latency: {
-    labels: ["01/09","03/09","05/09","07/09","09/09","11/09","13/09","15/09","17/09","19/09","21/09","23/09","25/09","27/09","29/09","30/09"],
-    stt:  [0.34,0.38,0.31,0.34,0.32,0.30,0.35,0.33,0.36,0.32,0.31,0.34,0.33,0.36,0.39,0.38],
-    llm:  [0.45,0.41,0.48,0.44,0.50,0.46,0.49,0.51,0.54,0.49,0.52,0.50,0.51,0.53,0.57,0.55],
-    tts:  [0.68,0.76,0.69,0.72,0.78,0.74,0.81,0.85,0.91,0.82,0.88,0.84,0.89,0.94,1.08,1.05],
-    total: [1.34,1.50,1.28,1.35,1.40,1.31,1.42,1.51,1.42,1.55,1.48,1.52,1.57,1.49,1.76,1.90],
-  },
-  percentiles: { p50: 1.4, p90: 2.1, p95: 2.7, p99: 4.8 },
-  apiCallsSeries: {
-    labels: ["01/09","03/09","05/09","07/09","09/09","11/09","13/09","15/09","17/09","19/09","21/09","23/09","25/09","27/09","29/09","30/09"],
-    stt: [260,290,310,360,390,330,410,450,430,470,520,490,560,600,650,720],
-    llm: [210,230,250,280,310,260,330,350,340,370,400,390,430,470,520,550],
-    tts: [120,130,140,150,180,150,190,200,210,220,240,230,250,280,310,340],
-    other:[35,40,42,48,50,44,55,62,58,65,70,68,75,80,95,105]
-  },
-  tokenPercentiles: { p50: 312, p90: 748, p95: 1124, p99: 1862 },
-  performance: [
-    ["Latência total","1,4 s","2,1 s","2,7 s","4,8 s"],
-    ["STT (Azure)","0,4 s","0,8 s","1,1 s","2,0 s"],
-    ["LLM (Groq)","0,6 s","1,0 s","1,4 s","2,7 s"],
-    ["TTS (Azure)","0,3 s","0,7 s","1,0 s","1,9 s"],
-  ],
-  waterfall: [
-    ["Upload",0.12],["STT",0.42],["LLM",0.64],["TTS",0.39],["Network / Frontend",0.75],["Total",2.32]
-  ]
-};
-
-function analyticsMoney(value) {
-  return Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+function analyticsMoney(value, currency = "BRL") {
+  const amount = Number(value || 0);
+  return amount.toLocaleString("pt-BR", { style: "currency", currency });
 }
 
 function analyticsIcon(kind) {
@@ -231,197 +186,102 @@ function analyticsIcon(kind) {
     cost: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 8.5c-.8-.7-1.7-1-3-1-1.5 0-2.5.8-2.5 1.8 0 2.7 5.5 1.2 5.5 4 0 1.1-1.1 2-3 2-1.3 0-2.4-.4-3.2-1.1M12 5.5v13"/></svg>',
     latency: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 13h6L11 22l8.5-11H13l0-9Z"/></svg>',
     tokens: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="7.5" ry="3"/><path d="M4.5 5v7c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3V5"/><path d="M4.5 12v7c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-7"/></svg>',
-    audio: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M8 7v10M16 6v12M4 10v4M20 9v6"/></svg>',
   };
   return icons[kind] || icons.api;
 }
 
 function analyticsLineSvg(series, labels) {
-  const W = 560, H = 220, left = 38, right = 8, top = 10, bottom = 28;
-  const iw = W-left-right, ih = H-top-bottom;
-  const max = 2.1, min = 0;
-  const x = i => left + (i * iw / (labels.length - 1));
-  const y = v => top + (max-v) * ih / (max-min);
-  const path = values => values.map((v,i)=>`${i===0?'M':'L'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(" ");
-  const colors = ["#18151a","#6f1428","#7c787d","#c8c5c8"];
-  const keys = ["stt","llm","tts","total"];
-  let svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="Latência média por componente">`;
-  [0,0.5,1,1.5,2].forEach(v=>{
-    svg += `<line x1="${left}" y1="${y(v)}" x2="${W-right}" y2="${y(v)}" stroke="#eceaec" stroke-width="1"/>`;
-    svg += `<text x="${left-7}" y="${y(v)+3}" text-anchor="end" font-size="9" fill="#817b82">${v.toFixed(1)} s</text>`;
-  });
-  labels.forEach((lab,i)=>{
-    if(i % 4 === 0 || i === labels.length-1)
-      svg += `<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="8.5" fill="#817b82">${lab}</text>`;
-  });
-  keys.forEach((key,idx)=>{
-    svg += `<path d="${path(series[key])}" fill="none" stroke="${colors[idx]}" stroke-width="${key==='total'?2.4:2}" stroke-linecap="round" stroke-linejoin="round"/>`;
-  });
-  svg += `</svg>`;
-  return svg;
+  const W=560,H=220,left=38,right=8,top=10,bottom=28;
+  const iw=W-left-right, ih=H-top-bottom;
+  const values=[...(series.stt||[]),...(series.llm||[]),...(series.tts||[]),...(series.total||[])].filter(Number.isFinite);
+  const max=Math.max(2, ...(values.length ? values : [0]));
+  const x=i=>left+(i*Math.max(1,iw/(Math.max(1,labels.length-1))));
+  const y=v=>top+(max-v)*ih/max;
+  const path=values=>values.map((v,i)=>`${i?'L':'M'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+  const colors=["#18151a","#6f1428","#7c787d","#c8c5c8"];
+  const keys=["stt","llm","tts","total"];
+  let svg=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="Latência média por componente">`;
+  for(let i=0;i<=4;i++){const v=max*i/4;svg+=`<line x1="${left}" y1="${y(v)}" x2="${W-right}" y2="${y(v)}" stroke="#eceaec" stroke-width="1"/><text x="${left-7}" y="${y(v)+3}" text-anchor="end" font-size="9" fill="#817b82">${v.toFixed(1)} s</text>`;}
+  labels.forEach((lab,i)=>{if(i%Math.max(1,Math.ceil(labels.length/6))===0||i===labels.length-1)svg+=`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="8.5" fill="#817b82">${lab}</text>`;});
+  keys.forEach((key,i)=>{if((series[key]||[]).length)svg+=`<path d="${path(series[key])}" fill="none" stroke="${colors[i]}" stroke-width="${key==='total'?2.4:2}" stroke-linecap="round" stroke-linejoin="round"/>`;});
+  return svg+'</svg>';
 }
 
-function analyticsPercentileBars(data, labelSuffix=" s") {
-  const max=5.2;
-  return `<div style="height:100%;display:flex;align-items:flex-end;justify-content:space-around;gap:10px;padding:4px 8px 18px;border-bottom:1px solid #dddadd;">
-    ${Object.entries(data).map(([k,v])=>`<div style="height:100%;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;position:relative;">
-      <div style="position:absolute;bottom:${18+(v/max)*156}px;font-size:9px;color:#3d353c;">${v}${labelSuffix}</div>
-      <div style="width:54px;max-width:75%;height:${Math.max(8,(v/max)*156)}px;background:#7c142a;border-radius:3px 3px 0 0;"></div>
-      <div style="font-size:9px;color:#777178;margin-top:6px;">${k.toUpperCase()}</div>
-    </div>`).join("")}
-  </div>`;
+function analyticsPercentileBars(data,labelSuffix=" s") {
+  const entries=Object.entries(data||{});
+  const max=Math.max(0.1,...entries.map(([,v])=>Number(v)||0));
+  return `<div style="height:100%;display:flex;align-items:flex-end;justify-content:space-around;gap:10px;padding:4px 8px 18px;border-bottom:1px solid #dddadd;">${entries.map(([k,v])=>{const n=Number(v)||0;return `<div style="height:100%;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;position:relative;"><div style="position:absolute;bottom:${18+(n/max)*156}px;font-size:9px;color:#3d353c;">${n.toFixed(1).replace('.',',')}${labelSuffix}</div><div style="width:54px;max-width:75%;height:${Math.max(8,(n/max)*156)}px;background:#7c142a;border-radius:3px 3px 0 0;"></div><div style="font-size:9px;color:#777178;margin-top:6px;">${k.toUpperCase()}</div></div>`}).join('')}</div>`;
 }
 
 function analyticsApiBars(data) {
-  const keys=["stt","llm","tts","other"];
-  const colors=["#171419","#6f1428","#aaa7ab","#c9c4c8"];
-  const max=Math.max(...data.labels.map((_,i)=>keys.reduce((s,k)=>s+(data[k][i]||0),0)));
-  return `<div class="analytics-bars">${data.labels.map((lab,i)=>{
-    const total=keys.reduce((s,k)=>s+(data[k][i]||0),0);
-    return `<div class="analytics-bar-group"><div class="analytics-bar-stack" style="height:${(total/max)*178}px;">
-      ${keys.map((k,j)=>`<div class="analytics-bar-segment" style="height:${((data[k][i]||0)/total)*100}%;background:${colors[j]}"></div>`).join("")}
-    </div><span class="analytics-bar-label">${i%3===0||i===data.labels.length-1?lab:""}</span></div>`;
-  }).join("")}</div>`;
+  const keys=["stt","llm","tts","other"], colors=["#171419","#6f1428","#aaa7ab","#c9c4c8"];
+  const max=Math.max(1,...(data.labels||[]).map((_,i)=>keys.reduce((s,k)=>s+(data[k]?.[i]||0),0)));
+  return `<div class="analytics-bars">${(data.labels||[]).map((lab,i)=>{const total=keys.reduce((s,k)=>s+(data[k]?.[i]||0),0);return `<div class="analytics-bar-group"><div class="analytics-bar-stack" style="height:${(total/max)*178}px;">${keys.map((k,j)=>`<div class="analytics-bar-segment" style="height:${total?((data[k]?.[i]||0)/total)*100:0}%;background:${colors[j]}"></div>`).join('')}</div><span class="analytics-bar-label">${i%3===0||i===(data.labels.length-1)?lab:""}</span></div>`}).join('')}</div>`;
 }
 
 function analyticsTokenBars(data) {
-  const max=data.p99;
-  return `<div class="analytics-token-bars">${Object.entries(data).map(([k,v])=>`<div style="height:100%;flex:1;display:flex;align-items:flex-end;justify-content:center;position:relative;">
-    <div class="analytics-token-bar" style="height:${Math.max(12,(v/max)*175)}px;"><span>${v.toLocaleString("pt-BR")}</span></div>
-    <div class="analytics-token-label">${k.toUpperCase()}</div>
-  </div>`).join("")}</div>`;
+  const entries=Object.entries(data||{}), max=Math.max(1,...entries.map(([,v])=>Number(v)||0));
+  return `<div class="analytics-token-bars">${entries.map(([k,v])=>{const n=Number(v)||0;return `<div style="height:100%;flex:1;display:flex;align-items:flex-end;justify-content:center;position:relative;"><div class="analytics-token-bar" style="height:${Math.max(12,(n/max)*175)}px;"><span>${Math.round(n).toLocaleString('pt-BR')}</span></div><div class="analytics-token-label">${k.toUpperCase()}</div></div>`}).join('')}</div>`;
 }
 
-function analyticsWaterfall(data) {
-  const max=2.5;
-  return `<div class="analytics-waterfall">${data.map(([label,value])=>`<div class="analytics-waterfall-item">
-    <div class="analytics-waterfall-bar ${label==="Total"?"total":""}" style="height:${Math.max(10,(value/max)*182)}px;">
-      <span class="analytics-waterfall-value">${value.toFixed(2).replace(".",",")} s</span>
-    </div><span class="analytics-waterfall-label">${label}</span>
-  </div>`).join("")}</div>`;
+function analyticsKpi(label,value,icon,change) {
+  const c=Number(change)||0;
+  const arrow=c>0?'↑':c<0?'↓':'—';
+  return `<div class="analytics-kpi"><div class="analytics-kpi-icon">${analyticsIcon(icon)}</div><div class="analytics-kpi-label">${label}</div><div class="analytics-kpi-value">${value}</div><div class="analytics-kpi-change"><strong>${arrow} ${Math.abs(c).toLocaleString('pt-BR')}%</strong> vs. período anterior</div></div>`;
 }
 
-function analyticsKpi(label, value, icon, change) {
-  return `<div class="analytics-kpi">
-    <div class="analytics-kpi-icon">${analyticsIcon(icon)}</div>
-    <div class="analytics-kpi-label">${label}</div>
-    <div class="analytics-kpi-value">${value}</div>
-    <div class="analytics-kpi-change"><strong>↑ ${change}%</strong> vs. período anterior</div>
-  </div>`;
-}
-
-function analyticsDonut(data, total) {
-  const tones={burgundy:"#7a1028",black:"#171419",gray:"#aaa7ab",pale:"#d3ced2"};
-  let offset=0;
-  const radius=70, circumference=2*Math.PI*radius;
-  const circles=data.map(item=>{
-    const len=circumference*(item.share/100);
-    const el=`<circle cx="92" cy="92" r="${radius}" fill="none" stroke="${tones[item.tone]}" stroke-width="30" stroke-dasharray="${len} ${circumference-len}" stroke-dashoffset="${-circumference*(offset/100)}"></circle>`;
-    offset+=item.share;
-    return el;
-  }).join("");
-  return `<div class="analytics-donut"><svg viewBox="0 0 184 184">${circles}</svg>
-    <div class="analytics-donut-center"><div class="analytics-donut-total">${analyticsMoney(total)}</div><div class="analytics-donut-caption">custo total</div></div></div>`;
+function analyticsDonut(data,total,currency) {
+  const tones={burgundy:'#7a1028',black:'#171419',gray:'#aaa7ab',pale:'#d3ced2'};
+  let offset=0;const radius=70,circumference=2*Math.PI*radius;
+  const circles=(data||[]).map(item=>{const len=circumference*(item.share/100);const el=`<circle cx="92" cy="92" r="${radius}" fill="none" stroke="${tones[item.tone]||tones.gray}" stroke-width="30" stroke-dasharray="${len} ${circumference-len}" stroke-dashoffset="${-circumference*(offset/100)}"></circle>`;offset+=item.share;return el;}).join('');
+  return `<div class="analytics-donut"><svg viewBox="0 0 184 184">${circles}</svg><div class="analytics-donut-center"><div class="analytics-donut-total">${analyticsMoney(total,currency)}</div><div class="analytics-donut-caption">custo total</div></div></div>`;
 }
 
 async function getAnalyticsData() {
-  // Ponto único de integração futura com Azure Cost Management + telemetria
-  // da aplicação. Não consulta preços da Azure no frontend.
-  return ANALYTICS_DEMO;
+  const today=new Date();
+  const start=new Date(today.getFullYear(),today.getMonth(),1);
+  const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return await apiFetch(`/analytics/overview?start=${iso(start)}&end=${iso(today)}`);
 }
 
 async function renderAnalyticsDashboard(container) {
-  container.innerHTML = "";
-  const data = await getAnalyticsData();
-
-  const dashboard = document.createElement("div");
-  dashboard.className = "analytics-dashboard";
-  dashboard.innerHTML = `
-    <div class="analytics-topbar">
-      <div class="analytics-title-wrap">
-        <h1>AI Analytics &amp; Cost Monitoring</h1>
-        <p>Visão geral da performance, custos e uso da plataforma</p>
-      </div>
-      <button class="analytics-date" type="button" title="Período analisado">
-        <span class="date-left">${Icons.calendar || analyticsIcon("api")}<span>01/09/2025 - 30/09/2025</span></span>
-        <span>⌄</span>
-      </button>
-    </div>
-
+  container.innerHTML='';
+  let data;
+  try { data=await getAnalyticsData(); }
+  catch(err){ container.innerHTML=`<div class="analytics-card" style="padding:28px"><h2>AI Analytics &amp; Cost Monitoring</h2><p class="card-desc">Não foi possível carregar os dados reais agora.</p><p style="color:#7a1028;margin-top:10px">${err.message||'Erro ao consultar analytics.'}</p></div>`; return; }
+  const currency=data.currency||'BRL';
+  const p=data.percentiles||{p50:0,p90:0,p95:0,p99:0};
+  const perf=[
+    ['Latência total',p,data.percentiles],
+  ];
+  const rows=[
+    ['Latência total',p.p50,p.p90,p.p95,p.p99],
+    ['STT (Azure)',data.sttPercentiles.p50,data.sttPercentiles.p90,data.sttPercentiles.p95,data.sttPercentiles.p99],
+    ['LLM (Groq)',data.llmPercentiles.p50,data.llmPercentiles.p90,data.llmPercentiles.p95,data.llmPercentiles.p99],
+    ['TTS (Azure)',data.ttsPercentiles.p50,data.ttsPercentiles.p90,data.ttsPercentiles.p95,data.ttsPercentiles.p99],
+  ];
+  const fmtS=v=>`${Number(v||0).toFixed(1).replace('.',',')} s`;
+  const dateText=new Date(data.start+'T12:00:00').toLocaleDateString('pt-BR')+' - '+new Date(data.end+'T12:00:00').toLocaleDateString('pt-BR');
+  const dashboard=document.createElement('div');dashboard.className='analytics-dashboard';
+  dashboard.innerHTML=`
+    <div class="analytics-topbar"><div class="analytics-title-wrap"><h1>AI Analytics &amp; Cost Monitoring</h1><p>Visão geral da performance, custos e uso da plataforma</p></div><button class="analytics-date" type="button" title="Período analisado"><span class="date-left">${Icons.calendar||analyticsIcon('api')}<span>${dateText}</span></span><span>⌄</span></button></div>
     <div class="analytics-kpis">
-      ${analyticsKpi("Alunos ativos", data.activeStudents.toLocaleString("pt-BR"), "users", 12)}
-      ${analyticsKpi("API calls", data.apiCalls.toLocaleString("pt-BR"), "api", 19)}
-      ${analyticsKpi("Custo total", analyticsMoney(data.totalCost), "cost", 14)}
-      ${analyticsKpi("Latência média (total)", data.avgLatency.toFixed(2).replace(".",",")+" s", "latency", 23)}
-      ${analyticsKpi("Tokens utilizados", "4,8 M", "tokens", 27)}
+      ${analyticsKpi('Alunos ativos',(data.activeStudents||0).toLocaleString('pt-BR'),'users',data.changes?.activeStudents)}
+      ${analyticsKpi('API calls',(data.apiCalls||0).toLocaleString('pt-BR'),'api',data.changes?.apiCalls)}
+      ${analyticsKpi('Custo total',analyticsMoney(data.totalCost,currency),'cost',data.changes?.totalCost)}
+      ${analyticsKpi('Latência média (total)',fmtS(data.avgLatency),'latency',data.changes?.avgLatency)}
+      ${analyticsKpi('Tokens utilizados',Number(data.tokens||0).toLocaleString('pt-BR'),'tokens',data.changes?.tokens)}
     </div>
-
     <div class="analytics-grid three">
-      <section class="analytics-card">
-        <h2>Custo por serviço</h2>
-        <p class="card-desc">Distribuição do custo total por serviço</p>
-        <div class="analytics-donut-wrap">
-          ${analyticsDonut(data.costServices, data.totalCost)}
-          <div class="analytics-cost-list">
-            ${data.costServices.map(item=>`<div class="analytics-cost-row">
-              <span class="dot" style="background:${({burgundy:"#7a1028",black:"#171419",gray:"#aaa7ab",pale:"#d3ced2"})[item.tone]}"></span>
-              <span class="analytics-cost-name">${item.name}</span>
-              <span class="analytics-cost-value">${analyticsMoney(item.value)}</span>
-              <span class="analytics-cost-share">${item.share.toFixed(1).replace(".",",")}%</span>
-            </div>`).join("")}
-          </div>
-        </div>
-      </section>
-
-      <section class="analytics-card">
-        <h2>Latência média por componente</h2>
-        <p class="card-desc">Tempo médio de resposta em cada etapa do fluxo</p>
-        <div class="analytics-legend">
-          <span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#171419"></i>STT (Azure)</span>
-          <span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#6f1428"></i>LLM (Groq)</span>
-          <span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#7c787d"></i>TTS (Azure)</span>
-          <span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#c8c5c8"></i>Total</span>
-        </div>
-        <div class="analytics-chart">${analyticsLineSvg(data.latency, data.latency.labels)}</div>
-      </section>
-
-      <section class="analytics-card">
-        <h2>Distribuição da latência (total)</h2>
-        <p class="card-desc">Tempo de resposta completo por turno</p>
-        <div class="analytics-chart">${analyticsPercentileBars(data.percentiles)}</div>
-      </section>
+      <section class="analytics-card"><h2>Custo por serviço</h2><p class="card-desc">Distribuição do custo total por serviço</p><div class="analytics-donut-wrap">${analyticsDonut(data.costServices,data.totalCost,currency)}<div class="analytics-cost-list">${(data.costServices||[]).map(item=>`<div class="analytics-cost-row"><span class="dot" style="background:${({burgundy:'#7a1028',black:'#171419',gray:'#aaa7ab',pale:'#d3ced2'})[item.tone]||'#aaa7ab'}"></span><span class="analytics-cost-name">${item.name}</span><span class="analytics-cost-value">${analyticsMoney(item.value,currency)}</span><span class="analytics-cost-share">${Number(item.share||0).toFixed(1).replace('.',',')}%</span></div>`).join('')}</div></div></section>
+      <section class="analytics-card"><h2>Latência média por componente</h2><p class="card-desc">Tempo médio de resposta em cada etapa do fluxo</p><div class="analytics-legend"><span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#171419"></i>STT (Azure)</span><span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#6f1428"></i>LLM (Groq)</span><span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#7c787d"></i>TTS (Azure)</span><span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#c8c5c8"></i>Total</span></div><div class="analytics-chart">${analyticsLineSvg(data.latencySeries||{},data.latencySeries?.labels||[])}</div></section>
+      <section class="analytics-card"><h2>Distribuição da latência (total)</h2><p class="card-desc">Tempo de resposta completo por turno</p><div class="analytics-chart">${analyticsPercentileBars(p)}</div></section>
     </div>
-
     <div class="analytics-grid second">
-      <section class="analytics-card">
-        <h2>API calls por serviço</h2>
-        <p class="card-desc">Volume de requisições no período</p>
-        <div class="analytics-legend">
-          <span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#171419"></i>STT (Azure)</span>
-          <span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#6f1428"></i>LLM (Groq)</span>
-          <span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#aaa7ab"></i>TTS (Azure)</span>
-          <span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#c9c4c8"></i>Outros</span>
-        </div>
-        ${analyticsApiBars(data.apiCallsSeries)}
-      </section>
-
-      <section class="analytics-card">
-        <h2>Tokens por resposta</h2>
-        <p class="card-desc">Distribuição de tokens gerados (saída)</p>
-        ${analyticsTokenBars(data.tokenPercentiles)}
-      </section>
-
-      <section class="analytics-card">
-        <h2>Resumo de performance</h2>
-        <table class="analytics-table">
-          <thead><tr><th>Métrica</th><th>P50</th><th>P90</th><th>P95</th><th>P99</th></tr></thead>
-          <tbody>${data.performance.map(row=>`<tr>${row.map(cell=>`<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody>
-        </table>
-      </section>
-    </div>
-
-  `;
-
+      <section class="analytics-card"><h2>API calls por serviço</h2><p class="card-desc">Volume de requisições no período</p><div class="analytics-legend"><span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#171419"></i>STT (Azure)</span><span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#6f1428"></i>LLM (Groq)</span><span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#aaa7ab"></i>TTS (Azure)</span><span class="analytics-legend-item"><i class="analytics-legend-dot" style="background:#c9c4c8"></i>Outros</span></div>${analyticsApiBars(data.dailyCalls||{labels:[]})}</section>
+      <section class="analytics-card"><h2>Tokens por resposta</h2><p class="card-desc">Distribuição de tokens gerados (saída)</p>${analyticsTokenBars(data.tokenPercentiles||{})}</section>
+      <section class="analytics-card"><h2>Resumo de performance</h2><table class="analytics-table"><thead><tr><th>Métrica</th><th>P50</th><th>P90</th><th>P95</th><th>P99</th></tr></thead><tbody>${rows.map(row=>`<tr>${row.map((cell,i)=>`<td>${i?fmtS(cell):cell}</td>`).join('')}</tr>`).join('')}</tbody></table></section>
+    </div>`;
   container.appendChild(dashboard);
 }
 

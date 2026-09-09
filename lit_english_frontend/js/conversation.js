@@ -51,6 +51,7 @@ const state = {
   nativeLanguage: "pt",
 
   currentTutorBubbleEl: null,
+  recordingStartedAt: 0,
 
 };
 
@@ -64,6 +65,7 @@ async function sendTurnToServer(audioBlob) {
   formData.append("audio", audioBlob, `fala.${ext}`);
   formData.append("target_language", state.targetLanguage);
   formData.append("native_language", state.nativeLanguage);
+  formData.append("audio_duration", String(Math.max(0, (state.recordingDurationMs || 0) / 1000)));
 
   const token = Auth.getToken();
   let response;
@@ -284,6 +286,8 @@ async function startRecording() {
     state.mediaRecorder.onstop = onRecordingStopped;
 
     state.mediaRecorder.start();
+    state.recordingStartedAt = performance.now();
+    state.recordingDurationMs = 0;
     state.isRecording = true;
     els.micBtn.classList.add("recording");
     setMicStatus("Ouvindo... toque para parar");
@@ -295,6 +299,7 @@ async function startRecording() {
 
 function stopRecording() {
   if (!state.mediaRecorder || !state.isRecording) return;
+  state.recordingDurationMs = Math.max(0, performance.now() - (state.recordingStartedAt || performance.now()));
   state.isRecording = false;
   els.micBtn.classList.remove("recording");
   setMicStatus("Processando sua fala...");

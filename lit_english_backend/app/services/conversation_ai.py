@@ -211,6 +211,9 @@ async def _call_groq(messages: list[dict]) -> dict:
                 data = r.json()
                 content = data["choices"][0]["message"]["content"]
                 parsed = json.loads(content)
+                usage = data.get("usage") or {}
+                input_tokens = int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)
+                output_tokens = int(usage.get("completion_tokens") or usage.get("output_tokens") or 0)
 
                 errors_raw = parsed.get("errors") or []
                 errors = [
@@ -240,6 +243,12 @@ async def _call_groq(messages: list[dict]) -> dict:
                     # Compatibility with older frontend/backend consumers.
                     "feedback_pt_br": feedback_native,
                     "tutor_reply": tutor_reply,
+                    "usage": {
+                        "input_tokens": input_tokens,
+                        "output_tokens": output_tokens,
+                        "total_tokens": input_tokens + output_tokens,
+                        "model": GROQ_MODEL,
+                    },
                 }
             except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as e:
                 last_error = e

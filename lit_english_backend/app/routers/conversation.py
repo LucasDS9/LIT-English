@@ -31,13 +31,17 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import os
 import re
+import time
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
+from sqlalchemy.orm import Session
 
 from app.auth import get_current_approved_user
-from app.models import User, UserRole
+from app.models import AIUsageLog, User, UserRole
+from app.database import get_db
 from app.language import student_language, student_source_language
 from app.routers.pronunciation import transcribe_with_confidence, detect_spoken_language
 
@@ -181,10 +185,13 @@ async def conversation_turn(
     level: str | None = Form(None),
     target_language: str | None = Form(None),
     native_language: str | None = Form(None),
+    audio_duration: float | None = Form(None),
     user: User = Depends(get_current_approved_user),
+    db: Session = Depends(get_db),
 ):
     _require_student(user)
 
+    turn_start = time.perf_counter()
     student_id = str(user.id)
     target = (target_language or student_language(user) or "ingles").strip().lower()
     native = (native_language or student_source_language(user) or "pt").strip().lower()
@@ -200,13 +207,33 @@ async def conversation_turn(
         raise HTTPException(status_code=400, detail="Língua-alvo não suportada para a conversa.")
     if native not in allowed:
         raise HTTPException(status_code=400, detail="Língua nativa não suportada para a conversa.")
+    upload_start = time.perf_counter()
     audio_bytes = await audio.read()
+    upload_ms = (time.perf_counter() - upload_start) * 1000
+    audio_seconds = max(0.0, float(audio_duration or 0.0))
 
     if len(audio_bytes) < _MIN_AUDIO_BYTES:
         raise HTTPException(
             status_code=400,
             detail="Áudio muito curto. Segure o botão e fale um pouco mais.",
         )
+
+    def _record(status: str, error_type: str | None = None, **extra):
+        try:
+            db.add(AIUsageLog(
+                student_id=user.id,
+                endpoint="conversation/turn",
+                status=status,
+                error_type=error_type,
+                upload_ms=upload_ms,
+                total_ms=(time.perf_counter() - turn_start) * 1000,
+                audio_seconds=audio_seconds,
+                **extra,
+            ))
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.warning("Falha ao registrar telemetria do turno", exc_info=True)
 
     # 1) Transcrição -- normalmente na língua-alvo, mas fazemos uma segunda
     #    leitura na língua nativa quando as duas são diferentes, MAIS uma
@@ -228,8 +255,9 @@ async def conversation_turn(
     _HIGH_CONFIDENCE_SKIP_BILINGUAL = 0.85
 
     try:
-        target_transcript, target_confidence = await asyncio.to_thread(
-            transcribe_with_confidence, audio_bytes, _speech_language(target)
+        stt_start = time.perf_counter()
+        target_transcript, target_confidence, target_provider = await asyncio.to_thread(
+            transcribe_with_confidence, audio_bytes, _speech_language(target), True
         )
 
         native_transcript = ""
@@ -262,6 +290,7 @@ async def conversation_turn(
                 await asyncio.gather(_native_transcript_task(), _detect_language_task())
             )
 
+        stt_ms = (time.perf_counter() - stt_start) * 1000
         student_transcript = _pick_bilingual_transcript(
             target_transcript,
             native_transcript,
@@ -274,6 +303,7 @@ async def conversation_turn(
         )
     except Exception:
         logger.exception("Falha na transcrição do áudio (aluno=%s)", student_id)
+        _record("error", "stt")
         raise HTTPException(
             status_code=502,
             detail="Não consegui processar o áudio agora. Tente novamente em alguns segundos.",
@@ -281,6 +311,7 @@ async def conversation_turn(
 
     raw_transcript = _clean_transcript(student_transcript)
     if not raw_transcript:
+        _record("error", "empty_transcript", stt_ms=stt_ms, stt_provider=target_provider, stt_fallback=(target_provider == "whisper"))
         raise HTTPException(
             status_code=422,
             detail="Não consegui entender o que você disse. Tente falar mais perto do microfone, num lugar mais silencioso.",
@@ -299,6 +330,7 @@ async def conversation_turn(
     #    instruído a reinterpretar prováveis erros de reconhecimento de voz
     #    usando o contexto da conversa (ver understood_transcript no prompt),
     #    então é ele quem decide a versão final "entendida" da fala.
+    llm_start = time.perf_counter()
     try:
         result = await get_tutor_turn(
             student_name=user.name,
@@ -309,11 +341,14 @@ async def conversation_turn(
             native_language=session.native_language,
         )
     except ConversationAiUnavailable:
+        llm_ms = (time.perf_counter() - llm_start) * 1000
         logger.exception("IA de conversa indisponível (aluno=%s)", student_id)
+        _record("error", "llm", stt_ms=stt_ms, stt_provider=target_provider, stt_fallback=(target_provider == "whisper"), llm_ms=llm_ms, llm_provider="groq", llm_model=os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b"))
         raise HTTPException(
             status_code=502,
             detail="A IA está indisponível no momento. Tente novamente em instantes.",
         )
+    llm_ms = (time.perf_counter() - llm_start) * 1000
 
     # A partir daqui, usamos a versão "entendida" (corrigida pelo contexto)
     # como o texto oficial do turno -- tanto pro que aparece na tela quanto
@@ -344,11 +379,33 @@ async def conversation_turn(
     # 3) Áudio da resposta do tutor (best-effort -- se o TTS falhar, ainda
     #    devolvemos texto + análise; o frontend só não toca áudio automático).
     tutor_audio_b64 = None
+    tts_start = time.perf_counter()
+    tts_error = None
     try:
         audio_bytes_reply = await synthesize_speech(tutor_reply, _tts_locale(target))
         tutor_audio_b64 = base64.b64encode(audio_bytes_reply).decode("ascii")
-    except Exception:
+    except Exception as exc:
+        tts_error = type(exc).__name__
         logger.warning("Falha ao gerar áudio da resposta do tutor (aluno=%s)", student_id, exc_info=True)
+    tts_ms = (time.perf_counter() - tts_start) * 1000
+
+    usage = result.get("usage") or {}
+    _record(
+        "partial" if tts_error else "success",
+        tts_error,
+        stt_ms=stt_ms,
+        stt_provider=target_provider,
+        stt_fallback=(target_provider == "whisper"),
+        llm_ms=llm_ms,
+        llm_provider="groq",
+        llm_model=usage.get("model") or os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b"),
+        input_tokens=int(usage.get("input_tokens") or 0),
+        output_tokens=int(usage.get("output_tokens") or 0),
+        total_tokens=int(usage.get("total_tokens") or 0),
+        tts_ms=tts_ms,
+        tts_provider="azure" if tutor_audio_b64 else None,
+        tts_characters=len(tutor_reply),
+    )
 
     return {
         "student_transcript": student_transcript,
