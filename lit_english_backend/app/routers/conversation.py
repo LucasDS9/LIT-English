@@ -28,7 +28,6 @@ Endpoints:
 
 from __future__ import annotations
 
-import asyncio
 import base64
 import logging
 import re
@@ -214,53 +213,27 @@ async def conversation_turn(
     #    o sinal decisivo de verdade -- é isso que permite entender o aluno
     #    falando inteiramente na língua nativa, sem nenhuma fórmula de ajuda,
     #    e sem depender de heurística de confiança frágil.
-    #
-    #    Duas otimizações de latência aqui:
-    #      a) a segunda transcrição (língua nativa) e a detecção automática
-    #         de idioma (Whisper local, rodando em CPU) não dependem uma da
-    #         outra -- antes rodavam em série, agora rodam em paralelo com
-    #         asyncio.gather (via to_thread, já que as duas são bloqueantes).
-    #      b) se a transcrição na língua-alvo já veio com confiança alta, o
-    #         áudio quase certamente NÃO é um pedido de ajuda na língua
-    #         nativa nem uma fala mista -- pulamos a segunda transcrição e o
-    #         Whisper LID inteiramente, que juntos são o trecho mais caro
-    #         do turno.
-    _HIGH_CONFIDENCE_SKIP_BILINGUAL = 0.85
-
     try:
-        target_transcript, target_confidence = await asyncio.to_thread(
-            transcribe_with_confidence, audio_bytes, _speech_language(target)
+        target_transcript, target_confidence = transcribe_with_confidence(
+            audio_bytes, _speech_language(target)
         )
-
         native_transcript = ""
         native_confidence: float | None = None
+        if native != target:
+            try:
+                native_transcript, native_confidence = transcribe_with_confidence(
+                    audio_bytes, _speech_language(native)
+                )
+            except Exception:
+                logger.warning("Falha na segunda transcrição na língua nativa", exc_info=True)
+
         detected_language: str | None = None
         detected_probability = 0.0
-
-        needs_bilingual_check = native != target and (
-            target_confidence is None or target_confidence < _HIGH_CONFIDENCE_SKIP_BILINGUAL
-        )
-
-        if needs_bilingual_check:
-            async def _native_transcript_task():
-                try:
-                    return await asyncio.to_thread(
-                        transcribe_with_confidence, audio_bytes, _speech_language(native)
-                    )
-                except Exception:
-                    logger.warning("Falha na segunda transcrição na língua nativa", exc_info=True)
-                    return "", None
-
-            async def _detect_language_task():
-                try:
-                    return await asyncio.to_thread(detect_spoken_language, audio_bytes)
-                except Exception:
-                    logger.warning("Falha na detecção automática de idioma", exc_info=True)
-                    return None, 0.0
-
-            (native_transcript, native_confidence), (detected_language, detected_probability) = (
-                await asyncio.gather(_native_transcript_task(), _detect_language_task())
-            )
+        if native != target:
+            try:
+                detected_language, detected_probability = detect_spoken_language(audio_bytes)
+            except Exception:
+                logger.warning("Falha na detecção automática de idioma", exc_info=True)
 
         student_transcript = _pick_bilingual_transcript(
             target_transcript,
@@ -296,7 +269,7 @@ async def conversation_turn(
 
     # 2) Análise gramatical + resposta do tutor (uma única chamada de IA em texto)
     try:
-        result = await get_tutor_turn(
+        result = get_tutor_turn(
             student_name=user.name,
             student_text=student_transcript,
             history=session.history_for_ai(),

@@ -25,12 +25,12 @@ corretores da plataforma).
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
+import time
 
-import httpx
+import requests
 
 logger = logging.getLogger("lit.conversation_ai")
 
@@ -40,14 +40,6 @@ GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 # Erros de rede/timeout/5xx costumam ser passageiros -- vale tentar de novo
 # antes de desistir (mesmo critério usado em ai_judge.py).
 _MAX_RETRIES = 2
-
-# Temperature mais alta e mais espaço de tokens deixam o "tutor_reply" menos
-# mecânico/repetitivo. A análise gramatical (campo "errors") continua sendo
-# extraída do MESMO JSON, mas por ser um julgamento objetivo (achar erro x
-# não achar) tolera bem essa temperature -- quem ganha variedade é a parte
-# de conversa.
-_TEMPERATURE = 0.7
-_MAX_TOKENS = 900
 
 # Quantos turnos anteriores (aluno + tutor) mandar como contexto pra IA
 # conseguir dar continuidade real à conversa, sem deixar o prompt gigante.
@@ -94,25 +86,9 @@ Sua tarefa tem duas partes:
 
 2) CONTINUAÇÃO DA CONVERSA (campo "tutor_reply"):
    - Responda EXCLUSIVAMENTE na língua-alvo {target_language}.
-   - Seja natural, caloroso e variado no tom -- evite soar como um roteiro fixo ou repetir a
-     mesma estrutura de frase toda vez ("That's interesting! Tell me more about..." em todo turno
-     é o tipo de coisa a EVITAR).
-   - NÃO faça uma pergunta genérica de continuidade. Pegue um detalhe CONCRETO que o aluno
-     mencionou (um nome, lugar, opinião, sentimento) e reaja a esse detalhe especificamente --
-     comente, questione ou brinque com ele antes de, se fizer sentido, perguntar algo novo.
-   - Varie a forma da resposta: às vezes uma reação curta + pergunta, às vezes um comentário sem
-     pergunta nenhuma, às vezes compartilhar uma opinião própria breve. Uma conversa real não é
-     uma pergunta atrás da outra.
+   - Seja natural, curto, gentil e adequado ao nível do aluno.
    - Não repita a correção gramatical em voz alta.
-   - Ajuste a complexidade do vocabulário e das estruturas ao nível do aluno, mas sem infantilizar.
-
-Exemplos do tipo de "tutor_reply" esperado (aluno praticando inglês; NÃO copie o texto, é só pra
-ilustrar tom e variedade -- reaja sempre ao que o SEU aluno disse):
-- Aluno disse que foi mal numa prova: "Ugh, that's the worst feeling. Was it the material itself,
-  or just not enough time to study?"
-- Aluno disse que gosta de futebol e torce pro Flamengo: "No way, a Flamengo fan! I've heard their
-  fans are some of the loudest in the world. Have you been to a game at the stadium?"
-- Aluno só disse "eu não sei": "Totally fine -- no pressure. Want to talk about your day instead?"
+   - Continue o assunto trazido pelo aluno e faça uma pergunta de acompanhamento quando fizer sentido.
 
 Se a fala estiver vazia ou incompreensível, deixe errors vazio, escreva feedback_native na língua nativa
 e peça gentilmente para o aluno repetir em {target_language}.
@@ -146,7 +122,7 @@ def _build_messages(
     return messages
 
 
-async def _call_groq(messages: list[dict]) -> dict:
+def _call_groq(messages: list[dict]) -> dict:
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         raise ConversationAiUnavailable("GROQ_API_KEY não configurada.")
@@ -154,67 +130,67 @@ async def _call_groq(messages: list[dict]) -> dict:
     payload = {
         "model": GROQ_MODEL,
         "messages": messages,
-        "temperature": _TEMPERATURE,
-        "max_tokens": _MAX_TOKENS,
+        "temperature": 0.4,
+        "max_tokens": 700,
         "response_format": {"type": "json_object"},
     }
 
     last_error: Exception | None = None
-    async with httpx.AsyncClient(timeout=25.0) as client:
-        for attempt in range(_MAX_RETRIES + 1):
-            try:
-                r = await client.post(
-                    GROQ_API_URL,
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json=payload,
-                )
-                r.raise_for_status()
-                data = r.json()
-                content = data["choices"][0]["message"]["content"]
-                parsed = json.loads(content)
+    for attempt in range(_MAX_RETRIES + 1):
+        try:
+            r = requests.post(
+                GROQ_API_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=25,
+            )
+            r.raise_for_status()
+            data = r.json()
+            content = data["choices"][0]["message"]["content"]
+            parsed = json.loads(content)
 
-                errors_raw = parsed.get("errors") or []
-                errors = [
-                    {
-                        "wrong_fragment": str(e.get("wrong_fragment", "")),
-                        "correct_fragment": str(e.get("correct_fragment", "")),
-                        "explanation_native": str(
-                            e.get("explanation_native", e.get("explanation_pt_br", ""))
-                        ),
-                    }
-                    for e in errors_raw
-                    if isinstance(e, dict) and e.get("wrong_fragment")
-                ]
-
-                tutor_reply = str(parsed.get("tutor_reply", "")).strip()
-                if not tutor_reply:
-                    raise ValueError("Resposta da IA sem o campo 'tutor_reply'.")
-
-                feedback_native = str(
-                    parsed.get("feedback_native", parsed.get("feedback_pt_br", ""))
-                ).strip()
-                return {
-                    "errors": errors,
-                    "corrected_sentence": str(parsed.get("corrected_sentence", "")).strip(),
-                    "feedback_native": feedback_native,
-                    # Compatibility with older frontend/backend consumers.
-                    "feedback_pt_br": feedback_native,
-                    "tutor_reply": tutor_reply,
+            errors_raw = parsed.get("errors") or []
+            errors = [
+                {
+                    "wrong_fragment": str(e.get("wrong_fragment", "")),
+                    "correct_fragment": str(e.get("correct_fragment", "")),
+                    "explanation_native": str(
+                        e.get("explanation_native", e.get("explanation_pt_br", ""))
+                    ),
                 }
-            except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as e:
-                last_error = e
-                if attempt < _MAX_RETRIES:
-                    logger.info("Tentativa %d da Conversa IA falhou, tentando de novo: %s", attempt + 1, e)
-                    await asyncio.sleep(0.6)
-                    continue
+                for e in errors_raw
+                if isinstance(e, dict) and e.get("wrong_fragment")
+            ]
+
+            tutor_reply = str(parsed.get("tutor_reply", "")).strip()
+            if not tutor_reply:
+                raise ValueError("Resposta da IA sem o campo 'tutor_reply'.")
+
+            feedback_native = str(
+                parsed.get("feedback_native", parsed.get("feedback_pt_br", ""))
+            ).strip()
+            return {
+                "errors": errors,
+                "corrected_sentence": str(parsed.get("corrected_sentence", "")).strip(),
+                "feedback_native": feedback_native,
+                # Compatibility with older frontend/backend consumers.
+                "feedback_pt_br": feedback_native,
+                "tutor_reply": tutor_reply,
+            }
+        except (requests.RequestException, KeyError, ValueError, json.JSONDecodeError) as e:
+            last_error = e
+            if attempt < _MAX_RETRIES:
+                logger.info("Tentativa %d da Conversa IA falhou, tentando de novo: %s", attempt + 1, e)
+                time.sleep(0.6)
+                continue
 
     raise ConversationAiUnavailable(f"Falha ao consultar a API da Groq: {last_error}") from last_error
 
 
-async def get_tutor_turn(
+def get_tutor_turn(
     student_name: str,
     student_text: str,
     history: list[dict],
@@ -240,4 +216,4 @@ async def get_tutor_turn(
     messages = _build_messages(
         student_name, level, history, student_text, target_language, native_language
     )
-    return await _call_groq(messages)
+    return _call_groq(messages)
