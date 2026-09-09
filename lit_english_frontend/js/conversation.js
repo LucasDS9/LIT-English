@@ -27,6 +27,7 @@ const els = {
   lockedBox: document.getElementById("conv-locked"),
   workspace: document.getElementById("conv-workspace"),
   chatScroll: document.getElementById("chat-scroll"),
+  analysisColumn: document.getElementById("analysis-column"),
   micBtn: document.getElementById("mic-btn"),
   micStatus: document.getElementById("mic-status"),
 };
@@ -159,26 +160,10 @@ function addStudentBubble(text, analysis = null) {
   const node = tpl.content.firstElementChild.cloneNode(true);
   node.querySelector(".bubble-text").textContent = text;
 
-  if (analysis) {
-    const analysisWrap = node.querySelector(".inline-analysis");
-    const analysisBtn = node.querySelector(".ver-analise-btn");
-    const analysisBody = node.querySelector(".inline-analysis-body");
-    analysisWrap.hidden = false;
-
-    analysisBtn.addEventListener("click", () => {
-      const opening = analysisBody.hidden;
-      if (opening && !analysisBody.innerHTML) {
-        analysisBody.innerHTML = buildAnalysisMarkup(analysis);
-      }
-      analysisBody.hidden = !opening;
-      analysisBtn.classList.toggle("is-open", opening);
-      analysisBtn.innerHTML = opening
-        ? 'Ocultar análise <span class="chev-down">⌃</span>'
-        : 'Ver análise <span class="chev-down">⌄</span>';
-      scrollChatToBottom();
-    });
-  } else {
-    node.querySelector(".inline-analysis").remove();
+  // A análise continua usando exatamente os dados devolvidos pelo backend,
+  // mas é renderizada no painel lateral para manter o chat limpo.
+  if (analysis && els.analysisColumn) {
+    els.analysisColumn.appendChild(buildAnalysisCard(analysis, text));
   }
 
   els.chatScroll.appendChild(node);
@@ -186,16 +171,22 @@ function addStudentBubble(text, analysis = null) {
   return node;
 }
 
-function buildAnalysisMarkup(analysis) {
-  const sentence = analysis.student_transcript || "";
-  const errors = analysis.errors || [];
+function buildAnalysisCard(analysis, fallbackSentence = "") {
+  const card = document.createElement("article");
+  card.className = "analysis-card";
+
+  const sentence = analysis.student_transcript || fallbackSentence || "";
+  const errors = Array.isArray(analysis.errors) ? analysis.errors : [];
 
   let highlightedSentence = escapeHtml(sentence);
   errors.forEach((err) => {
-    if (!err.wrong_fragment) return;
+    if (!err || !err.wrong_fragment) return;
     const safe = escapeHtml(err.wrong_fragment);
     const re = new RegExp(escapeRegExp(safe), "i");
-    highlightedSentence = highlightedSentence.replace(re, `<span class="wrong">${safe}</span>`);
+    highlightedSentence = highlightedSentence.replace(
+      re,
+      `<span class="wrong">${safe}</span>`
+    );
   });
 
   const feedbackItems = errors.map((err, idx) => `
@@ -203,29 +194,42 @@ function buildAnalysisMarkup(analysis) {
       <span class="feedback-index">${idx + 1}.</span>
       <div>
         <span class="feedback-diff">
-          <span class="wrong">${escapeHtml(err.wrong_fragment)}</span>
+          <span class="wrong">${escapeHtml(err.wrong_fragment || "")}</span>
           <span class="arrow">→</span>
-          <span class="right">${escapeHtml(err.correct_fragment)}</span>
+          <span class="right">${escapeHtml(err.correct_fragment || "")}</span>
         </span>
         <span class="feedback-reason">${escapeHtml(err.explanation_native || err.explanation_pt_br || "")}</span>
       </div>
     </li>
   `).join("");
 
-  return `
-    <div class="analysis-sentence">${highlightedSentence || "-"}</div>
-    <div class="analysis-correction">
-      <div class="analysis-section-title">Correção</div>
-      ${escapeHtml(analysis.corrected_sentence || "-")}
+  const correction = analysis.corrected_sentence || "-";
+  const feedback = feedbackItems || "<li>Nenhum erro encontrado.</li>";
+
+  card.innerHTML = `
+    <div class="analysis-card-header">${escapeHtml(sentence || "-")}</div>
+    <div class="analysis-card-body">
+      <div class="analysis-field">
+        <div class="analysis-section-title">Sua resposta</div>
+        <div class="analysis-value analysis-sentence">${highlightedSentence || "-"}</div>
+      </div>
+      <div class="analysis-field">
+        <div class="analysis-section-title">Correção</div>
+        <div class="analysis-value analysis-correction">${escapeHtml(correction)}</div>
+      </div>
+      <div class="analysis-field">
+        <div class="analysis-section-title">Feedback</div>
+        <ul class="analysis-feedback-list">${feedback}</ul>
+      </div>
     </div>
-    <div>
-      <div class="analysis-section-title">Feedback</div>
-      <ul class="analysis-feedback-list">
-        ${feedbackItems || "<li>Nenhum erro encontrado. 🎉</li>"}
-      </ul>
-    </div>
-    ${(analysis.feedback_native || analysis.feedback_pt_br) ? `<div class="analysis-overall-feedback">${escapeHtml(analysis.feedback_native || analysis.feedback_pt_br)}</div>` : ""}
   `;
+
+  return card;
+}
+
+function buildAnalysisMarkup(analysis) {
+  // Mantido para compatibilidade com eventuais chamadas antigas.
+  return buildAnalysisCard(analysis).innerHTML;
 }
 
 // =========================================================================
