@@ -139,74 +139,111 @@
 
 /* -------- análise embutida em cada mensagem do aluno -------- */
 
-.inline-analysis {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255,255,255,.24);
+/* A análise faz parte da própria mensagem do aluno, mas visualmente segue
+   o mesmo padrão leve do card de análise da versão original: cabeçalho vinho,
+   corpo branco e campos cinza claros. Não há um card dentro de outro card. */
+.student-bubble {
+  align-self: flex-end;
+  width: min(320px, 68%);
+  max-width: 320px;
+  padding: 0;
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(20, 20, 20, 0.04);
 }
 
-.ver-analise-btn {
-  display: none;
+.student-bubble .bubble-text {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: pre-wrap;
 }
+
+.inline-analysis {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: #fff;
+}
+
+.ver-analise-btn { display: none; }
 
 .inline-analysis-body {
   display: block;
-  margin-top: 0;
-  padding: 14px;
-  border-radius: 11px;
+  margin: 0;
+  padding: 13px 14px 15px;
+  border: 0;
+  border-radius: 0;
   background: #fff;
   color: var(--text);
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1.45;
   text-align: left;
 }
 
-.inline-analysis-body[hidden], .inline-analysis[hidden] { display: block; }
+.inline-analysis-body[hidden],
+.inline-analysis[hidden] { display: block; }
 
-.inline-analysis-body .analysis-sentence {
-  padding: 9px 11px;
-  border: 1px solid #E8ECF0;
-  border-radius: 8px;
-  background: #F7F8F9;
-  margin-bottom: 11px;
-  color: var(--text);
+.inline-analysis-body .analysis-section {
+  margin: 0 0 11px;
 }
 
-.inline-analysis-body .analysis-correction {
-  padding: 9px 11px;
-  border: 1px solid #E8ECF0;
-  border-radius: 8px;
-  background: #F7F8F9;
-  margin-bottom: 11px;
+.inline-analysis-body .analysis-section:last-child {
+  margin-bottom: 0;
 }
 
 .inline-analysis-body .analysis-section-title {
-  font-size: 10px;
+  margin: 0 0 5px;
+  font-size: 9.5px;
+  line-height: 1.2;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: .55px;
+  letter-spacing: .5px;
   color: var(--primary);
-  margin-bottom: 5px;
+}
+
+.inline-analysis-body .analysis-field {
+  padding: 8px 10px;
+  border: 1px solid #e5e8eb;
+  border-radius: 7px;
+  background: #f5f6f7;
+  color: var(--text);
+  min-height: 16px;
 }
 
 .inline-analysis-body .analysis-feedback-list {
   margin: 0;
-  padding-left: 20px;
+  padding: 0;
+  list-style: none;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
+.inline-analysis-body .analysis-feedback-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 12.5px;
+}
+
+.inline-analysis-body .feedback-index {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--primary);
+}
+
 .inline-analysis-body .feedback-diff {
   display: block;
   font-weight: 700;
-}
-
-.inline-analysis-body .feedback-reason {
-  display: block;
-  margin-top: 2px;
-  color: var(--text-muted);
-  font-size: 12px;
+  line-height: 1.35;
 }
 
 .inline-analysis-body .wrong {
@@ -219,19 +256,27 @@
 }
 
 .inline-analysis-body .arrow {
-  color: var(--text-muted);
+  color: #999;
   margin: 0 4px;
+  font-weight: 400;
+}
+
+.inline-analysis-body .feedback-reason {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  line-height: 1.4;
 }
 
 .inline-analysis-body .analysis-correct-feedback {
   color: var(--text-secondary);
-  list-style: none;
-  margin-left: -20px;
 }
 
-.inline-analysis-body .analysis-overall-feedback {
-  display: none;
-}
+.inline-analysis-body .analysis-overall-feedback { display: none; }
+
+/* Compatibilidade: nenhum painel lateral deve reaparecer. */
+.analysis-panel { display: none !important; }
 
 /* ============== MIC BAR ============== */
 

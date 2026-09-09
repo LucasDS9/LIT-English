@@ -202,15 +202,15 @@ function buildAnalysisMarkup(analysis) {
   `).join("");
 
   return `
-    <div class="analysis-sentence">
+    <div class="analysis-section">
       <div class="analysis-section-title">Sua resposta</div>
-      ${highlightedSentence || "-"}
+      <div class="analysis-field">${highlightedSentence || "-"}</div>
     </div>
-    <div class="analysis-correction">
+    <div class="analysis-section">
       <div class="analysis-section-title">Correção</div>
-      ${escapeHtml(analysis.corrected_sentence || "-")}
+      <div class="analysis-field">${escapeHtml(analysis.corrected_sentence || "-")}</div>
     </div>
-    <div>
+    <div class="analysis-section">
       <div class="analysis-section-title">Feedback</div>
       <ul class="analysis-feedback-list">
         ${feedbackItems || '<li class="analysis-correct-feedback">Nenhum erro encontrado.</li>'}
