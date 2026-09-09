@@ -491,6 +491,22 @@ function advanceToNextCard() {
   }
 }
 
+// Quando um card muda de "forma" dentro do mesmo ciclo (Aprendendo -> type_pt
+// -> type_speak), o SM-2 já agenda um `next_review` futuro para essa etapa
+// (correto para o histórico/estatística), mas isso não deve fazer o card
+// sumir da sessão atual — o aluno precisa ver a nova forma agora, não só
+// amanhã. Por isso, em vez de só avançar para o próximo item da lista local,
+// reinserimos o MESMO flashcard (já com o novo status/mode vindos da API)
+// logo depois da posição atual, para que ele reapareça ainda nesta sessão.
+function reinsertCardWithNewMode(card, result) {
+  const updatedCard = {
+    ...card,
+    status: result.review_status ?? card.status,
+    mode: result.review_mode ?? card.mode,
+  };
+  session.cards.splice(session.index + 1, 0, updatedCard);
+}
+
 function renderCard() {
   const card = session.cards[session.index];
   reviewArea.innerHTML = "";
@@ -953,6 +969,12 @@ async function submitTypedAnswer(card, input, feedback, submitBtn) {
       feedback.textContent = `Resposta correta: ${result.correct_answer}`;
     }
 
+    // Acertou o type_pt -> virou type_speak. É uma etapa intermediária do
+    // mesmo ciclo, então o card deve reaparecer AGORA, na nova forma, em
+    // vez de sumir até o próximo dia (ver reinsertCardWithNewMode acima).
+    if (result.correct && result.review_mode === "type_speak" && card.mode === "type_pt") {
+      reinsertCardWithNewMode(card, result);
+    }
 
     setTimeout(() => advanceToNextCard(), 900);
   } catch (err) {
@@ -971,11 +993,19 @@ async function submitReview(flashcardId, quality, qualityRow) {
   qualityRow.querySelectorAll("button").forEach((b) => (b.disabled = true));
 
   try {
-    await apiFetch(`/flashcards/review/${flashcardId}`, {
+    const result = await apiFetch(`/flashcards/review/${flashcardId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ quality }),
     });
+
+    // Aprendendo -> Dominando (type_pt) é etapa intermediária do mesmo
+    // ciclo: reaparece agora, não só no próximo dia (ver
+    // reinsertCardWithNewMode acima).
+    const card = session.cards[session.index];
+    if (card && card.status !== "dominando" && result.review_status === "dominando") {
+      reinsertCardWithNewMode(card, result);
+    }
 
     advanceToNextCard();
   } catch (err) {
