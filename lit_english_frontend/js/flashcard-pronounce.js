@@ -261,9 +261,7 @@ const FlashcardPronounce = (() => {
       topicLabel.textContent = wordSplit.label;
       back.appendChild(topicLabel);
     }
-    phrase.innerHTML = normalized.hasAssessment
-      ? colorizePhrase(wordSplit.text, normalized.wordScores)
-      : escapeHtml(wordSplit.text);
+    phrase.innerHTML = colorizePhrase(wordSplit.text, normalized.wordScores);
     back.appendChild(phrase);
 
     const divider = document.createElement("div");
@@ -287,10 +285,8 @@ const FlashcardPronounce = (() => {
 
     const scoreSection = document.createElement("div");
     scoreSection.className = "pronunciation-score-section";
-    if (normalized.hasAssessment) {
-      scoreSection.innerHTML = `<p class="pronunciation-score-label">Sua pronúncia</p>`;
-      scoreSection.appendChild(buildScoreRing(displayScore, normalized.tier));
-    }
+    scoreSection.innerHTML = `<p class="pronunciation-score-label">Sua pronúncia</p>`;
+    scoreSection.appendChild(buildScoreRing(displayScore, normalized.tier));
 
     const feedback = document.createElement("div");
     feedback.className = `pronunciation-ai-feedback ${normalized.tier.className}`;
@@ -309,7 +305,7 @@ const FlashcardPronounce = (() => {
     const listenBtn = document.createElement("button");
     listenBtn.type = "button";
     listenBtn.className = "btn btn-outline pronunciation-listen-btn";
-    listenBtn.innerHTML = `${Icons.volume}<span>Ouvir pronúncia correta</span>`;
+    listenBtn.innerHTML = `${Icons.volume}<span>Ouvir pronúncia</span>`;
     listenBtn.addEventListener("click", () => onListen(listenBtn));
     back.appendChild(listenBtn);
 
@@ -329,6 +325,8 @@ const FlashcardPronounce = (() => {
     translationText,
     pronunciationResult,
     onListen,
+    onRetryReady,
+    retryLabel = "Testar novamente",
   }) {
     if (!container) return;
     const normalized = normalizePronunciationResult(pronunciationResult);
@@ -347,9 +345,7 @@ const FlashcardPronounce = (() => {
       topicLabel.textContent = phraseSplit.label;
       container.appendChild(topicLabel);
     }
-    phrase.innerHTML = normalized.hasAssessment
-      ? colorizePhrase(phraseSplit.text, normalized.wordScores)
-      : escapeHtml(phraseSplit.text);
+    phrase.innerHTML = colorizePhrase(phraseSplit.text, normalized.wordScores);
     container.appendChild(phrase);
 
     if (translationText) {
@@ -361,10 +357,8 @@ const FlashcardPronounce = (() => {
 
     const scoreSection = document.createElement("div");
     scoreSection.className = "pronunciation-score-section";
-    if (normalized.hasAssessment) {
-      scoreSection.innerHTML = `<p class="pronunciation-score-label">Sua pronúncia</p>`;
-      scoreSection.appendChild(buildScoreRing(displayScore, normalized.tier));
-    }
+    scoreSection.innerHTML = `<p class="pronunciation-score-label">Sua pronúncia</p>`;
+    scoreSection.appendChild(buildScoreRing(displayScore, normalized.tier));
 
     const feedback = document.createElement("div");
     feedback.className = `pronunciation-ai-feedback ${normalized.tier.className}`;
@@ -380,13 +374,29 @@ const FlashcardPronounce = (() => {
     scoreSection.appendChild(feedback);
     container.appendChild(scoreSection);
 
-    if (onListen) {
-      const listenBtn = document.createElement("button");
-      listenBtn.type = "button";
-      listenBtn.className = "btn btn-outline pronunciation-listen-btn";
-      listenBtn.innerHTML = `${Icons.volume}<span>Ouvir pronúncia correta</span>`;
-      listenBtn.addEventListener("click", () => onListen(listenBtn));
-      container.appendChild(listenBtn);
+    if (onListen || onRetryReady) {
+      const actionsRow = document.createElement("div");
+      actionsRow.className = "pronunciation-actions-row";
+
+      if (onListen) {
+        const listenBtn = document.createElement("button");
+        listenBtn.type = "button";
+        listenBtn.className = "btn btn-outline pronunciation-listen-btn";
+        listenBtn.innerHTML = `${Icons.volume}<span>Ouvir pronúncia</span>`;
+        listenBtn.addEventListener("click", () => onListen(listenBtn));
+        actionsRow.appendChild(listenBtn);
+      }
+
+      if (onRetryReady) {
+        const retryBtn = document.createElement("button");
+        retryBtn.type = "button";
+        retryBtn.className = "btn btn-outline pronunciation-listen-btn pronunciation-retry-btn";
+        retryBtn.innerHTML = buildMicButtonContent(retryLabel);
+        actionsRow.appendChild(retryBtn);
+        onRetryReady(retryBtn);
+      }
+
+      container.appendChild(actionsRow);
     }
   }
 

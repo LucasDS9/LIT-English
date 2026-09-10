@@ -1866,6 +1866,28 @@ svg {
   stroke: currentColor;
 }
 
+.pronunciation-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+  max-width: 420px;
+  margin-top: 4px;
+}
+
+.pronunciation-actions-row .pronunciation-listen-btn {
+  flex: 1 1 160px;
+  width: auto;
+  max-width: none;
+  margin-top: 0;
+}
+
+.pronunciation-retry-btn .mic-icon-wrap svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+}
+
 @keyframes continueNudge {
   0%, 100% {
     transform: translateY(-50%) translateX(0);
