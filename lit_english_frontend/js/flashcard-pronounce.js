@@ -96,11 +96,15 @@ const FlashcardPronounce = (() => {
     });
   }
 
-  /** Usa apenas score e word_scores reais da Azure — sem estimativas. */
+  /** Usa apenas score e word_scores reais da Azure — sem estimativas.
+   *  Quando a Azure não está disponível (score null), a IA ainda avalia se
+   *  a frase dita bate com a esperada (result.correct) -- isso vira a base
+   *  do tier/feedback aqui, em vez de cair sempre no vermelho "errado". */
   function normalizePronunciationResult(result) {
     const score = result.score != null
       ? Math.max(0, Math.min(100, Number(result.score)))
       : null;
+    const hasAssessment = score != null;
 
     const rawWordScores = Array.isArray(result.word_scores)
       ? result.word_scores.map((item) => ({
@@ -109,8 +113,10 @@ const FlashcardPronounce = (() => {
       }))
       : [];
 
-    const wordScores = buildWordScoresFromReference(result.correct_answer, rawWordScores);
-    const effectiveScore = score != null ? score : 0;
+    const wordScores = hasAssessment
+      ? buildWordScoresFromReference(result.correct_answer, rawWordScores)
+      : [];
+    const effectiveScore = hasAssessment ? score : (result.correct ? 100 : 0);
 
     return {
       score,
@@ -119,7 +125,8 @@ const FlashcardPronounce = (() => {
       reason: result.reason || "",
       transcribedText: result.transcribed_text || "",
       tier: getScoreTier(effectiveScore),
-      hasAssessment: score != null,
+      hasAssessment,
+      correct: !!result.correct,
     };
   }
 
@@ -254,7 +261,9 @@ const FlashcardPronounce = (() => {
       topicLabel.textContent = wordSplit.label;
       back.appendChild(topicLabel);
     }
-    phrase.innerHTML = colorizePhrase(wordSplit.text, normalized.wordScores);
+    phrase.innerHTML = normalized.hasAssessment
+      ? colorizePhrase(wordSplit.text, normalized.wordScores)
+      : escapeHtml(wordSplit.text);
     back.appendChild(phrase);
 
     const divider = document.createElement("div");
@@ -278,8 +287,10 @@ const FlashcardPronounce = (() => {
 
     const scoreSection = document.createElement("div");
     scoreSection.className = "pronunciation-score-section";
-    scoreSection.innerHTML = `<p class="pronunciation-score-label">Sua pronúncia</p>`;
-    scoreSection.appendChild(buildScoreRing(displayScore, normalized.tier));
+    if (normalized.hasAssessment) {
+      scoreSection.innerHTML = `<p class="pronunciation-score-label">Sua pronúncia</p>`;
+      scoreSection.appendChild(buildScoreRing(displayScore, normalized.tier));
+    }
 
     const feedback = document.createElement("div");
     feedback.className = `pronunciation-ai-feedback ${normalized.tier.className}`;
@@ -336,7 +347,9 @@ const FlashcardPronounce = (() => {
       topicLabel.textContent = phraseSplit.label;
       container.appendChild(topicLabel);
     }
-    phrase.innerHTML = colorizePhrase(phraseSplit.text, normalized.wordScores);
+    phrase.innerHTML = normalized.hasAssessment
+      ? colorizePhrase(phraseSplit.text, normalized.wordScores)
+      : escapeHtml(phraseSplit.text);
     container.appendChild(phrase);
 
     if (translationText) {
@@ -348,8 +361,10 @@ const FlashcardPronounce = (() => {
 
     const scoreSection = document.createElement("div");
     scoreSection.className = "pronunciation-score-section";
-    scoreSection.innerHTML = `<p class="pronunciation-score-label">Sua pronúncia</p>`;
-    scoreSection.appendChild(buildScoreRing(displayScore, normalized.tier));
+    if (normalized.hasAssessment) {
+      scoreSection.innerHTML = `<p class="pronunciation-score-label">Sua pronúncia</p>`;
+      scoreSection.appendChild(buildScoreRing(displayScore, normalized.tier));
+    }
 
     const feedback = document.createElement("div");
     feedback.className = `pronunciation-ai-feedback ${normalized.tier.className}`;

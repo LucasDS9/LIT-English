@@ -1151,25 +1151,55 @@ async def pronounce_flashcard(
     speech_lang = _WHISPER_LANGUAGE.get(lang, "english")
     expected = flashcard.front
 
+    # Mesma lógica de fallback já usada no exercício obrigatório de fala
+    # (submit-speak) e nos Exercícios (submit-audio): a avaliação com
+    # pontuação da Azure é um "melhor esforço" -- se ela não estiver
+    # configurada/disponível, o teste de pronúncia continua funcionando
+    # com transcrição (Whisper) + correção semântica por IA, só sem o
+    # placar 0-100. Antes, qualquer falha da Azure aqui derrubava o botão
+    # inteiro com erro 503, mesmo com tudo o mais funcionando -- por isso
+    # "Testar pronúncia" parecia quebrado enquanto o resto (Exercícios,
+    # exercício obrigatório de fala) continuava normal.
     try:
         assessment = assess_pronunciation(audio_bytes, speech_lang, expected)
-    except PronunciationAssessmentUnavailable as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
-    except Exception as exc:
-        logger.exception("Erro na avaliação de pronúncia de flashcard")
-        raise HTTPException(status_code=500, detail=f"Erro na avaliação de pronúncia: {exc}") from exc
+        score = assessment["score"]
+        log_pronunciation_attempt(db, student.id)
+        return FlashcardPronunciationResult(
+            correct=score >= 60,
+            correct_answer=expected,
+            transcribed_text=assessment.get("transcribed_text") or None,
+            feedback_title=assessment.get("feedback_title"),
+            reason=assessment.get("feedback_detail"),
+            score=score,
+            word_scores=assessment.get("word_scores"),
+        )
+    except PronunciationAssessmentUnavailable:
+        logger.warning("Avaliação de pronúncia (Azure) indisponível, usando fallback de transcrição + IA.")
+    except Exception:
+        logger.exception("Erro na avaliação de pronúncia de flashcard (Azure); usando fallback.")
 
-    score = assessment["score"]
+    try:
+        transcribed_text = transcribe(audio_bytes, speech_lang) or ""
+    except Exception as exc:
+        logger.exception("Erro na transcrição de fallback do teste de pronúncia")
+        raise HTTPException(status_code=500, detail=f"Erro na transcrição: {exc}") from exc
+
+    judge_result = _judge_spoken_answer(
+        student=student,
+        expected=expected,
+        given=transcribed_text,
+        context=flashcard.back,
+    )
     log_pronunciation_attempt(db, student.id)
 
     return FlashcardPronunciationResult(
-        correct=score >= 60,
+        correct=judge_result["correct"],
         correct_answer=expected,
-        transcribed_text=assessment.get("transcribed_text") or None,
-        feedback_title=assessment.get("feedback_title"),
-        reason=assessment.get("feedback_detail"),
-        score=score,
-        word_scores=assessment.get("word_scores"),
+        transcribed_text=transcribed_text or None,
+        feedback_title=None,
+        reason=judge_result.get("reason"),
+        score=None,
+        word_scores=None,
     )
 
 

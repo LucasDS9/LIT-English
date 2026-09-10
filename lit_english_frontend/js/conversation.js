@@ -158,19 +158,17 @@ function addTutorBubble(initialText = "") {
 }
 
 function addStudentBubble(text, analysis = null) {
-  const tpl = document.getElementById("tpl-student-bubble");
-  const node = tpl.content.firstElementChild.cloneNode(true);
-  node.querySelector(".bubble-text").textContent = text;
-
-  // A análise continua usando exatamente os dados devolvidos pelo backend,
-  // mas é renderizada no painel lateral para manter o chat limpo.
-  if (analysis && els.analysisColumn) {
-    els.analysisColumn.appendChild(buildAnalysisCard(analysis, text));
+  // A fala do aluno não vira mais uma bolha separada no chat -- ela já
+  // aparece (com a frase, a correção e o feedback) dentro do card de
+  // análise no painel lateral. Mostrar as duas coisas ao mesmo tempo
+  // duplicava a mesma mensagem na tela; agora existe uma única fonte.
+  if (els.analysisColumn) {
+    const card = buildAnalysisCard(analysis || {}, text);
+    els.analysisColumn.appendChild(card);
+    els.analysisColumn.scrollTop = els.analysisColumn.scrollHeight;
+    return card;
   }
-
-  els.chatScroll.appendChild(node);
-  scrollChatToBottom();
-  return node;
+  return null;
 }
 
 function buildAnalysisCard(analysis, fallbackSentence = "") {

@@ -4647,6 +4647,23 @@ body.reader-fs-open {
   cursor: not-allowed;
 }
 
+#vocab-pronounce-btn.is-preparing,
+#vocab-pronounce-btn.is-analyzing {
+  opacity: 0.75;
+}
+
+#vocab-pronounce-btn.is-recording {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+#vocab-pronounce-btn.is-recording .vocab-browse-action-icon,
+#vocab-pronounce-btn.is-recording .vocab-browse-action-divider {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
 .vocab-browse-action-icon {
   width: 17px;
   height: 17px;
@@ -4679,6 +4696,10 @@ body.reader-fs-open {
   display: flex;
   align-items: flex-start;
   gap: 20px;
+}
+
+.vocab-browse-more-examples[hidden] {
+  display: none;
 }
 
 .vocab-browse-more-examples-icon {
