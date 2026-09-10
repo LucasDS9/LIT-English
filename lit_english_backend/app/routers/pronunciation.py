@@ -533,27 +533,37 @@ def _assess_with_sdk(wav_path: str, locale: str, reference_text: str) -> dict[st
 
 
 def _assess_wav(wav_bytes: bytes, wav_path: str, locale: str, reference_text: str) -> dict[str, Any]:
+    """Tenta REST primeiro, depois SDK.
+
+    O SDK abre uma conexão WebSocket (wss://) com a Azure; em algumas
+    hospedagens esse tipo de conexão é bloqueado pelo firewall/proxy de saída
+    mesmo quando HTTPS comum funciona normalmente (é exatamente o que apareceu
+    nos logs: WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED). O REST usa uma
+    requisição HTTPS comum (POST), então tende a passar nesses ambientes.
+    Invertendo a ordem, evitamos pagar o custo/erro do WS na maioria dos
+    casos e só caímos para o SDK como plano B.
+    """
     errors: list[str] = []
 
     try:
-        return _assess_with_sdk(wav_path, locale, reference_text)
-    except PronunciationAssessmentUnavailable as exc:
-        errors.append(f"SDK: {exc}")
-        logger.warning("Azure SDK falhou, tentando REST: %s", exc)
-    except Exception as exc:
-        errors.append(f"SDK: {exc}")
-        logger.exception("Azure SDK erro inesperado")
-
-    try:
         return _assess_with_rest(wav_bytes, locale, reference_text)
-    except PronunciationAssessmentUnavailable:
-        raise
+    except PronunciationAssessmentUnavailable as exc:
+        errors.append(f"REST: {exc}")
+        logger.warning("Azure REST falhou, tentando SDK: %s", exc)
     except Exception as exc:
         errors.append(f"REST: {exc}")
         logger.exception("Azure REST erro inesperado")
 
+    try:
+        return _assess_with_sdk(wav_path, locale, reference_text)
+    except PronunciationAssessmentUnavailable:
+        raise
+    except Exception as exc:
+        errors.append(f"SDK: {exc}")
+        logger.exception("Azure SDK erro inesperado")
+
     raise PronunciationAssessmentUnavailable(
-        "Azure Speech falhou nas duas vias (SDK e REST). "
+        "Azure Speech falhou nas duas vias (REST e SDK). "
         + " | ".join(errors[:2])
     )
 
