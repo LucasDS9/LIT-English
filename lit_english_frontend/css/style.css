@@ -41,8 +41,6 @@
 html, body {
   margin: 0;
   padding: 0;
-  height: 100%;
-  overflow: hidden;
 }
 
 body {
@@ -50,14 +48,14 @@ body {
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
-  height: 100dvh;
-  overflow: hidden;
 }
 
-/* ---------- Tudo fixo na tela: nenhuma barra de rolagem visível ----------
-   As áreas que precisam de mais conteúdo do que cabe continuam roláveis
-   ao toque/scroll do mouse, mas sem exibir a barra, para não "quebrar"
-   telas menores enquanto tudo fica visualmente fixo. */
+/* ---------- Travado só DENTRO da plataforma ----------
+   As telas internas do app (Home, Aprender, Talk...) ficam fixas na tela,
+   sem barra de rolagem visível — o scroll acontece só dentro de áreas
+   internas como .main. Landing page e telas de login/cadastro NÃO entram
+   nessa trava: continuam com scroll normal do navegador, em qualquer
+   tamanho de tela. */
 html {
   scrollbar-width: none;
 }
@@ -65,19 +63,9 @@ html::-webkit-scrollbar {
   display: none;
 }
 
-/* No celular a landing page e as telas de login/cadastro têm mais conteúdo
-   do que cabe em 100dvh (principalmente com teclado aberto ou telas
-   pequenas), então elas precisam poder rolar — diferente das telas
-   internas do app (Home, Aprender, Talk...), que continuam fixas com
-   rolagem só dentro de .main. */
-@media (max-width: 860px) {
-  body.landing-page,
-  body.auth-page {
-    height: auto;
-    min-height: 100dvh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
+body:not(.landing-page):not(.auth-page) {
+  height: 100dvh;
+  overflow: hidden;
 }
 .app-shell,
 .sidebar,
