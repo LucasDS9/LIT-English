@@ -412,13 +412,18 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
     accuracy_score = _clamp_score(pron.get("AccuracyScore"))
     fluency_score = _clamp_score(pron.get("FluencyScore"))
     completeness_score = _clamp_score(pron.get("CompletenessScore"))
+    pron_score = _clamp_score(pron.get("PronScore"))
 
-    # Nota final = média de Accuracy, Fluency e Completeness -- essas três
-    # funcionam em qualquer idioma suportado (diferente de Prosody, que só
-    # existe em en-US). Usamos só as que a Azure realmente devolveu, para não
-    # arrastar a média pra baixo por causa de uma métrica ausente.
-    component_scores = [s for s in (accuracy_score, fluency_score, completeness_score) if s is not None]
-    score = int(round(sum(component_scores) / len(component_scores))) if component_scores else None
+    # PronScore é a nota "oficial" da Azure: ela mesma combina Accuracy,
+    # Fluency e Completeness, mas com pesos próprios (não é uma média simples
+    # 1/3-1/3-1/3) -- então é a nota mais fiel à intenção da Azure. Usamos
+    # ela quando vier; a média manual das três métricas é só um plano B para
+    # quando o PronScore não estiver presente na resposta.
+    if pron_score is not None:
+        score = pron_score
+    else:
+        component_scores = [s for s in (accuracy_score, fluency_score, completeness_score) if s is not None]
+        score = int(round(sum(component_scores) / len(component_scores))) if component_scores else None
 
     azure_words = nbest.get("Words") or []
     word_scores = _align_word_scores(reference_text, azure_words)
@@ -451,6 +456,7 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
         "accuracy_score": accuracy_score,
         "fluency_score": fluency_score,
         "completeness_score": completeness_score,
+        "pron_score": pron_score,
         "prosody_score": _clamp_score(pron.get("ProsodyScore")),
     }
 
@@ -578,38 +584,36 @@ def _assess_with_sdk(wav_path: str, locale: str, reference_text: str) -> dict[st
 
 
 def _assess_wav(wav_bytes: bytes, wav_path: str, locale: str, reference_text: str) -> dict[str, Any]:
-    """Tenta o jeito original (SDK) primeiro, REST como plano B.
+    """Tenta REST primeiro, SDK como plano B.
 
-    Havia uma suspeita de que o WebSocket do SDK estivesse bloqueado pela
-    rede da hospedagem, então o REST chegou a ser colocado como principal.
-    Mas a causa real do erro de conexão observado era outra (contenção de
-    recursos causada pelo loop de sincronização de custos Azure, já
-    corrigido). O caminho REST, por sua vez, tem um problema próprio: ele
-    sempre devolve nota 0, mesmo com pronúncia correta. Por isso voltamos ao
-    SDK como principal (o jeito que já funcionava antes), com REST apenas
-    como plano B se o SDK falhar de verdade.
+    Confirmado por log real: o SDK sempre falha nessa hospedagem porque o
+    WebSocket (wss://) é bloqueado pela rede de saída
+    (WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED); o REST (HTTPS comum) funciona
+    normalmente e já devolve a avaliação completa (Accuracy/Fluency/
+    Completeness/Words). Usar REST primeiro evita pagar o tempo do SDK
+    falhando em toda tentativa antes de cair pro plano B.
     """
     errors: list[str] = []
 
     try:
-        return _assess_with_sdk(wav_path, locale, reference_text)
-    except PronunciationAssessmentUnavailable as exc:
-        errors.append(f"SDK: {exc}")
-        logger.warning("Azure SDK falhou, tentando REST: %s", exc)
-    except Exception as exc:
-        errors.append(f"SDK: {exc}")
-        logger.exception("Azure SDK erro inesperado")
-
-    try:
         return _assess_with_rest(wav_bytes, locale, reference_text)
-    except PronunciationAssessmentUnavailable:
-        raise
+    except PronunciationAssessmentUnavailable as exc:
+        errors.append(f"REST: {exc}")
+        logger.warning("Azure REST falhou, tentando SDK: %s", exc)
     except Exception as exc:
         errors.append(f"REST: {exc}")
         logger.exception("Azure REST erro inesperado")
 
+    try:
+        return _assess_with_sdk(wav_path, locale, reference_text)
+    except PronunciationAssessmentUnavailable:
+        raise
+    except Exception as exc:
+        errors.append(f"SDK: {exc}")
+        logger.exception("Azure SDK erro inesperado")
+
     raise PronunciationAssessmentUnavailable(
-        "Azure Speech falhou nas duas vias (SDK e REST). "
+        "Azure Speech falhou nas duas vias (REST e SDK). "
         + " | ".join(errors[:2])
     )
 
