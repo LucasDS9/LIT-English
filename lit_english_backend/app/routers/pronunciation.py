@@ -384,9 +384,16 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
         or ""
     ).strip()
 
-    score = _clamp_score(pron.get("PronScore"))
-    if score is None:
-        score = _clamp_score(pron.get("AccuracyScore"))
+    accuracy_score = _clamp_score(pron.get("AccuracyScore"))
+    fluency_score = _clamp_score(pron.get("FluencyScore"))
+    completeness_score = _clamp_score(pron.get("CompletenessScore"))
+
+    # Nota final = média de Accuracy, Fluency e Completeness -- essas três
+    # funcionam em qualquer idioma suportado (diferente de Prosody, que só
+    # existe em en-US). Usamos só as que a Azure realmente devolveu, para não
+    # arrastar a média pra baixo por causa de uma métrica ausente.
+    component_scores = [s for s in (accuracy_score, fluency_score, completeness_score) if s is not None]
+    score = int(round(sum(component_scores) / len(component_scores))) if component_scores else None
 
     azure_words = nbest.get("Words") or []
     word_scores = _align_word_scores(reference_text, azure_words)
@@ -416,14 +423,14 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
         "word_scores": word_scores,
         "feedback_title": feedback_title,
         "feedback_detail": feedback_detail,
-        "accuracy_score": _clamp_score(pron.get("AccuracyScore")),
-        "fluency_score": _clamp_score(pron.get("FluencyScore")),
-        "completeness_score": _clamp_score(pron.get("CompletenessScore")),
+        "accuracy_score": accuracy_score,
+        "fluency_score": fluency_score,
+        "completeness_score": completeness_score,
         "prosody_score": _clamp_score(pron.get("ProsodyScore")),
     }
 
 
-def _build_pronunciation_header(reference_text: str) -> str:
+def _build_pronunciation_header(reference_text: str, locale: str) -> str:
     # Azure espera strings "True"/"False" nos flags booleanos (documentação oficial).
     params = {
         "ReferenceText": reference_text,
@@ -431,8 +438,11 @@ def _build_pronunciation_header(reference_text: str) -> str:
         "Granularity": "Phoneme",
         "Dimension": "Comprehensive",
         "EnableMiscue": "True",
-        "EnableProsodyAssessment": "True",
     }
+    # Avaliação de prosódia só é suportada em en-US; pedir isso em outros
+    # idiomas faz a Azure devolver a avaliação de pronúncia inteira vazia.
+    if locale == "en-US":
+        params["EnableProsodyAssessment"] = "True"
     return base64.b64encode(json.dumps(params, ensure_ascii=False).encode("utf-8")).decode("ascii")
 
 
@@ -462,7 +472,7 @@ def _assess_with_rest(wav_bytes: bytes, locale: str, reference_text: str) -> dic
             "Ocp-Apim-Subscription-Key": key,
             "Accept": "application/json",
             "Content-Type": "audio/wav; codecs=audio/pcm; samplerate=16000",
-            "Pronunciation-Assessment": _build_pronunciation_header(reference_text),
+            "Pronunciation-Assessment": _build_pronunciation_header(reference_text, locale),
         },
         data=wav_bytes,
         timeout=45,
@@ -507,7 +517,12 @@ def _assess_with_sdk(wav_path: str, locale: str, reference_text: str) -> dict[st
         granularity=speechsdk.PronunciationAssessmentGranularity.Phoneme,
         enable_miscue=True,
     )
-    pronunciation_config.enable_prosody_assessment = True
+    # A avaliação de prosódia da Azure só é suportada em en-US. Ativá-la para
+    # outros idiomas (italiano, francês, etc.) faz a Azure devolver a
+    # avaliação de pronúncia inteira vazia (sem nenhuma nota), silenciosamente
+    # -- foi exatamente isso que zerava a pontuação em idiomas != inglês.
+    if locale == "en-US":
+        pronunciation_config.enable_prosody_assessment = True
     pronunciation_config.apply_to(recognizer)
 
     result = recognizer.recognize_once()
