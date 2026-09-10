@@ -105,6 +105,8 @@ const vocabFlagEl = document.getElementById("vocab-browse-flag");
 
 const ITALIAN_FLAG_SVG = `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#fff"/><rect x="16" width="8" height="16" fill="#CE2B37"/><rect width="8" height="16" fill="#009246"/></svg>`;
 
+const learnCreateArea = document.querySelector(".main-learn-create");
+
 function setLearnTab(tab) {
   const isVocab = tab === "vocab";
   vocabTabBtn.classList.toggle("active", isVocab);
@@ -113,6 +115,10 @@ function setLearnTab(tab) {
   criarTabBtn.setAttribute("aria-selected", String(!isVocab));
   vocabPanel.hidden = !isVocab;
   criarPanel.hidden = isVocab;
+  // Controla via classe (em vez de depender só do seletor CSS :has(), que
+  // não é suportado em alguns navegadores/webviews) se a área central
+  // pode rolar: "Criar" é um formulário que pode ser mais alto que a tela.
+  learnCreateArea?.classList.toggle("tab-criar-active", !isVocab);
 }
 
 vocabTabBtn?.addEventListener("click", () => setLearnTab("vocab"));

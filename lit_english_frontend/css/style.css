@@ -64,6 +64,21 @@ html {
 html::-webkit-scrollbar {
   display: none;
 }
+
+/* No celular a landing page e as telas de login/cadastro têm mais conteúdo
+   do que cabe em 100dvh (principalmente com teclado aberto ou telas
+   pequenas), então elas precisam poder rolar — diferente das telas
+   internas do app (Home, Aprender, Talk...), que continuam fixas com
+   rolagem só dentro de .main. */
+@media (max-width: 860px) {
+  body.landing-page,
+  body.auth-page {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
 .app-shell,
 .sidebar,
 .main,
@@ -4784,7 +4799,10 @@ body.reader-fs-open {
 
   /* A aba "Criar" é um formulário (pode ser mais alto que a tela em
      aparelhos pequenos) — só a aba "Vocabulário" precisa caber 100% sem
-     rolar. Quando "Criar" está ativa, devolve o scroll natural nela. */
+     rolar. Quando "Criar" está ativa, devolve o scroll natural nela.
+     ".tab-criar-active" é controlada via JS (aprender.js) para funcionar
+     em qualquer navegador; o :has() abaixo é só um reforço extra. */
+  .main-learn-create.tab-criar-active,
   .main-learn-create:has(#learn-tab-criar:not([hidden]))  {
     height: auto;
     min-height: 100dvh;

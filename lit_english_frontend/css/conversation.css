@@ -6,29 +6,46 @@
 
 /* Trava o scroll da página: tudo (header, chat, painel de análise, barra
    do microfone) cabe dentro da viewport. Só as colunas internas (chat e
-   análise) rolam, cada uma dentro do seu próprio espaço. */
-html:has(.main--conversa),
-body:has(.main--conversa) {
-  height: 100%;
-  overflow: hidden;
-}
+   análise) rolam, cada uma dentro do seu próprio espaço.
+   IMPORTANTE: essas regras só valem no layout de desktop (sidebar vertical).
+   No mobile (max-width: 860px) a .sidebar vira a barra superior compacta e
+   o menu inferior fixo (ver style.css) — sem o "min-width: 861px" abaixo,
+   estas regras forçavam a sidebar antiga em tela cheia por cima do
+   conteúdo no celular, deixando a tela do Talk em branco. */
+@media (min-width: 861px) {
+  html:has(.main--conversa),
+  body:has(.main--conversa) {
+    height: 100%;
+    overflow: hidden;
+  }
 
-.app-shell:has(.main--conversa) {
-  height: 100vh;
-}
+  .app-shell:has(.main--conversa) {
+    height: 100vh;
+  }
 
-.app-shell:has(.main--conversa) .sidebar {
-  height: 100vh;
-  overflow-y: auto;
+  .app-shell:has(.main--conversa) .sidebar {
+    height: 100vh;
+    overflow-y: auto;
+  }
 }
 
 .main--conversa {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  flex: 1;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+}
+
+/* No desktop a sidebar é vertical (tela toda), então o .main precisa da
+   altura travada em 100vh explicitamente. No mobile isso já vem de graça
+   do flexbox (.app-shell vira coluna: barra superior + .main + menu
+   inferior), então 100vh fixo aqui sobraria conteúdo pra fora da tela. */
+@media (min-width: 861px) {
+  .main--conversa {
+    height: 100vh;
+  }
 }
 
 .conv-header {
