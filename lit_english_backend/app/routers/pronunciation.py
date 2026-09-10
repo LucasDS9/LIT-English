@@ -319,7 +319,16 @@ def _align_word_scores(reference_text: str, azure_words: list[dict[str, Any]]) -
     for index, ref_word in enumerate(ref_words):
         if index < len(azure_words):
             word_info = azure_words[index]
+            # Mesma questão do nível NBest: a Azure pode colocar a avaliação
+            # da palavra dentro de "PronunciationAssessment" ou direto no
+            # próprio objeto da palavra (word_info["AccuracyScore"]).
             assessment = word_info.get("PronunciationAssessment") or {}
+            if not assessment:
+                assessment = {
+                    k: word_info[k]
+                    for k in ("AccuracyScore", "ErrorType")
+                    if k in word_info
+                }
             score = _clamp_score(assessment.get("AccuracyScore"))
             aligned.append({
                 "word": ref_word,
@@ -374,7 +383,22 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
         )
 
     nbest = (data.get("NBest") or [{}])[0]
-    pron = nbest.get("PronunciationAssessment") or data.get("PronunciationAssessment") or {}
+    # A Azure ora aninha as notas dentro de "PronunciationAssessment", ora
+    # (como confirmado na resposta real desse ambiente) as coloca direto no
+    # nível do NBest -- ex.: nbest["AccuracyScore"] em vez de
+    # nbest["PronunciationAssessment"]["AccuracyScore"]. Era exatamente isso
+    # que zerava tudo: procurávamos só na "gaveta" aninhada e ela vinha
+    # vazia, mesmo com as notas certas logo ao lado. Agora aceitamos as duas
+    # formas.
+    pron = nbest.get("PronunciationAssessment") or {}
+    if not pron:
+        pron = {
+            k: nbest[k]
+            for k in ("AccuracyScore", "FluencyScore", "CompletenessScore", "PronScore", "ProsodyScore")
+            if k in nbest
+        }
+    if not pron:
+        pron = data.get("PronunciationAssessment") or {}
 
     transcribed_text = (
         nbest.get("Display")
@@ -491,7 +515,6 @@ def _assess_with_rest(wav_bytes: bytes, locale: str, reference_text: str) -> dic
             "Azure Speech retornou resposta inválida."
         ) from exc
 
-    logger.info("Azure REST resposta crua (status=%s): %s", response.status_code, json.dumps(data, ensure_ascii=False)[:2000])
     return _parse_azure_assessment_json(data, reference_text)
 
 
