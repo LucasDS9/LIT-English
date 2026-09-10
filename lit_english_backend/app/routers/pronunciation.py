@@ -155,6 +155,7 @@ def _get_azure_credentials() -> tuple[str, str]:
         )
 
     _CREDENTIALS_CACHE = (key, region)
+    logger.info("Credenciais Azure Speech resolvidas: região=%s (chave de %s caracteres)", region, len(key))
     return _CREDENTIALS_CACHE
 
 
@@ -490,6 +491,7 @@ def _assess_with_rest(wav_bytes: bytes, locale: str, reference_text: str) -> dic
             "Azure Speech retornou resposta inválida."
         ) from exc
 
+    logger.info("Azure REST resposta crua (status=%s): %s", response.status_code, json.dumps(data, ensure_ascii=False)[:2000])
     return _parse_azure_assessment_json(data, reference_text)
 
 
