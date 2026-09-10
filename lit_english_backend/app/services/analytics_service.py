@@ -1,8 +1,14 @@
 """Telemetria, custos e agregações do painel AI Analytics & Cost Monitoring.
 
 A aplicação registra o consumo por turno no banco. Custos Azure são sincronizados
-em lote, uma vez por dia, pelo Cost Management (ActualCost). O primeiro startup
-faz uma sincronização imediatamente quando as credenciais Azure estão disponíveis.
+em lote, a cada DAILY_SYNC_HOURS (padrão: 3h), pelo Cost Management (ActualCost).
+O primeiro startup faz uma sincronização imediatamente quando as credenciais
+Azure estão disponíveis.
+
+IMPORTANTE: esse ciclo controla só os DADOS DO DASHBOARD (custos/gráficos).
+Ele não limita nem afeta as chamadas de API de STT/LLM/TTS feitas durante os
+exercícios dos alunos (ex.: teste de pronúncia dos flashcards) — essas seguem
+acontecendo em tempo real, sem qualquer relação com este loop.
 """
 from __future__ import annotations
 
@@ -24,8 +30,19 @@ logger = logging.getLogger("lit.analytics")
 
 AZURE_API_VERSION = os.getenv("AZURE_COST_API_VERSION", "2026-06-01")
 AZURE_SCOPE = os.getenv("AZURE_COST_SCOPE", "")
-DAILY_SYNC_HOURS = int(os.getenv("ANALYTICS_COST_SYNC_HOURS", "24"))
+# Apenas controla o refresh dos DADOS DO DASHBOARD (custos/gráficos). Não tem
+# nenhuma relação com as chamadas de API de STT/LLM/TTS usadas nos exercícios
+# (ex.: teste de pronúncia dos flashcards), que nunca passam por este loop.
+DAILY_SYNC_HOURS = float(os.getenv("ANALYTICS_COST_SYNC_HOURS", "3"))
 INITIAL_COST_LOOKBACK_DAYS = int(os.getenv("ANALYTICS_INITIAL_LOOKBACK_DAYS", "90"))
+
+# Quando nenhuma configuração de credencial Azure está presente, o sync é
+# permanentemente inviável neste ambiente (não é um erro transitório de rede).
+# Nesse caso o loop registra um único aviso e desiste, em vez de tentar para
+# sempre a cada ciclo — foi essa varredura repetida de credenciais (via
+# DefaultAzureCredential) que atrasava o processo e disputava recursos com a
+# conexão WebSocket do Azure Speech usada no teste de pronúncia.
+_AZURE_COST_UNCONFIGURED = object()
 
 # GPT-OSS 120B public on-demand rates currently published by Groq.
 # They are configurable because provider pricing can change.
@@ -88,13 +105,13 @@ async def fetch_azure_costs(start: date, end: date) -> list[dict]:
         scope = f"subscriptions/{subscription_id}"
     scope = scope.strip("/")
 
+    credential, credential_needs_close = _build_azure_credential()
     try:
-        from azure.identity import DefaultAzureCredential
-    except ImportError as exc:
-        raise RuntimeError("Instale azure-identity para habilitar custos Azure") from exc
-
-    credential = DefaultAzureCredential(exclude_interactive_browser_credential=True)
-    token = credential.get_token("https://management.azure.com/.default")
+        token = credential.get_token("https://management.azure.com/.default")
+    except Exception:
+        if credential_needs_close:
+            credential.close()
+        raise
     url = f"https://management.azure.com/{scope}/providers/Microsoft.CostManagement/query"
     params = {"api-version": AZURE_API_VERSION}
     body = {
@@ -137,8 +154,49 @@ async def fetch_azure_costs(start: date, end: date) -> list[dict]:
                 "cost": cost,
                 "currency": str(item.get("Currency") or "USD"),
             })
-    credential.close()
+    if credential_needs_close:
+        credential.close()
     return rows
+
+
+def _build_azure_credential():
+    """Resolve a credencial Azure da forma mais direta e rápida possível.
+
+    Evita `DefaultAzureCredential`, que testa em sequência vários provedores
+    (env vars, Workload Identity, Managed Identity — incluindo uma tentativa
+    de bater no endpoint de metadados 169.254.169.254, inexistente fora de
+    uma VM/serviço Azure —, Azure CLI, etc.) e pode levar vários segundos por
+    tentativa fracassada em hospedagens fora da Azure. Em vez disso:
+
+    - Se um service principal está configurado (client id/secret/tenant),
+      usa `ClientSecretCredential` diretamente — sem varrer nada mais.
+    - Se um Managed Identity client id está configurado, usa
+      `ManagedIdentityCredential` diretamente.
+    - Caso nada esteja configurado, falha imediatamente (sem tentar rede),
+      sinalizando ao chamador que a sincronização não é possível neste
+      ambiente.
+
+    Retorna (credential, precisa_fechar).
+    """
+    tenant_id = os.getenv("AZURE_TENANT_ID", "").strip()
+    client_id = os.getenv("AZURE_CLIENT_ID", "").strip()
+    client_secret = os.getenv("AZURE_CLIENT_SECRET", "").strip()
+    managed_identity_client_id = os.getenv("AZURE_MANAGED_IDENTITY_CLIENT_ID", "").strip()
+
+    if tenant_id and client_id and client_secret:
+        from azure.identity import ClientSecretCredential
+        return ClientSecretCredential(tenant_id, client_id, client_secret), True
+
+    if managed_identity_client_id:
+        from azure.identity import ManagedIdentityCredential
+        return ManagedIdentityCredential(client_id=managed_identity_client_id), True
+
+    raise RuntimeError(
+        "Nenhuma credencial Azure configurada (defina AZURE_TENANT_ID + "
+        "AZURE_CLIENT_ID + AZURE_CLIENT_SECRET, ou AZURE_MANAGED_IDENTITY_CLIENT_ID "
+        "quando rodando dentro da Azure) — sincronização de custos desabilitada "
+        "neste ambiente."
+    )
 
 
 def classify_azure_service(service_name: str, meter: str) -> str:
@@ -348,14 +406,28 @@ def record_usage(db: Session, **kwargs) -> None:
 
 
 async def daily_cost_sync_loop(session_factory) -> None:
-    """Primeiro sync imediato; depois, no máximo uma vez a cada 24h."""
+    """Primeiro sync imediato; depois, no máximo uma vez a cada DAILY_SYNC_HOURS.
+
+    Este loop só atualiza os DADOS DO DASHBOARD (custos/gráficos de custo).
+    Ele não tem nenhuma relação com as chamadas de API de STT/LLM/TTS usadas
+    nos exercícios dos alunos (ex.: teste de pronúncia dos flashcards) — essas
+    continuam acontecendo normalmente, sem qualquer limite deste loop.
+
+    Se a configuração de credencial Azure estiver ausente, isso é permanente
+    (não vai se resolver sozinho na próxima hora), então desistimos após o
+    primeiro aviso em vez de tentar para sempre a cada ciclo.
+    """
     await asyncio.sleep(1)
+    gave_up_unconfigured = False
     while True:
         try:
             db = session_factory()
             try:
                 last_sync = db.query(func.max(AzureCostSnapshot.synced_at)).scalar()
-                should_sync = last_sync is None or (datetime.utcnow() - last_sync).total_seconds() >= DAILY_SYNC_HOURS * 3600
+                should_sync = (
+                    not gave_up_unconfigured
+                    and (last_sync is None or (datetime.utcnow() - last_sync).total_seconds() >= DAILY_SYNC_HOURS * 3600)
+                )
                 if should_sync:
                     try:
                         await asyncio.to_thread(sync_azure_costs, db, INITIAL_COST_LOOKBACK_DAYS if last_sync is None else 7)
@@ -366,10 +438,21 @@ async def daily_cost_sync_loop(session_factory) -> None:
                             if newest:
                                 newest.fx_usd_brl = fx
                                 db.commit()
+                    except RuntimeError as exc:
+                        # Configuração ausente/inválida (ex.: sem credencial Azure
+                        # ou sem AZURE_SUBSCRIPTION_ID/AZURE_COST_SCOPE): não é
+                        # transitório, então paramos de tentar até o próximo restart
+                        # em vez de repetir a mesma varredura a cada hora para sempre.
+                        gave_up_unconfigured = True
+                        logger.warning(
+                            "Sincronização de custos Azure desabilitada (%s); "
+                            "não tentarei novamente até o próximo restart do servidor.",
+                            exc,
+                        )
                     except Exception:
-                        logger.warning("Sincronização diária do Azure falhou; mantendo último snapshot", exc_info=True)
+                        logger.warning("Sincronização de custos Azure falhou; mantendo último snapshot", exc_info=True)
             finally:
                 db.close()
         except Exception:
-            logger.exception("Erro no loop diário de analytics")
+            logger.exception("Erro no loop de sincronização de custos (dashboard)")
         await asyncio.sleep(3600)

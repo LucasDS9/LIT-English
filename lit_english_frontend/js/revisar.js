@@ -803,48 +803,16 @@ function renderFlipCard(card) {
   const body = document.createElement("div");
   body.className = "card-body review-flip-body";
 
-  // Quando o painel de análise de pronúncia já está sendo exibido, ele
-  // mostra seus próprios botões ("Ouvir pronúncia" + "Testar novamente"),
-  // então não chamamos buildReviewAudioControls de novo -- isso evitava
-  // que os botões "Ouvir novamente"/"Testar pronúncia" aparecessem
-  // duplicados, soltos fora do card, por baixo do "Como foi?".
-  let listenBtn = null;
-  let showsAnalyzerPanel = false;
-
   if (session.flipped) {
     const backWrap = document.createElement("div");
     backWrap.className = "review-card-back card-flip-anim";
 
     if (session.pronunciationResult && shouldShowPronounce(card)) {
-      showsAnalyzerPanel = true;
       FlashcardPronounce.renderAnalyzerPanel(backWrap, {
         phraseText: card.front,
         translationText: card.back,
         pronunciationResult: session.pronunciationResult,
         onListen: (btn) => speak(listenTextForCard(card), btn),
-        onRetryReady: (btn) => {
-          const recorder = FlashcardPronounce.attachRecordButton(btn, {
-            recordingLabel: "Parar (5s máx)",
-            preparingLabel: "Preparando...",
-            onStop: async (blob) => {
-              try {
-                const result = await FlashcardPronounce.submitAudio(
-                  blob,
-                  `/flashcards/review/${card.flashcard_id}/pronounce`
-                );
-                session.pronunciationResult = result;
-                session.flipped = true;
-                renderCard();
-                SFX.play(result.correct ? "correct" : "wrong");
-              } catch (err) {
-                showToast(err.message || "Não foi possível analisar a pronúncia.");
-              } finally {
-                recorder.reset();
-              }
-            },
-            onError: (err) => showToast(err.message || "Permissão de microfone negada."),
-          });
-        },
       });
       body.appendChild(backWrap);
     } else {
@@ -892,9 +860,7 @@ function renderFlipCard(card) {
     if (description) body.appendChild(description);
   }
 
-  if (!showsAnalyzerPanel) {
-    ({ listenBtn } = buildReviewAudioControls(card, body));
-  }
+  const { listenBtn } = buildReviewAudioControls(card, body);
 
   cardBox.appendChild(body);
   wrapper.appendChild(cardBox);
