@@ -812,11 +812,21 @@ svg {
 .page-header h1 {
   display: inline-block;
   position: relative;
-  font-size: clamp(28px, 5vw, 44px);
+  font-size: clamp(28px, 4vw, 56px);
   font-weight: 800;
   color: var(--primary);
   margin: 0 0 22px;
   padding-bottom: 16px;
+}
+
+@media (min-width: 900px) {
+  .page-header h1 {
+    font-size: 56px;
+  }
+}
+
+.page-header-centered {
+  text-align: center;
 }
 
 .page-header h1::after {
@@ -3382,16 +3392,18 @@ body.reader-fs-open {
 
 .learn-create-area {
   width: 100%;
-  min-height: calc(100vh - 120px);
+  max-width: 810px;
+  min-height: 0;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   box-sizing: border-box;
 }
 
 .learn-create-card {
-  width: min(100%, 1020px);
+  width: 100%;
   margin: 0 auto;
   background: #fff;
   border: 1px solid #E7E7E7;
@@ -4499,9 +4511,10 @@ body.reader-fs-open {
 .vocab-browse-card {
   width: 100%;
   background: var(--bg);
-  border: none;
-  box-shadow: none;
-  padding: 8px 12px 0;
+  border: 1px solid #E7E7E7;
+  border-radius: 18px;
+  box-shadow: var(--shadow-md);
+  padding: 24px 28px 16px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -4749,40 +4762,136 @@ body.reader-fs-open {
   font-weight: 800;
 }
 
+/* ---------- Aprender (mobile): tudo cabe na tela, sem scroll ----------
+   No celular a barra inferior (.nav) e a barra de cima (.sidebar) viram
+   fixas (breakpoint de 860px, ver regra @media(max-width:860px) do
+   .app-shell). A partir daqui a área central branca (.main-learn-create)
+   é comprimida para caber inteira entre as duas, exatamente como no PC,
+   e o quadro "ver mais exemplos" vira um painel flutuante (bottom sheet)
+   que não empurra o layout — por isso nunca gera scroll na página. */
+@media (max-width: 860px) {
+  .main-learn-create {
+    padding: 14px 14px calc(82px + env(safe-area-inset-bottom, 0px));
+    height: 100dvh;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .main-learn-create .learn-vocab-panel:not([hidden]) {
+    height: 100%;
+    justify-content: center;
+  }
+
+  /* A aba "Criar" é um formulário (pode ser mais alto que a tela em
+     aparelhos pequenos) — só a aba "Vocabulário" precisa caber 100% sem
+     rolar. Quando "Criar" está ativa, devolve o scroll natural nela. */
+  .main-learn-create:has(#learn-tab-criar:not([hidden]))  {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .learn-page-header {
+    margin-bottom: 10px;
+  }
+
+  .learn-page-header h1 {
+    font-size: 21px;
+  }
+
+  .learn-tabs {
+    margin: 0 auto 14px;
+    padding: 3px;
+  }
+
+  .learn-tab-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  .learn-vocab-panel {
+    gap: 12px;
+  }
+}
+
 @media (max-width: 640px) {
   .vocab-browse-card {
-    padding: 4px 0 0;
+    padding: 14px 16px 10px;
+    border-radius: 16px;
+    gap: 0;
+  }
+  .vocab-browse-card-header {
+    margin-bottom: 10px;
+  }
+  .vocab-browse-counter {
+    font-size: 15px;
   }
   .vocab-browse-word {
-    font-size: 32px;
+    font-size: 28px;
+    margin: 0 0 3px;
+  }
+  .vocab-browse-pos {
+    font-size: 13px;
+    margin: 0 0 12px;
   }
   .vocab-browse-example {
-    font-size: 20px;
+    font-size: 16px;
+    line-height: 1.35;
   }
   .vocab-browse-options {
-    grid-template-columns: 1fr;
-    grid-template-rows: none;
-    margin: 24px auto;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(2, 1fr);
+    gap: 8px;
+    margin: 14px auto;
+  }
+  .vocab-browse-option {
+    min-height: 44px;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 12px;
   }
   .vocab-browse-actions {
     flex-wrap: nowrap;
-    gap: 8px;
+    gap: 6px;
+    margin-bottom: 4px;
   }
   .vocab-browse-action {
-    padding: 10px 8px;
-    font-size: 12px;
-    gap: 6px;
+    padding: 9px 6px;
+    font-size: 11px;
+    gap: 4px;
   }
   .vocab-browse-action-icon {
-    width: 15px;
-    height: 15px;
+    width: 14px;
+    height: 14px;
   }
   .vocab-browse-action-divider {
     display: none;
   }
+
+  /* "Ver mais exemplos" não empurra mais a página pra baixo: vira um
+     painel flutuante ancorado acima do menu inferior. Como sai do fluxo
+     normal (position: fixed), abrir/fechar não altera a altura da tela
+     e não causa scroll. */
   .vocab-browse-more-examples {
-    padding: 18px;
+    position: fixed;
+    left: 14px;
+    right: 14px;
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    max-height: 38vh;
+    overflow-y: auto;
+    padding: 16px 18px;
+    z-index: 55;
+    box-shadow: 0 -10px 30px rgba(20, 20, 30, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.04);
+    animation: vocabSheetUp 0.16s ease-out;
   }
+  .vocab-browse-more-examples-text p {
+    font-size: 14px;
+  }
+}
+
+@keyframes vocabSheetUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 

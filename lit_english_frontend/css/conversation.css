@@ -32,22 +32,8 @@ body:has(.main--conversa) {
 }
 
 .conv-header {
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 24px;
+  flex-shrink: 0;
 }
-
-.conv-header h1 {
-  margin: 0 0 6px;
-  font-size: 24px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--text);
-}
-
-.conv-header .conv-dot { color: var(--primary); font-size: 18px; }
 
 .conv-subtitle {
   margin: 0;
