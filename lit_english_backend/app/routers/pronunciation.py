@@ -396,6 +396,11 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
         if scores:
             score = int(round(sum(scores) / len(scores)))
 
+    logger.info(
+        "Azure PronunciationAssessment bruto: pron=%r, n_azure_words=%s, word_scores=%r, score_final=%s",
+        pron, len(azure_words), word_scores, score,
+    )
+
     if score is None:
         logger.warning("Resposta Azure sem pontuação. Keys=%s", list(data.keys()))
         raise PronunciationAssessmentUnavailable(
@@ -533,37 +538,38 @@ def _assess_with_sdk(wav_path: str, locale: str, reference_text: str) -> dict[st
 
 
 def _assess_wav(wav_bytes: bytes, wav_path: str, locale: str, reference_text: str) -> dict[str, Any]:
-    """Tenta REST primeiro, depois SDK.
+    """Tenta o jeito original (SDK) primeiro, REST como plano B.
 
-    O SDK abre uma conexão WebSocket (wss://) com a Azure; em algumas
-    hospedagens esse tipo de conexão é bloqueado pelo firewall/proxy de saída
-    mesmo quando HTTPS comum funciona normalmente (é exatamente o que apareceu
-    nos logs: WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED). O REST usa uma
-    requisição HTTPS comum (POST), então tende a passar nesses ambientes.
-    Invertendo a ordem, evitamos pagar o custo/erro do WS na maioria dos
-    casos e só caímos para o SDK como plano B.
+    Havia uma suspeita de que o WebSocket do SDK estivesse bloqueado pela
+    rede da hospedagem, então o REST chegou a ser colocado como principal.
+    Mas a causa real do erro de conexão observado era outra (contenção de
+    recursos causada pelo loop de sincronização de custos Azure, já
+    corrigido). O caminho REST, por sua vez, tem um problema próprio: ele
+    sempre devolve nota 0, mesmo com pronúncia correta. Por isso voltamos ao
+    SDK como principal (o jeito que já funcionava antes), com REST apenas
+    como plano B se o SDK falhar de verdade.
     """
     errors: list[str] = []
 
     try:
-        return _assess_with_rest(wav_bytes, locale, reference_text)
-    except PronunciationAssessmentUnavailable as exc:
-        errors.append(f"REST: {exc}")
-        logger.warning("Azure REST falhou, tentando SDK: %s", exc)
-    except Exception as exc:
-        errors.append(f"REST: {exc}")
-        logger.exception("Azure REST erro inesperado")
-
-    try:
         return _assess_with_sdk(wav_path, locale, reference_text)
-    except PronunciationAssessmentUnavailable:
-        raise
+    except PronunciationAssessmentUnavailable as exc:
+        errors.append(f"SDK: {exc}")
+        logger.warning("Azure SDK falhou, tentando REST: %s", exc)
     except Exception as exc:
         errors.append(f"SDK: {exc}")
         logger.exception("Azure SDK erro inesperado")
 
+    try:
+        return _assess_with_rest(wav_bytes, locale, reference_text)
+    except PronunciationAssessmentUnavailable:
+        raise
+    except Exception as exc:
+        errors.append(f"REST: {exc}")
+        logger.exception("Azure REST erro inesperado")
+
     raise PronunciationAssessmentUnavailable(
-        "Azure Speech falhou nas duas vias (REST e SDK). "
+        "Azure Speech falhou nas duas vias (SDK e REST). "
         + " | ".join(errors[:2])
     )
 
