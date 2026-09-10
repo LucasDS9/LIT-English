@@ -41,6 +41,8 @@
 html, body {
   margin: 0;
   padding: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -48,6 +50,35 @@ body {
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* ---------- Tudo fixo na tela: nenhuma barra de rolagem visível ----------
+   As áreas que precisam de mais conteúdo do que cabe continuam roláveis
+   ao toque/scroll do mouse, mas sem exibir a barra, para não "quebrar"
+   telas menores enquanto tudo fica visualmente fixo. */
+html {
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar {
+  display: none;
+}
+.app-shell,
+.sidebar,
+.main,
+.review-area-centered,
+.vocab-list,
+.qa-bank {
+  scrollbar-width: none;
+}
+.app-shell::-webkit-scrollbar,
+.sidebar::-webkit-scrollbar,
+.main::-webkit-scrollbar,
+.review-area-centered::-webkit-scrollbar,
+.vocab-list::-webkit-scrollbar,
+.qa-bank::-webkit-scrollbar {
+  display: none;
 }
 
 button, input {
@@ -400,7 +431,8 @@ svg {
 
 .app-shell {
   display: flex;
-  min-height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -411,7 +443,8 @@ svg {
   display: flex;
   flex-direction: column;
   gap: 36px;
-  min-height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
 }
 
 .sidebar .logo {
@@ -596,6 +629,8 @@ svg {
   flex: 1;
   min-width: 0;
   padding: 48px 56px;
+  height: 100dvh;
+  overflow-y: auto;
 }
 
 .main--home {
@@ -603,7 +638,7 @@ svg {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
+  height: 100dvh;
 }
 
 .home-welcome {
@@ -1102,18 +1137,12 @@ svg {
 }
 
 .vocab-status-dot.is-nova,
-.vocab-status-dot.is-aprendendo {
-  background: var(--primary);
-}
-
+.vocab-status-dot.is-aprendendo,
 .vocab-status-dot.is-em-revisao,
-.vocab-status-dot.is-dominando {
-  background: #D18C8C;
-}
-
+.vocab-status-dot.is-dominando,
 .vocab-status-dot.is-aprendida,
 .vocab-status-dot.is-concluido {
-  background: #D18C8C;
+  background: var(--primary);
 }
 
 .learn-card .card-body {
@@ -1204,28 +1233,16 @@ svg {
   border-radius: 2px;
 }
 
-.review-card-status.status-aprendendo .front-text {
+.review-card-status.status-aprendendo .front-text,
+.review-card-status.status-dominando .front-text,
+.review-card-status.status-concluido .front-text {
   color: var(--primary);
 }
 
-.review-card-status.status-aprendendo .front-text::after {
-  background: var(--primary);
-}
-
-.review-card-status.status-dominando .front-text {
-  color: #D18C8C;
-}
-
-.review-card-status.status-dominando .front-text::after {
-  background: #D18C8C;
-}
-
-.review-card-status.status-concluido .front-text {
-  color: #D18C8C;
-}
-
+.review-card-status.status-aprendendo .front-text::after,
+.review-card-status.status-dominando .front-text::after,
 .review-card-status.status-concluido .front-text::after {
-  background: #D18C8C;
+  background: var(--primary);
 }
 
 /* Verso do card em Revisar — texto preto + explicação (igual Aprender) */
@@ -1244,16 +1261,10 @@ svg {
   margin: 0;
 }
 
-.review-card-back .review-back-word.status-aprendendo {
-  color: var(--primary);
-}
-
-.review-card-back .review-back-word.status-dominando {
-  color: #D18C8C;
-}
-
+.review-card-back .review-back-word.status-aprendendo,
+.review-card-back .review-back-word.status-dominando,
 .review-card-back .review-back-word.status-concluido {
-  color: #D18C8C;
+  color: var(--primary);
 }
 
 .review-card-back .learn-back-answer {
@@ -4611,16 +4622,18 @@ body.reader-fs-open {
 
 .vocab-browse-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
   gap: 16px;
   flex-shrink: 0;
   margin-bottom: 30px;
+  width: 100%;
 }
 
 .vocab-browse-action {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
   background: var(--bg);
   border: 1.5px solid var(--primary);
@@ -4632,6 +4645,15 @@ body.reader-fs-open {
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.12s ease, transform 0.08s ease;
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.vocab-browse-action span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .vocab-browse-action:hover:not(:disabled) {
@@ -4645,23 +4667,6 @@ body.reader-fs-open {
 .vocab-browse-action:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-#vocab-pronounce-btn.is-preparing,
-#vocab-pronounce-btn.is-analyzing {
-  opacity: 0.75;
-}
-
-#vocab-pronounce-btn.is-recording {
-  background: var(--primary);
-  color: #fff;
-  border-color: var(--primary);
-}
-
-#vocab-pronounce-btn.is-recording .vocab-browse-action-icon,
-#vocab-pronounce-btn.is-recording .vocab-browse-action-divider {
-  color: #fff;
-  background-color: rgba(255, 255, 255, 0.4);
 }
 
 .vocab-browse-action-icon {
@@ -4760,8 +4765,20 @@ body.reader-fs-open {
     margin: 24px auto;
   }
   .vocab-browse-actions {
-    flex-direction: column;
-    align-items: stretch;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .vocab-browse-action {
+    padding: 10px 8px;
+    font-size: 12px;
+    gap: 6px;
+  }
+  .vocab-browse-action-icon {
+    width: 15px;
+    height: 15px;
+  }
+  .vocab-browse-action-divider {
+    display: none;
   }
   .vocab-browse-more-examples {
     padding: 18px;

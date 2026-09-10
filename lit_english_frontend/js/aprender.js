@@ -132,33 +132,9 @@ const vocabWordEl = document.getElementById("vocab-browse-word");
 const vocabExampleEl = document.getElementById("vocab-browse-example");
 const vocabOptionsEl = document.getElementById("vocab-browse-options");
 
-const vocabPronounceBtn = document.getElementById("vocab-pronounce-btn");
-const vocabPronounceLabel = document.getElementById("vocab-pronounce-label");
-
 if (vocabListenBtn) vocabListenBtn.querySelector(".vocab-browse-action-icon").innerHTML = Icons.volume;
-if (vocabPronounceBtn) vocabPronounceBtn.querySelector(".vocab-browse-action-icon").innerHTML = Icons.mic;
 if (vocabMoreExamplesBtn) vocabMoreExamplesBtn.querySelector(".vocab-browse-action-icon").innerHTML = Icons.listCheck;
 if (vocabSaveBtn) vocabSaveBtn.querySelector(".vocab-browse-action-icon").innerHTML = bookmarkIcon(false);
-
-// ---- "Testar pronúncia" -- grava a fala do aluno sobre a palavra atual.
-// Usa o mesmo mecanismo de gravação (FlashcardPronounce) já comprovado em
-// Flashcards/Exercícios. Como esta aba ainda usa dados de exemplo fixos
-// (sem flashcard_id real -- ver comentário acima), a avaliação de verdade
-// contra o backend chega numa próxima etapa; por ora o botão já grava,
-// mostra o estado (preparando/gravando/analisando) e confirma o áudio. ----
-if (vocabPronounceBtn && window.FlashcardPronounce) {
-  FlashcardPronounce.attachRecordButton(vocabPronounceBtn, {
-    idleLabel: "Testar pronúncia",
-    preparingLabel: "Preparando...",
-    recordingLabel: "Parar (5s máx)",
-    stopLabel: "Testar pronúncia",
-    disableOnStop: false,
-    onStop: () => {
-      showToast("Áudio gravado! A avaliação de pronúncia no Vocabulário chega em breve.");
-    },
-    onError: (err) => showToast(err.message || "Permissão de microfone negada."),
-  });
-}
 
 const vocabMoreExamplesIcon = document.getElementById("vocab-more-examples-icon");
 if (vocabMoreExamplesIcon) vocabMoreExamplesIcon.innerHTML = Icons.infoCircle;
@@ -198,10 +174,10 @@ vocabMoreExamplesBtn?.addEventListener("click", () => {
   }
 });
 
-// ---- "Salvar" -- adiciona esse vocabulário como flashcard do aluno e leva
-// pra tela de Flashcards (Revisar) ----
+// ---- "Salvar" -- adiciona a frase de exemplo atual (não só a palavra) como
+// flashcard do aluno e leva pra tela de Flashcards (Revisar) ----
 vocabSaveBtn?.addEventListener("click", async () => {
-  const front = vocabWordEl?.textContent?.trim();
+  const front = vocabExampleEl?.textContent?.trim();
   if (!front || vocabSaveBtn.disabled) return;
 
   vocabSaveBtn.disabled = true;
@@ -211,7 +187,7 @@ vocabSaveBtn?.addEventListener("click", async () => {
     await apiFetch("/flashcards/self-add", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ front, back: "", description: vocabExampleEl?.textContent?.trim() || "" }),
+      body: JSON.stringify({ front, back: "", description: vocabWordEl?.textContent?.trim() || "" }),
     });
     window.location.href = "revisar.html";
   } catch (err) {

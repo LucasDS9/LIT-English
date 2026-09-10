@@ -2,8 +2,6 @@
    LIT English — home.js
    Tela inicial do aluno: saudação + cards de LIT Points e Streak,
    consumindo GET /dashboard/metrics.
-   (Streak ainda não possui campo próprio no backend, então permanece em 0
-   até que essa métrica seja implementada na API.)
    ========================================================================== */
 
 const studentNameEl = document.getElementById("student-name");
@@ -79,7 +77,8 @@ function renderMetrics(metrics) {
   // LIT Points
   setField("metric-litpoints", "value", metrics.lit_points.toLocaleString("pt-BR"));
 
-  // Streak: sem campo próprio na API ainda — mantém "0" (ver nota no topo do arquivo).
+  // Streak: dias seguidos com atividade, calculado pela API.
+  setField("metric-streak", "value", metrics.streak.toLocaleString("pt-BR"));
 
   metricsRootEl.querySelectorAll(".stat-card").forEach((card) => {
     card.classList.remove("is-loading");

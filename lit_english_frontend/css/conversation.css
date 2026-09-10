@@ -69,22 +69,23 @@ body:has(.main--conversa) {
 
 .conv-workspace {
   flex: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 325px;
-  gap: 28px;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
-  align-items: stretch;
 }
 
 .conv-workspace.hidden { display: none; }
 
-/* ============== CHAT ============== */
+/* ============== CHAT (tutor e aluno intercalados) ============== */
 
 .conv-chat-column {
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .chat-scroll {
@@ -150,21 +151,13 @@ body:has(.main--conversa) {
 .action-btn svg { width: 16px; height: 16px; }
 .action-btn.active { border-bottom: 2px solid var(--primary); }
 
-/* ============== PAINEL LATERAL DE ANÁLISE ============== */
-
-.analysis-column {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  overflow-y: auto;
-  padding: 2px 2px 10px;
-}
-
-.analysis-column:empty { display: none; }
+/* ============== ANÁLISE (mensagem do aluno, alinhada à direita como no WhatsApp) ============== */
 
 .analysis-card {
-  width: 100%;
+  align-self: flex-end;
+  max-width: 68%;
+  width: auto;
+  min-width: 240px;
   flex: 0 0 auto;
   background: #fff;
   border: 1px solid var(--border);
@@ -180,6 +173,44 @@ body:has(.main--conversa) {
   font-size: 14px;
   font-weight: 600;
   line-height: 1.35;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.analysis-card-header-text { flex: 1; min-width: 0; }
+
+.analysis-minimize-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  transition: background .15s ease, transform .2s ease;
+}
+
+.analysis-minimize-btn:hover { background: rgba(255, 255, 255, 0.3); }
+
+.analysis-minimize-btn svg {
+  width: 14px;
+  height: 14px;
+  transition: transform .2s ease;
+}
+
+.analysis-card.is-minimized .analysis-minimize-btn svg {
+  transform: rotate(-90deg);
+}
+
+.analysis-card.is-minimized .analysis-card-body {
+  display: none;
 }
 
 .analysis-card-body { padding: 15px; }
@@ -277,17 +308,10 @@ body:has(.main--conversa) {
 .mic-status { font-size: 13px; color: var(--text-muted); font-weight: 500; }
 
 /* ============== SCROLLBARS ============== */
-.chat-scroll::-webkit-scrollbar,
-.analysis-column::-webkit-scrollbar { width: 6px; }
-.chat-scroll::-webkit-scrollbar-thumb,
-.analysis-column::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.chat-scroll::-webkit-scrollbar { width: 6px; }
+.chat-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
 /* ============== RESPONSIVO ============== */
-@media (max-width: 1100px) {
-  .conv-workspace { grid-template-columns: minmax(0, 1fr) 310px; gap: 20px; }
-}
-
 @media (max-width: 900px) {
-  .conv-workspace { grid-template-columns: 1fr; }
-  .analysis-column { max-height: 420px; overflow-y: auto; }
+  .analysis-card { max-width: 85%; }
 }

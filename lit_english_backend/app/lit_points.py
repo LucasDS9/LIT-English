@@ -15,6 +15,8 @@ Bônus:
     Flashcard revisado                  -> +2 pts (cada revisão)
     Leitura/escuta ativa de textos       -> +10 pts a cada 2 minutos
 """
+from datetime import date, timedelta
+
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -26,9 +28,10 @@ from app.models import (
     Flashcard,
     FlashcardAssignment,
     LitPointLog,
+    ReadingTimeLog,
     ReviewLog,
 )
-from app.timezone import start_of_day_brazil_utc, utcnow
+from app.timezone import brazil_date_key, start_of_day_brazil_utc, utcnow
 
 POINTS_NEW_CORRECT = 10
 POINTS_AFTER_1_WRONG = 8
@@ -192,3 +195,59 @@ def bonus_points_total(db: Session, student_id: int) -> int:
 def flashcard_points_total(db: Session, student_id: int) -> int:
     reviewed = db.query(ReviewLog).filter(ReviewLog.student_id == student_id).count()
     return reviewed * POINTS_PER_FLASHCARD_REVIEW, reviewed
+
+
+def compute_streak(db: Session, student_id: int) -> int:
+    """Calcula o streak (dias seguidos com pelo menos uma atividade) do aluno.
+
+    Considera qualquer atividade que gere LIT Points: exercícios respondidos,
+    flashcards revisados e tempo de leitura/escuta registrado. Os dias são
+    contados no fuso de Brasília. O streak continua "vivo" se o aluno já fez
+    algo hoje OU ontem (para não zerar no meio do dia antes de ele estudar);
+    caso contrário, é 0.
+    """
+    dates: set[str] = set()
+
+    exercise_dates = (
+        db.query(ExerciseSubmission.created_at)
+        .filter(ExerciseSubmission.student_id == student_id)
+        .all()
+    )
+    for (dt,) in exercise_dates:
+        dates.add(brazil_date_key(dt))
+
+    review_dates = (
+        db.query(ReviewLog.reviewed_at)
+        .filter(ReviewLog.student_id == student_id)
+        .all()
+    )
+    for (dt,) in review_dates:
+        dates.add(brazil_date_key(dt))
+
+    reading_dates = (
+        db.query(ReadingTimeLog.created_at)
+        .filter(ReadingTimeLog.student_id == student_id)
+        .all()
+    )
+    for (dt,) in reading_dates:
+        dates.add(brazil_date_key(dt))
+
+    if not dates:
+        return 0
+
+    today_br = brazil_date_key(utcnow())
+    today = date.fromisoformat(today_br)
+
+    # Se não houve atividade hoje nem ontem, o streak está quebrado.
+    if today.isoformat() not in dates and (today - timedelta(days=1)).isoformat() not in dates:
+        return 0
+
+    # Conta dias consecutivos para trás a partir de hoje (ou de ontem, se
+    # ainda não houve atividade hoje).
+    cursor = today if today.isoformat() in dates else today - timedelta(days=1)
+    streak = 0
+    while cursor.isoformat() in dates:
+        streak += 1
+        cursor -= timedelta(days=1)
+
+    return streak

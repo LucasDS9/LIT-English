@@ -27,7 +27,6 @@ const els = {
   lockedBox: document.getElementById("conv-locked"),
   workspace: document.getElementById("conv-workspace"),
   chatScroll: document.getElementById("chat-scroll"),
-  analysisColumn: document.getElementById("analysis-column"),
   micBtn: document.getElementById("mic-btn"),
   micStatus: document.getElementById("mic-status"),
 };
@@ -158,14 +157,14 @@ function addTutorBubble(initialText = "") {
 }
 
 function addStudentBubble(text, analysis = null) {
-  // A fala do aluno não vira mais uma bolha separada no chat -- ela já
-  // aparece (com a frase, a correção e o feedback) dentro do card de
-  // análise no painel lateral. Mostrar as duas coisas ao mesmo tempo
-  // duplicava a mesma mensagem na tela; agora existe uma única fonte.
-  if (els.analysisColumn) {
+  // A fala do aluno não vira mais uma bolha simples -- ela aparece como um
+  // card de análise (frase, correção e feedback), mas agora inserida no
+  // MESMO fluxo do chat, na ordem em que a conversa acontece (como no
+  // WhatsApp: fala do aluno, depois resposta do tutor, etc).
+  if (els.chatScroll) {
     const card = buildAnalysisCard(analysis || {}, text);
-    els.analysisColumn.appendChild(card);
-    els.analysisColumn.scrollTop = els.analysisColumn.scrollHeight;
+    els.chatScroll.appendChild(card);
+    scrollChatToBottom();
     return card;
   }
   return null;
@@ -207,7 +206,12 @@ function buildAnalysisCard(analysis, fallbackSentence = "") {
   const feedback = feedbackItems || "<li>Nenhum erro encontrado.</li>";
 
   card.innerHTML = `
-    <div class="analysis-card-header">${escapeHtml(sentence || "-")}</div>
+    <div class="analysis-card-header">
+      <span class="analysis-card-header-text">${escapeHtml(sentence || "-")}</span>
+      <button type="button" class="analysis-minimize-btn" title="Minimizar análise" aria-label="Minimizar análise">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </div>
     <div class="analysis-card-body">
       <div class="analysis-field">
         <div class="analysis-section-title">Sua resposta</div>
@@ -223,6 +227,11 @@ function buildAnalysisCard(analysis, fallbackSentence = "") {
       </div>
     </div>
   `;
+
+  const minimizeBtn = card.querySelector(".analysis-minimize-btn");
+  minimizeBtn.addEventListener("click", () => {
+    card.classList.toggle("is-minimized");
+  });
 
   return card;
 }

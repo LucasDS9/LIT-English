@@ -580,6 +580,7 @@ class DashboardMetricsOut(BaseModel):
     exercises_total: int           # Total de exercícios respondidos desde sempre
     reading_minutes: int           # Minutos totais de Read and Listen
     flashcards_reviewed: int       # Total de flashcards revisados
+    streak: int                    # Dias seguidos com atividade (Brasília)
 
 
 class StudentDetailsOut(BaseModel):

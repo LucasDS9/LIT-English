@@ -18,6 +18,7 @@ from app.lit_points import (
     TEXT_BLOCK_SECONDS,
     bonus_points_total,
     compute_exercise_stats,
+    compute_streak,
     due_exercises_count,
     flashcard_points_total,
 )
@@ -81,6 +82,9 @@ def build_dashboard_metrics(db: Session, student_id: int) -> DashboardMetricsOut
 
     lit_points = performance_points + flashcard_points + text_points + bonus_points
 
+    # ---- Streak: dias seguidos com pelo menos uma atividade ----
+    streak = compute_streak(db, student_id)
+
     return DashboardMetricsOut(
         accuracy_rate=accuracy_rate,
         performance_points=performance_points,
@@ -91,6 +95,7 @@ def build_dashboard_metrics(db: Session, student_id: int) -> DashboardMetricsOut
         exercises_total=exercises_total,
         reading_minutes=reading_minutes,
         flashcards_reviewed=flashcards_reviewed,
+        streak=streak,
     )
 
 
