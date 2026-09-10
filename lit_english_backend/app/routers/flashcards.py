@@ -1163,6 +1163,10 @@ async def pronounce_flashcard(
     try:
         assessment = assess_pronunciation(audio_bytes, speech_lang, expected)
         score = assessment["score"]
+        logger.info(
+            "Teste de pronúncia (flashcard %s): via Azure, score=%s, transcrito=%r",
+            flashcard_id, score, assessment.get("transcribed_text"),
+        )
         log_pronunciation_attempt(db, student.id)
         return FlashcardPronunciationResult(
             correct=score >= 60,
@@ -1189,6 +1193,10 @@ async def pronounce_flashcard(
         expected=expected,
         given=transcribed_text,
         context=flashcard.back,
+    )
+    logger.info(
+        "Teste de pronúncia (flashcard %s): via fallback (sem Azure), esperado=%r, transcrito=%r, correct=%s, motivo=%r",
+        flashcard_id, expected, transcribed_text, judge_result["correct"], judge_result.get("reason"),
     )
     log_pronunciation_attempt(db, student.id)
 
