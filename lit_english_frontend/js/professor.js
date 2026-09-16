@@ -264,7 +264,8 @@ async function renderAnalyticsDashboard(container) {
   const dateText=new Date(data.start+'T12:00:00').toLocaleDateString('pt-BR')+' - '+new Date(data.end+'T12:00:00').toLocaleDateString('pt-BR');
   const dashboard=document.createElement('div');dashboard.className='analytics-dashboard';
   dashboard.innerHTML=`
-    <div class="analytics-topbar"><div class="analytics-title-wrap"><h1>AI Analytics &amp; Cost Monitoring</h1><p>Visão geral da performance, custos e uso da plataforma</p></div><button class="analytics-date" type="button" title="Período analisado"><span class="date-left">${Icons.calendar||analyticsIcon('api')}<span>${dateText}</span></span><span>⌄</span></button></div>
+    <div class="analytics-topbar"><div class="analytics-title-wrap"><h1>AI Analytics &amp; Cost Monitoring</h1><p>Visão geral da performance, custos e uso da plataforma</p></div><div class="analytics-topbar-actions"><button class="analytics-date" type="button" title="Período analisado"><span class="date-left">${Icons.calendar||analyticsIcon('api')}<span>${dateText}</span></span><span>⌄</span></button><button class="analytics-sync-btn" type="button" data-role="sync-costs">Sincronizar custos agora</button></div></div>
+    <div class="analytics-sync-status" data-role="sync-status" hidden></div>
     <div class="analytics-kpis">
       ${analyticsKpi('Alunos ativos',(data.activeStudents||0).toLocaleString('pt-BR'),'users',data.changes?.activeStudents)}
       ${analyticsKpi('API calls',(data.apiCalls||0).toLocaleString('pt-BR'),'api',data.changes?.apiCalls)}
@@ -283,6 +284,32 @@ async function renderAnalyticsDashboard(container) {
       <section class="analytics-card"><h2>Resumo de performance</h2><table class="analytics-table"><thead><tr><th>Métrica</th><th>P50</th><th>P90</th><th>P95</th><th>P99</th></tr></thead><tbody>${rows.map(row=>`<tr>${row.map((cell,i)=>`<td>${i?fmtS(cell):cell}</td>`).join('')}</tr>`).join('')}</tbody></table></section>
     </div>`;
   container.appendChild(dashboard);
+
+  const syncBtn = dashboard.querySelector('[data-role="sync-costs"]');
+  const syncStatus = dashboard.querySelector('[data-role="sync-status"]');
+  if (syncBtn) {
+    syncBtn.addEventListener('click', async () => {
+      syncBtn.disabled = true;
+      const originalLabel = syncBtn.textContent;
+      syncBtn.textContent = 'Sincronizando...';
+      syncStatus.hidden = false;
+      syncStatus.className = 'analytics-sync-status';
+      syncStatus.textContent = 'Consultando custos reais no Azure Cost Management...';
+      try {
+        const result = await apiFetch('/analytics/costs/sync', { method: 'POST' });
+        syncStatus.className = 'analytics-sync-status is-ok';
+        syncStatus.textContent = `Sincronizado: ${result.rows ?? 0} registro(s) de custo atualizados (${result.start} a ${result.end}).`;
+        await renderAnalyticsDashboard(container);
+        return;
+      } catch (err) {
+        syncStatus.className = 'analytics-sync-status is-error';
+        syncStatus.textContent = err.message || 'Falha ao sincronizar custos com o Azure.';
+      } finally {
+        syncBtn.disabled = false;
+        syncBtn.textContent = originalLabel;
+      }
+    });
+  }
 }
 
 async function renderConfiguracoes() {
