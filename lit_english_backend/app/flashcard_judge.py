@@ -31,6 +31,8 @@ _LANGUAGE_LABELS = {
     "francês": "francês",
     "ingles": "inglês",
     "inglês": "inglês",
+    "espanhol": "espanhol",
+    "alemao": "alemão",
 }
 
 _SYSTEM_PROMPT = """Você é um corretor de flashcards de idiomas para alunos brasileiros.
@@ -59,6 +61,11 @@ NÃO aceitar:
 - traduções que omitam informação essencial ou mudam a intenção da frase;
 - respostas em idioma errado;
 - respostas vazias ou incompreensíveis.
+
+QUANDO "answer_language" FOR IGUAL A "target_language" (o aluno recebeu a frase na língua nativa dele e escreveu/falou na língua-alvo):
+- "expected" é só UMA das formas corretas; aceite qualquer tradução natural que tenha o mesmo sentido, não exija a frase literal;
+- a resposta também precisa ser gramaticalmente correta na língua-alvo: erros reais (concordância, tempo verbal, artigo/preposição errada, palavra de sentido diferente) tornam a resposta incorreta;
+- pontuação e maiúsculas/minúsculas nunca são erro.
 
 IMPORTANTE: NÃO seja excessivamente rígido. O objetivo é avaliar se o aluno entendeu e expressou a mesma ideia, não se ele reproduziu uma única tradução "oficial".
 Aceite equivalentes naturais que um professor de inglês aceitaria em uma conversa real.

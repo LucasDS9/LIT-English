@@ -80,26 +80,50 @@ _WHISPER_LANGUAGE = {
     "ingles": "english",
     "italiano": "italian",
     "frances": "french",
+    "espanhol": "spanish",
+    "alemao": "german",
+    "portugues": "portuguese",
 }
 
 _ANSWER_LANGUAGE = {
     "italiano": "italiano",
     "frances": "francês",
     "ingles": "inglês",
+    "espanhol": "espanhol",
+    "alemao": "alemão",
+    "portugues": "português",
 }
 
 _SPEAK_MODES = (ReviewMode.type_speak, ReviewMode.type_target)
 
 
+# Mesmo padrão de rótulo de tópico usado no front (splitTopicLabel em
+# revisar.js): "Future: I will go to the store" -> "I will go to the store".
+_TOPIC_LABEL_RE = re.compile(r"^([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s\-]{1,29})\s*:\s*(.+)$", re.DOTALL)
+
+
+def _strip_topic_label(text: str) -> str:
+    raw = (text or "").strip()
+    match = _TOPIC_LABEL_RE.match(raw)
+    return match.group(2).strip() if match else raw
+
+
 def _judge_spoken_answer(*, student: User, expected: str, given: str, context: str) -> dict:
-    """Julga pronúncia/transcrição na língua-alvo."""
+    """Julga uma resposta na língua-alvo (falada/transcrita ou digitada).
+
+    Inglês (alunos padrão) usa o mesmo juiz dos Exercícios (`judge_answer`):
+    gramática correta + mesmo sentido, sem exigir a frase literal.
+    Qualquer outra língua-alvo (italiano, francês...) usa
+    `judge_flashcard_answer`, que segue a mesma ideia (o juiz dos Exercícios
+    só valida inglês).
+    """
     lang = student_language(student)
-    if lang in ("italiano", "frances"):
+    if lang != "ingles":
         result = judge_flashcard_answer(
             expected=expected,
             given=given,
             target_language=lang,
-            answer_language=_ANSWER_LANGUAGE[lang],
+            answer_language=_ANSWER_LANGUAGE.get(lang, lang),
             context=context,
         )
         return {"correct": result["correct"], "reason": result["reason"], "confidence": result.get("confidence")}
@@ -109,23 +133,22 @@ def _judge_spoken_answer(*, student: User, expected: str, given: str, context: s
 
 def _check_typed_answer(
     *,
-    expected: str,
     given: str,
     student: User,
     flashcard: Flashcard,
 ) -> dict:
     """
-    Verifica resposta digitada em português.
-    Todos os idiomas-alvo usam comparação semântica com IA, para aceitar
-    traduções naturais equivalentes (não apenas a tradução cadastrada).
+    Verifica a resposta digitada na língua-alvo (língua nativa -> língua-alvo).
+
+    Mostramos `flashcard.back` (língua nativa) e o aluno digita a frase de
+    `flashcard.front`. A correção é a mesma da fala e dos Exercícios: aceita
+    frases equivalentes e gramaticalmente corretas, não só a literal.
     """
-    lang = student_language(student)
-    return judge_flashcard_answer(
-        expected=expected,
+    return _judge_spoken_answer(
+        student=student,
+        expected=_strip_topic_label(flashcard.front),
         given=given,
-        target_language=lang,
-        answer_language="português",
-        context=flashcard.front,
+        context=flashcard.back,
     )
 
 
@@ -1055,14 +1078,13 @@ def submit_review(
     _normalize_progress_mode(progress)
     mode = progress.review_mode or ReviewMode.flip
 
-    # ── Digitação em português (Dominando — type_pt) ─────────────────────
+    # ── Digitação na língua-alvo (Dominando — type_pt) ─────────────────────
     if mode == ReviewMode.type_pt:
         if not payload.typed_answer or not payload.typed_answer.strip():
             raise HTTPException(status_code=422, detail="Digite sua resposta.")
 
-        expected = flashcard.back
+        expected = _strip_topic_label(flashcard.front)
         judge_result = _check_typed_answer(
-            expected=expected,
             given=payload.typed_answer,
             student=student,
             flashcard=flashcard,

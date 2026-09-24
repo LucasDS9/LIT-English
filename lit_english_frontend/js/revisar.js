@@ -289,10 +289,6 @@ function isSpeakMode(card) {
   return card.mode === "type_speak" || card.mode === "type_target";
 }
 
-function promptText(card) {
-  return card.front;
-}
-
 // ---------------------------------------------------------------------------
 // Ciclo da sessão de revisão
 // ---------------------------------------------------------------------------
@@ -519,19 +515,24 @@ function renderTypeCard(card) {
   const body = document.createElement("div");
   body.className = "card-body";
 
-  appendPromptText(body, promptText(card), "front-text", card);
+  // Língua nativa -> língua-alvo: mostra a frase na língua nativa (back) e o
+  // aluno digita na língua que está aprendendo. Passamos card=null pra não
+  // exibir o lápis de "editar frente" em cima do texto do verso.
+  appendPromptText(body, card.back, "front-text", null);
+
+  const targetLabel = languageMetaForReview(session.targetLanguage).label.toLowerCase();
 
   const hint = document.createElement("p");
   hint.className = "review-hint";
   hint.style.margin = "0";
-  hint.textContent = "Digite a tradução em português";
+  hint.textContent = `Digite a tradução em ${targetLabel}`;
   body.appendChild(hint);
 
   const input = document.createElement("input");
   input.type = "text";
   input.className = "review-type-input";
   input.autocomplete = "off";
-  input.placeholder = "Tradução em português";
+  input.placeholder = `Tradução em ${targetLabel}`;
   body.appendChild(input);
 
   const feedback = document.createElement("p");
@@ -539,7 +540,8 @@ function renderTypeCard(card) {
   feedback.hidden = true;
   body.appendChild(feedback);
 
-  const { listenBtn } = buildReviewAudioControls(card, body);
+  // Sem "Ouvir novamente" nem áudio automático aqui: o áudio tocaria a
+  // resposta (frase na língua-alvo) antes de o aluno digitar.
 
   cardBox.appendChild(body);
   wrapper.appendChild(cardBox);
@@ -566,7 +568,6 @@ function renderTypeCard(card) {
   reviewArea.appendChild(wrapper);
 
   input.focus();
-  speak(listenTextForCard(card), listenBtn);
 }
 
 function renderSpeakCard(card) {
@@ -803,14 +804,18 @@ function renderFlipCard(card) {
   const body = document.createElement("div");
   body.className = "card-body review-flip-body";
 
+  // Verso vindo do teste de pronúncia: mostra só a análise, sem revelar a
+  // tradução e sem os botões "Ouvir novamente" / "Testar pronúncia".
+  const showingPronunciation =
+    session.flipped && !!session.pronunciationResult && shouldShowPronounce(card);
+
   if (session.flipped) {
     const backWrap = document.createElement("div");
     backWrap.className = "review-card-back card-flip-anim";
 
-    if (session.pronunciationResult && shouldShowPronounce(card)) {
+    if (showingPronunciation) {
       FlashcardPronounce.renderAnalyzerPanel(backWrap, {
         phraseText: card.front,
-        translationText: card.back,
         pronunciationResult: session.pronunciationResult,
         onListen: (btn) => speak(listenTextForCard(card), btn),
       });
@@ -860,7 +865,8 @@ function renderFlipCard(card) {
     if (description) body.appendChild(description);
   }
 
-  const { listenBtn } = buildReviewAudioControls(card, body);
+  const audioControls = showingPronunciation ? null : buildReviewAudioControls(card, body);
+  const listenBtn = audioControls ? audioControls.listenBtn : null;
 
   cardBox.appendChild(body);
   wrapper.appendChild(cardBox);
@@ -871,7 +877,7 @@ function renderFlipCard(card) {
   const flipBtn = document.createElement("button");
   flipBtn.className = "btn btn-outline flip-btn";
   flipBtn.type = "button";
-  flipBtn.innerHTML = `${Icons.refresh}<span>${session.flipped ? "Ver frente" : "Virar card"}</span>`;
+  flipBtn.innerHTML = `${Icons.refresh}<span>${showingPronunciation ? "Voltar" : session.flipped ? "Ver frente" : "Ver verso"}</span>`;
   flipBtn.addEventListener("click", () => {
     session.flipped = !session.flipped;
     if (!session.flipped) session.pronunciationResult = null;
