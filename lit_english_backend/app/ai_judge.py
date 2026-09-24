@@ -31,6 +31,7 @@ import logging
 import os
 import re
 import time
+import unicodedata
 
 import requests
 
@@ -178,11 +179,73 @@ Responda APENAS com um JSON válido, sem nenhum texto antes ou depois, no format
 """
 
 
+# Mesmo critério do prompt de inglês acima (gramática correta + mesmo sentido,
+# sinônimos e paráfrases aceitos), para outras línguas-alvo — usado nos
+# flashcards de alunos de italiano/francês. "{language}" é trocado pelo nome
+# da língua (com .replace, pois o texto tem chaves de JSON).
+_GENERIC_SYSTEM_PROMPT = """Você é um corretor de exercícios de {language} para alunos brasileiros. Você
+recebe:
+- "expected": uma tradução correta de referência, em {language}.
+- "given": o que o aluno realmente respondeu em {language} (digitado ou transcrito de fala).
+- "context" (pode vir vazio): a frase na língua nativa do aluno que ele deveria dizer em {language}.
+
+Decida se a resposta do aluno está CORRETA. Ela está correta se, E SOMENTE SE, as duas
+condições abaixo forem verdadeiras:
+1. "given" é gramaticalmente válida em {language} (aceite pequenas imperfeições típicas de
+   fala transcrita ou digitação rápida — pontuação, maiúsculas, acento esquecido que não muda
+   o sentido —, mas erros reais de gramática, como concordância, tempo verbal, artigo ou
+   preposição errada, tornam a resposta incorreta).
+2. "given" tem o MESMO SIGNIFICADO de "expected" e do "context". "expected" é só UMA das formas
+   corretas de dizer isso: sinônimos perfeitos, paráfrases e outras traduções naturais com o
+   mesmo sentido contam como corretas — o aluno NÃO precisa reproduzir a frase literal.
+   Respostas que mudam o sentido, negam, invertem ou trocam por uma palavra de sentido
+   diferente são incorretas, mesmo que gramaticalmente perfeitas.
+
+Se a resposta estiver vazia, incompreensível, ou não estiver em {language}, marque como
+incorreta.
+
+NUNCA tornam uma resposta incorreta por si só: maiúsculas/minúsculas, pontuação a mais, a
+menos ou diferente, espaços extras, elisões/contrações equivalentes e registro
+formal vs. informal quando o sentido é o mesmo. Releia com calma antes de decidir; um erro de
+julgamento aqui prejudica o aluno.
+
+Sempre explique sua decisão em "reason", em português, numa frase curta e direta. Quando a
+resposta estiver ERRADA, diga CLARAMENTE o que está errado (erro de gramática específico, ou
+que o sentido mudou e por quê). Quando estiver CORRETA, uma frase curta confirmando já basta.
+
+Responda APENAS com um JSON válido, sem nenhum texto antes ou depois, no formato exato:
+{"correct": true ou false, "reason": "explicação curta em português"}
+"""
+
+
 class AiJudgeUnavailable(Exception):
     """Erro ao chamar a API de julgamento (sem chave, rede, resposta inválida etc.)."""
 
 
-def _call_groq(expected: str, given: str, context: str | None) -> dict:
+def _system_prompt_for(language: str | None) -> str:
+    """Prompt do inglês (padrão dos Exercícios) ou a versão para outra língua-alvo."""
+    if not language or language.strip().lower() in ("inglês", "ingles", "english"):
+        return _SYSTEM_PROMPT
+    return _GENERIC_SYSTEM_PROMPT.replace("{language}", language.strip())
+
+
+def _strip_accents(text: str) -> str:
+    return "".join(
+        ch for ch in unicodedata.normalize("NFD", text) if unicodedata.category(ch) != "Mn"
+    )
+
+
+def _same_answer(expected: str, given: str, language: str | None) -> bool:
+    """Atalho determinístico. Em outras línguas, também ignora acentos."""
+    a, b = _normalize(expected), _normalize(given)
+    if a == b:
+        return True
+    if language and language.strip().lower() not in ("inglês", "ingles", "english"):
+        return _strip_accents(a) == _strip_accents(b)
+    return False
+
+
+def _call_groq(expected: str, given: str, context: str | None, language: str | None = None) -> dict:
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         raise AiJudgeUnavailable("GROQ_API_KEY não configurada.")
@@ -192,7 +255,7 @@ def _call_groq(expected: str, given: str, context: str | None) -> dict:
     payload = {
         "model": GROQ_MODEL,
         "messages": [
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": _system_prompt_for(language)},
             {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
         ],
         "temperature": 0.2,
@@ -234,7 +297,9 @@ def _call_groq(expected: str, given: str, context: str | None) -> dict:
     raise AiJudgeUnavailable(f"Falha ao consultar a API da Groq: {last_error}") from last_error
 
 
-def judge_answer(expected: str, given: str, context: str | None = None) -> dict:
+def judge_answer(
+    expected: str, given: str, context: str | None = None, language: str | None = None
+) -> dict:
     """
     Julga se `given` (resposta do aluno — digitada ou transcrita) está
     correto em relação a `expected` (resposta esperada), de forma
@@ -244,6 +309,10 @@ def judge_answer(expected: str, given: str, context: str | None = None) -> dict:
     encaixa (útil para exercícios de lacuna, onde expected/given são só uma
     palavra ou trecho curto) — ajuda a IA a julgar concordância/tempo verbal
     corretamente.
+
+    `language` (opcional): nome, em português, da língua em que a resposta deve
+    estar (ex.: "italiano"). Sem ele, o julgamento é em inglês, como nos
+    Exercícios; com ele, vale o mesmo critério para a outra língua.
 
     Retorna {"correct": bool, "reason": str, "ai_used": bool}.
     Em caso de falha da API, cai para comparação exata normalizada e marca
@@ -260,7 +329,7 @@ def judge_answer(expected: str, given: str, context: str | None = None) -> dict:
     # perguntar pra IA (mais rápido, mais barato, e evita casos em que o
     # modelo "inventa" um problema que não existe nesse tipo de diferença
     # puramente superficial).
-    if _normalize(expected) == _normalize(given_clean):
+    if _same_answer(expected, given_clean, language):
         return {
             "correct": True,
             "reason": "Resposta corresponde à esperada (maiúsculas, pontuação ou contração à parte).",
@@ -268,20 +337,20 @@ def judge_answer(expected: str, given: str, context: str | None = None) -> dict:
         }
 
     try:
-        result = _call_groq(expected, given_clean, context)
+        result = _call_groq(expected, given_clean, context, language)
         correct = result["correct"]
         reason = result["reason"]
         # Rede de segurança: se a IA disse que está errado mas, na
         # comparação normalizada, a resposta bate com a esperada, isso é
         # sinal de alucinação do modelo (já vimos casos assim) — a
         # comparação determinística tem prioridade nesse cenário.
-        if not correct and _normalize(expected) == _normalize(given_clean):
+        if not correct and _same_answer(expected, given_clean, language):
             correct = True
             reason = "Resposta corresponde à esperada (maiúsculas, pontuação ou contração à parte)."
         return {"correct": correct, "reason": reason, "ai_used": True}
     except AiJudgeUnavailable as e:
         logger.warning("Julgamento por IA indisponível, usando comparação exata: %s", e)
-        fallback_correct = _normalize(expected) == _normalize(given_clean)
+        fallback_correct = _same_answer(expected, given_clean, language)
         reason = (
             "Resposta idêntica à esperada (IA indisponível no momento, comparação exata usada)."
             if fallback_correct

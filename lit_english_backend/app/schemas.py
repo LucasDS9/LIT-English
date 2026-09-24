@@ -160,6 +160,10 @@ class ReviewCardOut(BaseModel):
     description: Optional[str] = None
     status: Optional[ReviewCardStatus] = None
     mode: ReviewMode = ReviewMode.flip
+    # Lados já orientados (ver app/card_sides.py): texto na língua-alvo e na
+    # língua nativa, mesmo se o card estiver salvo com frente/verso trocados.
+    target_text: Optional[str] = None
+    native_text: Optional[str] = None
 
 
 class ReviewQueueOut(BaseModel):

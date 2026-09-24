@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.activity_queue import should_defer_flashcards
 from app.ai_judge import judge_answer
 from app.ai_translate import TranslationUnavailable, build_target_language_flashcard
-from app.flashcard_judge import judge_flashcard_answer
+from app.card_sides import orient_card, orient_many
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
 from app.lit_points import maybe_award_flashcard_daily_bonus
@@ -111,24 +111,24 @@ def _strip_topic_label(text: str) -> str:
 def _judge_spoken_answer(*, student: User, expected: str, given: str, context: str) -> dict:
     """Julga uma resposta na língua-alvo (falada/transcrita ou digitada).
 
-    Inglês (alunos padrão) usa o mesmo juiz dos Exercícios (`judge_answer`):
-    gramática correta + mesmo sentido, sem exigir a frase literal.
-    Qualquer outra língua-alvo (italiano, francês...) usa
-    `judge_flashcard_answer`, que segue a mesma ideia (o juiz dos Exercícios
-    só valida inglês).
+    Usa o mesmo juiz dos Exercícios (`judge_answer`) para qualquer língua:
+    gramática correta + mesmo sentido; sinônimos perfeitos e paráfrases são
+    aceitos, a frase não precisa ser literal.
     """
     lang = student_language(student)
-    if lang != "ingles":
-        result = judge_flashcard_answer(
-            expected=expected,
-            given=given,
-            target_language=lang,
-            answer_language=_ANSWER_LANGUAGE.get(lang, lang),
-            context=context,
-        )
-        return {"correct": result["correct"], "reason": result["reason"], "confidence": result.get("confidence")}
-    result = judge_answer(expected=expected, given=given, context=context)
+    language = None if lang == "ingles" else _ANSWER_LANGUAGE.get(lang, lang)
+    result = judge_answer(expected=expected, given=given, context=context, language=language)
     return {"correct": result["correct"], "reason": result["reason"], "confidence": None}
+
+
+def _card_sides(flashcard: Flashcard, student: User) -> tuple[str, str]:
+    """(texto na língua-alvo, texto na língua nativa), corrigindo cards salvos com os lados trocados."""
+    return orient_card(
+        flashcard.front,
+        flashcard.back,
+        student_language(student),
+        student.native_language or "pt",
+    )
 
 
 def _check_typed_answer(
@@ -144,11 +144,12 @@ def _check_typed_answer(
     `flashcard.front`. A correção é a mesma da fala e dos Exercícios: aceita
     frases equivalentes e gramaticalmente corretas, não só a literal.
     """
+    target_text, native_text = _card_sides(flashcard, student)
     return _judge_spoken_answer(
         student=student,
-        expected=_strip_topic_label(flashcard.front),
+        expected=_strip_topic_label(target_text),
         given=given,
-        context=flashcard.back,
+        context=native_text,
     )
 
 
@@ -989,6 +990,9 @@ def get_review_queue(
         .all()
     )
 
+    target_lang = student_language(student)
+    native_lang = student.native_language or "pt"
+
     buckets = {
         "aprendendo": [],
         "dominando_type": [],
@@ -1025,6 +1029,18 @@ def get_review_queue(
     selected = []
     for stage in ("aprendendo", "dominando_type", "dominando_speak", "concluido"):
         selected.extend(buckets[stage][:5])
+
+    # Digitar/falar: língua nativa -> língua-alvo. A IA orienta os lados (inverte
+    # se o card estiver salvo trocado e completa um lado vazio); em paralelo e
+    # com cache, só para os cards que entram neste ciclo.
+    typing_cards = [
+        c for c in selected if c.mode == ReviewMode.type_pt or c.mode in _SPEAK_MODES
+    ]
+    oriented = orient_many(
+        [(c.flashcard_id, c.front, c.back) for c in typing_cards], target_lang, native_lang
+    )
+    for c in typing_cards:
+        c.target_text, c.native_text = oriented[c.flashcard_id]
 
     total_due = sum(len(items) for items in buckets.values())
     has_more = total_due > len(selected)
@@ -1083,7 +1099,7 @@ def submit_review(
         if not payload.typed_answer or not payload.typed_answer.strip():
             raise HTTPException(status_code=422, detail="Digite sua resposta.")
 
-        expected = _strip_topic_label(flashcard.front)
+        expected = _strip_topic_label(_card_sides(flashcard, student)[0])
         judge_result = _check_typed_answer(
             given=payload.typed_answer,
             student=student,
@@ -1274,12 +1290,12 @@ async def submit_speak_review(
         raise HTTPException(status_code=500, detail=f"Erro na transcrição: {exc}")
 
     transcribed_text = transcribed_text or ""
-    expected = flashcard.front
+    expected, native_text = _card_sides(flashcard, student)
     judge_result = _judge_spoken_answer(
         student=student,
         expected=expected,
         given=transcribed_text,
-        context=flashcard.back,
+        context=native_text,
     )
     is_correct = judge_result["correct"]
     quality = 5 if is_correct else 0

@@ -197,7 +197,7 @@ function listenTextForCard(card) {
   // Sem isso, quando o professor usa o formato "Tópico: frase" no front do
   // flashcard, o áudio lia o rótulo em voz alta junto com a frase (ex: "Future,
   // I will go to the store").
-  return splitTopicLabel(card.front).text;
+  return splitTopicLabel(card.target_text || card.front).text;
 }
 
 function buildReviewAudioControls(card, body, { listenLabel = "Ouvir novamente" } = {}) {
@@ -518,7 +518,7 @@ function renderTypeCard(card) {
   // Língua nativa -> língua-alvo: mostra a frase na língua nativa (back) e o
   // aluno digita na língua que está aprendendo. Passamos card=null pra não
   // exibir o lápis de "editar frente" em cima do texto do verso.
-  appendPromptText(body, card.back, "front-text", null);
+  appendPromptText(body, card.native_text || card.back, "front-text", null);
 
   const targetLabel = languageMetaForReview(session.targetLanguage).label.toLowerCase();
 
@@ -584,7 +584,7 @@ function renderSpeakCard(card) {
   const body = document.createElement("div");
   body.className = "card-body";
 
-  appendPromptText(body, card.back, "front-text", null);
+  appendPromptText(body, card.native_text || card.back, "front-text", null);
 
   const hint = document.createElement("p");
   hint.className = "review-hint";
@@ -670,8 +670,8 @@ async function submitSpeakAnswer(card, getBlob, feedback, submitBtn, getLocked, 
         // renderAnalyzerPanel já separa o rótulo de tópico (ex: "Future:")
         // da frase e mostra os dois: rótulo pequeno em preto acima, frase
         // normal embaixo — então passamos o texto completo, sem cortar nada.
-        phraseText: card.front,
-        translationText: card.back,
+        phraseText: card.target_text || card.front,
+        translationText: card.native_text || card.back,
         pronunciationResult: result,
         onListen: (btn) => speak(listenTextForCard(card), btn),
       });

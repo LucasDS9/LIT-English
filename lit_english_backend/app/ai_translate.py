@@ -215,3 +215,77 @@ def build_target_language_flashcard(
     except (requests.RequestException, KeyError, ValueError, json.JSONDecodeError) as e:
         logger.warning("Tradução do flashcard indisponível: %s", e)
         raise TranslationUnavailable(f"Falha ao consultar a API da Groq: {e}") from e
+
+
+_ORIENT_PROMPT = (
+    "Você organiza flashcards de idiomas. A língua nativa do aluno é {native_language} e a "
+    "língua-alvo é {target_language}. Você recebe um JSON com \"front\" e \"back\": cada lado pode "
+    "estar em qualquer língua, os lados podem estar TROCADOS, e um deles pode estar vazio. "
+    "Devolva `target_text` (a frase na língua-alvo) e `native_text` (a mesma frase na língua nativa). "
+    "Regras: (1) se um lado já estiver na língua-alvo, use-o como `target_text` SEM alterar nada; "
+    "se um lado já estiver na língua nativa, use-o como `native_text` SEM alterar nada. "
+    "(2) Se faltar uma das línguas (lado vazio, ou os dois lados na mesma língua), traduza o que "
+    "falta preservando o sentido completo. (3) Não explique, não use aspas, não dê alternativas. "
+    'Responda APENAS com um JSON válido no formato exato: {{"target_text": "...", "native_text": "..."}}'
+)
+
+
+def orient_flashcard_sides(
+    front: str, back: str, native_language: str, target_language: str
+) -> tuple[str, str]:
+    """
+    Usa a IA para descobrir qual lado do card está na língua-alvo e qual está na
+    língua nativa (inverte se estiverem trocados) e completa o que faltar
+    traduzindo. Devolve (texto na língua-alvo, texto na língua nativa).
+    Levanta TranslationUnavailable se a IA não puder ser consultada.
+    """
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        raise TranslationUnavailable("GROQ_API_KEY não configurada.")
+
+    native_name = _LANGUAGE_NAMES.get((native_language or "").strip().lower(), "português")
+    target_name = _LANGUAGE_NAMES.get((target_language or "").strip().lower(), "inglês")
+
+    payload = {
+        "model": GROQ_MODEL,
+        "messages": [
+            {
+                "role": "system",
+                "content": _ORIENT_PROMPT.format(
+                    native_language=native_name, target_language=target_name
+                ),
+            },
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {"front": (front or "").strip(), "back": (back or "").strip()},
+                    ensure_ascii=False,
+                ),
+            },
+        ],
+        "temperature": 0.1,
+        "reasoning_effort": "low",
+        "max_tokens": 400,
+        "response_format": {"type": "json_object"},
+    }
+
+    try:
+        r = requests.post(
+            GROQ_API_URL,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=12,
+        )
+        r.raise_for_status()
+        parsed = json.loads(r.json()["choices"][0]["message"]["content"])
+        target_text = str(parsed.get("target_text", "")).strip()
+        native_text = str(parsed.get("native_text", "")).strip()
+        if not target_text or not native_text:
+            raise ValueError("Resposta da IA sem target_text/native_text.")
+        return target_text, native_text
+    except (requests.RequestException, KeyError, ValueError, json.JSONDecodeError) as e:
+        logger.warning("Orientação do flashcard por IA indisponível: %s", e)
+        raise TranslationUnavailable(f"Falha ao consultar a API da Groq: {e}") from e
