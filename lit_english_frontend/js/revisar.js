@@ -690,11 +690,19 @@ async function submitSpeakAnswer(card, getBlob, feedback, submitBtn, getLocked, 
         : `Resposta correta: ${result.correct_answer}`;
     }
 
-    if (result.correct) {
+    // A frase pode ter sido aceita pela IA (sentido/gramática) e mesmo assim a
+    // pronúncia vir fraca (nota abaixo de 80, palavras em vermelho). Nesse caso
+    // a análise também não pode sumir sozinha: o aluno precisa ler e clicar em
+    // "Prosseguir", igual a quando erra.
+    const weakPronunciation =
+      result.score != null && FlashcardPronounce.getScoreTier(result.score).id !== "good";
+
+    if (result.correct && !weakPronunciation) {
       setTimeout(() => advanceToNextCard(), result.score != null ? 2200 : 900);
     } else {
-      setLocked(false);
-      submitBtn.disabled = false;
+      // Errou ou pronúncia fraca: a resposta já foi registrada no SM-2, então
+      // não há nova tentativa; mantém a análise até o aluno clicar em "Prosseguir".
+      showContinueButton(submitBtn);
     }
   } catch (err) {
     if (err.status === 429) {
@@ -926,6 +934,25 @@ function renderFlipCard(card) {
   }
 }
 
+// Errou (digitar ou falar): a tela fica travada até o aluno clicar em
+// "Prosseguir", pra dar tempo de ler a resposta correta e a explicação.
+function showContinueButton(submitBtn) {
+  const actions = submitBtn.parentElement;
+  submitBtn.hidden = true;
+  reviewArea.querySelectorAll(".review-audio-btn--mic").forEach((b) => { b.disabled = true; });
+
+  const continueBtn = document.createElement("button");
+  continueBtn.type = "button";
+  continueBtn.className = "btn btn-primary";
+  continueBtn.textContent = "Prosseguir";
+  continueBtn.addEventListener("click", () => {
+    continueBtn.disabled = true;
+    advanceToNextCard();
+  });
+  actions.appendChild(continueBtn);
+  continueBtn.focus();
+}
+
 async function submitTypedAnswer(card, input, feedback, submitBtn) {
   if (session.typingLocked) return;
 
@@ -959,10 +986,14 @@ async function submitTypedAnswer(card, input, feedback, submitBtn) {
       feedback.textContent = `Resposta correta: ${result.correct_answer}`;
     }
 
-    // Acertou o type_pt -> vira type_speak, mas o card só reaparece de
-    // acordo com o `next_review` agendado pelo SM-2 (não nesta mesma
-    // sessão) — segue o mesmo tratamento das demais etapas.
-    setTimeout(() => advanceToNextCard(), 900);
+    if (result.correct) {
+      // Acertou o type_pt -> vira type_speak, mas o card só reaparece de
+      // acordo com o `next_review` agendado pelo SM-2 (não nesta mesma
+      // sessão) — segue o mesmo tratamento das demais etapas.
+      setTimeout(() => advanceToNextCard(), 900);
+    } else {
+      showContinueButton(submitBtn);
+    }
   } catch (err) {
     if (err.status === 429) {
       renderError("A revisão não possui limite diário. Tente novamente.");
