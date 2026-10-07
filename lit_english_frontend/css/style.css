@@ -5468,3 +5468,75 @@ body.reader-fs-open {
   .analytics-bottom-kpis { grid-template-columns: 1fr; }
   .analytics-table th, .analytics-table td { padding: 8px 6px; font-size: 10px; }
 }
+
+/* ---------- Aprender: refinamento visual do vocabulário ---------- */
+.vocab-browse-example {
+  text-align: center;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.vocab-browse-example strong,
+.vocab-browse-more-examples-text strong {
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.vocab-browse-actions .vocab-browse-action:first-child {
+  background: var(--primary);
+  color: #fff;
+}
+
+.vocab-browse-actions .vocab-browse-action:first-child .vocab-browse-action-icon,
+.vocab-browse-actions .vocab-browse-action:first-child .vocab-browse-action-divider {
+  color: #fff;
+}
+
+.vocab-browse-actions .vocab-browse-action:first-child .vocab-browse-action-divider {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.vocab-browse-more-examples {
+  align-items: stretch;
+  gap: 0;
+  padding: 20px 30px;
+}
+
+.vocab-browse-more-examples-icon {
+  display: none;
+}
+
+.vocab-browse-more-examples-divider {
+  width: 5px;
+  min-width: 5px;
+  border-radius: 999px;
+  background: var(--primary);
+  margin-right: 24px;
+}
+
+.vocab-browse-more-examples-text {
+  text-align: center;
+  padding: 0 8px;
+}
+
+.vocab-browse-more-examples-text p {
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+@media (max-width: 640px) {
+  .vocab-browse-more-examples {
+    padding: 16px 18px;
+  }
+
+  .vocab-browse-more-examples-divider {
+    width: 4px;
+    min-width: 4px;
+    margin-right: 14px;
+  }
+
+  .vocab-browse-more-examples-text p {
+    font-size: 14px;
+  }
+}

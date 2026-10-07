@@ -140,7 +140,11 @@ const vocabOptionsEl = document.getElementById("vocab-browse-options");
 const vocabCounterEl = document.getElementById("vocab-browse-counter");
 const vocabFlagEl = document.getElementById("vocab-browse-flag");
 
-if (vocabListenBtn) vocabListenBtn.querySelector(".vocab-browse-action-icon").innerHTML = Icons.volume;
+if (vocabListenBtn) vocabListenBtn.querySelector(".vocab-browse-action-icon").innerHTML = `
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M4 10v4h4l5 4V6l-5 4H4Z" fill="currentColor" stroke="none"/>
+    <path d="M16 9.5a4 4 0 0 1 0 5M18.5 7a7.5 7.5 0 0 1 0 10"/>
+  </svg>`;
 if (vocabMoreExamplesBtn) vocabMoreExamplesBtn.querySelector(".vocab-browse-action-icon").innerHTML = Icons.listCheck;
 if (vocabSaveBtn) vocabSaveBtn.querySelector(".vocab-browse-action-icon").innerHTML = bookmarkIcon(false);
 
@@ -151,9 +155,55 @@ let vocabCards = [];
 let vocabIndex = 0;
 let vocabAudioCache = null;
 let vocabAnswered = false;
+let vocabStorageKey = "lit_vocab_active_card";
 
 function setVocabFlag(language) {
   if (vocabFlagEl) vocabFlagEl.innerHTML = FLAG_SVG[getTargetKey({target_language: language})] || FLAG_SVG.ingles;
+}
+
+function highlightVocabWord(sentence, word) {
+  const text = String(sentence || "");
+  const target = String(word || "").trim();
+  if (!text || !target) return escapeHtml(text);
+
+  const escapedTarget = target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`(${escapedTarget})`, "gi");
+  let result = "";
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(pattern)) {
+    result += escapeHtml(text.slice(lastIndex, match.index));
+    result += `<strong>${escapeHtml(match[0])}</strong>`;
+    lastIndex = match.index + match[0].length;
+  }
+
+  result += escapeHtml(text.slice(lastIndex));
+  return result;
+}
+
+function saveActiveVocabCard(card) {
+  if (!card) return;
+  try {
+    localStorage.setItem(vocabStorageKey, JSON.stringify({
+      word_id: card.word_id,
+      card,
+    }));
+  } catch (_) {}
+}
+
+function getActiveVocabCard() {
+  try {
+    const raw = localStorage.getItem(vocabStorageKey);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    return saved?.card || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function clearActiveVocabCard() {
+  try { localStorage.removeItem(vocabStorageKey); } catch (_) {}
 }
 
 function renderVocabCard(card) {
@@ -170,14 +220,15 @@ function renderVocabCard(card) {
   vocabAudioCache = null;
   vocabWordEl.textContent = card.word;
   vocabPosEl.textContent = `${card.part_of_speech} · ${card.level}`;
-  vocabExampleEl.innerHTML = escapeHtml(card.example_sentence || "");
+  vocabExampleEl.innerHTML = highlightVocabWord(card.example_sentence || "", card.word);
   vocabCounterEl.textContent = `${vocabIndex + 1} / ${vocabCards.length}`;
   setVocabFlag(card.language);
+  saveActiveVocabCard(card);
 
   vocabMoreExamplesBox.hidden = true;
   vocabMoreExamplesLabel.textContent = "Ver mais 3 exemplos";
   const examples = Array.isArray(card.example_sentences) ? card.example_sentences : [];
-  vocabMoreExamplesText.innerHTML = examples.slice(0, 3).map(sentence => `<p>${escapeHtml(sentence)}</p>`).join("");
+  vocabMoreExamplesText.innerHTML = examples.slice(0, 3).map(sentence => `<p>${highlightVocabWord(sentence, card.word)}</p>`).join("");
 
   vocabOptionsEl.innerHTML = (card.options || []).map(option =>
     `<button type="button" class="vocab-browse-option" data-answer="${escapeHtml(option)}">${escapeHtml(option)}</button>`
@@ -215,6 +266,7 @@ async function submitVocabAnswer(chosen, button) {
       correctOpt?.classList.add("is-correct");
     }
 
+    clearActiveVocabCard();
     setTimeout(advanceVocabCard, correct ? 450 : 1100);
   } catch (err) {
     vocabAnswered = false;
@@ -288,6 +340,24 @@ async function loadVocabLearn() {
   try {
     const data = await apiFetch("/vocab-words/learn/next?category=palavras_essenciais");
     vocabCards = data.cards || [];
+
+    const activeCard = getActiveVocabCard();
+    if (activeCard?.word_id) {
+      const serverIndex = vocabCards.findIndex(card => Number(card.word_id) === Number(activeCard.word_id));
+      if (serverIndex >= 0) {
+        vocabIndex = serverIndex;
+        renderVocabCard(vocabCards[vocabIndex]);
+        return;
+      }
+
+      // Se o backend já retirou a palavra da fila, ainda mantemos a palavra
+      // congelada no navegador até que o aluno a responda.
+      vocabCards = [activeCard, ...vocabCards.filter(card => Number(card.word_id) !== Number(activeCard.word_id))];
+      vocabIndex = 0;
+      renderVocabCard(activeCard);
+      return;
+    }
+
     vocabIndex = 0;
     if (!vocabCards.length) {
       renderVocabCard(null);
@@ -357,6 +427,7 @@ async function init() {
   try {
     const user = await fetchCurrentUser();
     currentUser = user;
+    vocabStorageKey = `lit_vocab_active_card_${user.id || "student"}`;
 
     studentNameEl.textContent = user.name;
     roleLabelEl.textContent = user.role === "professor" ? "PROFESSOR" : "ALUNO";
