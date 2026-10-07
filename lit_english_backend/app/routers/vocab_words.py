@@ -2,8 +2,8 @@
 Rotas de "Aprender" (treino de vocabulário por reconhecimento/múltipla escolha):
 - Professor: criar, listar, editar e excluir palavras (com atribuição por aluno)
 - Aluno: aprender palavras NOVAS — sempre 4 opções (a certa + 3 distratores).
-  Aprender exibe somente palavras nunca respondidas. O primeiro acerto gradua
-  a palavra para Revisar como flashcard; a progressão de status acontece lá.
+  Aprender exibe somente palavras ainda não aprendidas. O aluno decide
+  separadamente quais palavras quer salvar como flashcards.
 """
 import random
 from datetime import datetime
@@ -18,11 +18,6 @@ from app.flashcard_judge import judge_flashcard_answer
 from app.vocab_seed import AUTO_VOCAB
 from app.models import (
     AccessType,
-    CardProgress,
-    Flashcard,
-    FlashcardAssignment,
-    ReviewCardStatus,
-    ReviewMode,
     User,
     UserRole,
     VocabWord,
@@ -145,53 +140,6 @@ def _to_word_out(word: VocabWord) -> VocabWordOut:
         created_at=word.created_at,
         students=[{"id": s.id, "name": s.name} for s in word.students],
     )
-
-
-def _graduate_word_to_review(word: VocabWord, student: User, db: Session) -> Flashcard:
-    """Cria (ou reutiliza) o flashcard de Revisar e atribui ao aluno."""
-    if word.review_flashcard_id:
-        flashcard = db.query(Flashcard).filter(Flashcard.id == word.review_flashcard_id).first()
-    else:
-        flashcard = Flashcard(front=word.word, back=word.translation, description=f"{word.part_of_speech} · {word.level}")
-        db.add(flashcard)
-        db.flush()
-        word.review_flashcard_id = flashcard.id
-
-    assigned = (
-        db.query(FlashcardAssignment)
-        .filter(
-            FlashcardAssignment.flashcard_id == flashcard.id,
-            FlashcardAssignment.student_id == student.id,
-        )
-        .first()
-    )
-    if not assigned:
-        db.add(FlashcardAssignment(flashcard_id=flashcard.id, student_id=student.id))
-
-    card_progress = (
-        db.query(CardProgress)
-        .filter(
-            CardProgress.student_id == student.id,
-            CardProgress.flashcard_id == flashcard.id,
-        )
-        .first()
-    )
-    if not card_progress:
-        card_progress = CardProgress(
-            student_id=student.id,
-            flashcard_id=flashcard.id,
-            review_status=ReviewCardStatus.aprendendo,
-            review_mode=ReviewMode.flip,
-            correct_streak=0,
-            next_review=datetime.utcnow(),
-        )
-        db.add(card_progress)
-    elif card_progress.review_status is None:
-        card_progress.review_status = ReviewCardStatus.aprendendo
-        card_progress.review_mode = ReviewMode.flip
-
-    return flashcard
-
 
 
 def _ensure_auto_vocab_for_student(student: User, db: Session) -> None:
@@ -584,19 +532,24 @@ def submit_learn_answer(
     now = datetime.utcnow()
 
     if not progress:
-        progress = VocabWordProgress(student_id=student.id, word_id=word_id)
+        progress = VocabWordProgress(
+            student_id=student.id,
+            word_id=word_id,
+            correct_streak=0,
+        )
         db.add(progress)
 
     progress.last_reviewed = now
 
-    graduated = False
     if is_correct:
+        # Acertar no Learn apenas registra que a palavra foi aprendida.
+        # NÃO cria, atribui ou move nenhum flashcard para Revisar.
         progress.first_correct_at = now
-        progress.status = VocabWordStatus.em_revisao
-        _graduate_word_to_review(word, student, db)
-        graduated = True
+        progress.status = VocabWordStatus.aprendida
+        progress.correct_streak = (progress.correct_streak or 0) + 1
     else:
         progress.status = VocabWordStatus.nova
+        progress.correct_streak = 0
 
     db.commit()
 
@@ -604,7 +557,7 @@ def submit_learn_answer(
         correct=is_correct,
         correct_answer=word.translation,
         explanation=word.explanation,
-        graduated_to_review=graduated,
+        graduated_to_review=False,
     )
 
 
@@ -720,27 +673,24 @@ def get_student_vocab_progress(
     return items
 
 
-def migrate_legacy_vocab_to_review(db: Session) -> None:
-    """Migra dados antigos: palavras que já tinham progresso em Aprender
-    passam a ter flashcard em Revisar e first_correct_at preenchido."""
+def migrate_legacy_vocab_progress(db: Session) -> None:
+    """Normaliza progresso legado do Learn sem criar flashcards.
+
+    Versões antigas podiam marcar palavras como em_revisao/aprendida.
+    Aqui apenas preservamos o fato de que a palavra já foi aprendida;
+    a criação do flashcard agora depende exclusivamente da ação explícita
+    do aluno.
+    """
     legacy_rows = (
-        db.query(VocabWordProgress, VocabWord, User)
-        .join(VocabWord, VocabWord.id == VocabWordProgress.word_id)
-        .join(User, User.id == VocabWordProgress.student_id)
+        db.query(VocabWordProgress)
         .filter(
-            VocabWordProgress.first_correct_at.is_(None),
-            VocabWordProgress.status.in_([
-                VocabWordStatus.em_revisao,
-                VocabWordStatus.aprendida,
-            ]),
+            VocabWordProgress.first_correct_at.isnot(None),
+            VocabWordProgress.status == VocabWordStatus.em_revisao,
         )
         .all()
     )
-    if not legacy_rows:
-        return
-
-    for progress, word, student in legacy_rows:
-        progress.first_correct_at = progress.last_reviewed or progress.next_review or datetime.utcnow()
-        _graduate_word_to_review(word, student, db)
+    for progress in legacy_rows:
+        progress.status = VocabWordStatus.aprendida
+        progress.correct_streak = progress.correct_streak or 1
 
     db.commit()

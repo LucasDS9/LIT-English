@@ -273,6 +273,9 @@ class VocabWordProgress(Base):
     last_reviewed = Column(DateTime, nullable=True)
     next_review = Column(DateTime, default=datetime.utcnow, nullable=False)
     first_correct_at = Column(DateTime, nullable=True)
+    # Streak do progresso no Learn. Mantido separado do progresso dos flashcards.
+    # O banco exige NOT NULL, então novos registros sempre começam em 0.
+    correct_streak = Column(Integer, nullable=False, default=0, server_default="0")
 
     student = relationship("User")
 
