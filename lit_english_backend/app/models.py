@@ -222,6 +222,9 @@ class VocabWord(Base):
     part_of_speech = Column(String, nullable=False)
     translation = Column(String, nullable=False)
     example_sentence = Column(Text, nullable=True)
+    # Três exemplos contextualizados exibidos em "Ver mais 3 exemplos".
+    # Armazenados como JSON para manter compatibilidade com o schema atual.
+    example_sentences = Column(Text, nullable=True)
     tip = Column(Text, nullable=True)
     distractors = Column(Text, nullable=False, default="")
     explanation = Column(Text, nullable=True)

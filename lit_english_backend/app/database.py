@@ -249,6 +249,12 @@ def run_migrations():
                         conn.commit()
                     conn.execute(text("ALTER TABLE vocab_words ALTER COLUMN example_sentence DROP NOT NULL"))
                     conn.commit()
+                    # Coluna `example_sentences` (nova): três exemplos contextualizados
+                    # usados pelo botão "Ver mais 3 exemplos" no Aprender.
+                    # É TEXT com JSON para manter a migração simples e compatível.
+                    if not _col_exists(conn, "vocab_words", "example_sentences"):
+                        conn.execute(text("ALTER TABLE vocab_words ADD COLUMN example_sentences TEXT"))
+                        conn.commit()
                     # Coluna `language` (Acesso Especial): palavras antigas,
                     # todas em inglês, viram "ingles" — só entra conteúdo de
                     # outra língua quando explicitamente marcado como tal.
