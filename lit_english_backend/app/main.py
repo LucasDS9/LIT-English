@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine, run_migrations, SessionLocal
-from app.routers import admin, analytics, auth, conversation, dashboard, exercises, flashcards, level_test, qa, site_leads, texts, tts
+from app.routers import admin, analytics, auth, conversation, dashboard, exercises, flashcards, level_test, qa, site_leads, texts, tts, vocab_words
 from app.services.conversation_session_manager import conversation_sessions
 from app.services.analytics_service import daily_cost_sync_loop
 
@@ -47,6 +47,7 @@ app.include_router(dashboard.router)
 app.include_router(level_test.router)
 app.include_router(site_leads.router)
 app.include_router(conversation.router)
+app.include_router(vocab_words.router)
 
 
 @app.on_event("startup")

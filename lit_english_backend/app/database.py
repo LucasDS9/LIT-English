@@ -269,6 +269,11 @@ def run_migrations():
                     # cadastradas antes de existir categoria, viram
                     # "saudacoes" por padrão — o script de seed reclassifica
                     # a Parte 2 ("verbos") ao rodar de novo (upsert).
+                    if not _col_exists(conn, "vocab_words", "level"):
+                        conn.execute(text(
+                            "ALTER TABLE vocab_words ADD COLUMN level VARCHAR NOT NULL DEFAULT 'A1'"
+                        ))
+                        conn.commit()
                     if not _col_exists(conn, "vocab_words", "category"):
                         conn.execute(text(
                             "ALTER TABLE vocab_words ADD COLUMN category VARCHAR "

@@ -97,31 +97,22 @@
       </div>
 
       <!-- ----------------------------------------------------------------
-           Aba "Vocabulário" -- template com dados de exemplo ("calcio").
-           A ligação com os flashcards de verdade do aluno (lista real de
-           palavras, contagem de exemplos etc.) fica pra depois; por ora os
-           botões já funcionam de verdade (áudio via TTS, mostrar mais
-           exemplos, salvar como flashcard) em cima desse conteúdo fixo.
+           Aba "Vocabulário" -- conteúdo carregado da língua-alvo do aluno.
            ---------------------------------------------------------------- -->
       <section id="learn-tab-vocab" class="learn-vocab-panel">
         <div class="vocab-browse-card">
           <div class="vocab-browse-card-header">
             <span class="vocab-browse-flag" id="vocab-browse-flag"></span>
-            <span class="vocab-browse-counter">1 / 10</span>
+            <span class="vocab-browse-counter" id="vocab-browse-counter">0 / 0</span>
           </div>
 
           <div class="vocab-browse-body">
-            <h2 class="vocab-browse-word" id="vocab-browse-word">calcio</h2>
-            <p class="vocab-browse-pos" id="vocab-browse-pos">(sostantivo maschile)</p>
-            <p class="vocab-browse-example" id="vocab-browse-example">Gioco a <strong>calcio</strong> tutti i sabati.</p>
+            <h2 class="vocab-browse-word" id="vocab-browse-word">Carregando...</h2>
+            <p class="vocab-browse-pos" id="vocab-browse-pos"></p>
+            <p class="vocab-browse-example" id="vocab-browse-example"></p>
           </div>
 
-          <div class="vocab-browse-options" id="vocab-browse-options">
-            <button type="button" class="vocab-browse-option" data-answer="futebol" data-correct="true">futebol</button>
-            <button type="button" class="vocab-browse-option" data-answer="cálcio" data-correct="false">cálcio</button>
-            <button type="button" class="vocab-browse-option" data-answer="bola" data-correct="false">bola</button>
-            <button type="button" class="vocab-browse-option" data-answer="palavra" data-correct="false">palavra</button>
-          </div>
+          <div class="vocab-browse-options" id="vocab-browse-options"></div>
 
           <div class="vocab-browse-actions">
             <button type="button" class="vocab-browse-action" id="vocab-listen-btn">
@@ -137,7 +128,7 @@
             <button type="button" class="vocab-browse-action" id="vocab-more-examples-btn">
               <span class="vocab-browse-action-icon"></span>
               <span class="vocab-browse-action-divider"></span>
-              <span id="vocab-more-examples-label">Ver mais 3 exemplos</span>
+              <span id="vocab-more-examples-label">Ver exemplo</span>
             </button>
           </div>
         </div>
@@ -145,11 +136,7 @@
         <div class="vocab-browse-more-examples" id="vocab-more-examples" hidden>
           <span class="vocab-browse-more-examples-icon" id="vocab-more-examples-icon"></span>
           <span class="vocab-browse-more-examples-divider"></span>
-          <div class="vocab-browse-more-examples-text">
-            <p>Il <strong>calcio</strong> è lo sport più popolare in Italia.</p>
-            <p>Ha segnato un gol all'ultimo minuto della partita di <strong>calcio</strong>.</p>
-            <p>Da bambino sognavo di diventare un giocatore di <strong>calcio</strong>.</p>
-          </div>
+          <div class="vocab-browse-more-examples-text" id="vocab-more-examples-text"></div>
         </div>
       </section>
 

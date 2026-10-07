@@ -205,6 +205,78 @@ class ReviewLog(Base):
     reviewed_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 
+
+
+class VocabWordStatus(str, enum.Enum):
+    nova = "nova"
+    em_revisao = "em_revisao"
+    aprendida = "aprendida"
+
+
+class VocabWord(Base):
+    """Palavra/expressão disponível em Aprender para uma língua-alvo."""
+    __tablename__ = "vocab_words"
+
+    id = Column(Integer, primary_key=True, index=True)
+    word = Column(String, nullable=False)
+    part_of_speech = Column(String, nullable=False)
+    translation = Column(String, nullable=False)
+    example_sentence = Column(Text, nullable=True)
+    tip = Column(Text, nullable=True)
+    distractors = Column(Text, nullable=False, default="")
+    explanation = Column(Text, nullable=True)
+    language = Column(String, nullable=False, index=True, default="ingles")
+    category = Column(String, nullable=False, index=True, default="palavras_essenciais")
+    level = Column(String, nullable=False, default="A1", index=True)
+    review_flashcard_id = Column(Integer, ForeignKey("flashcards.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    review_flashcard = relationship("Flashcard", foreign_keys=[review_flashcard_id])
+    assignments = relationship(
+        "VocabWordAssignment",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        backref="word",
+    )
+    progress = relationship(
+        "VocabWordProgress",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        backref="word",
+    )
+
+    @property
+    def students(self):
+        return [a.student for a in self.assignments]
+
+
+class VocabWordAssignment(Base):
+    __tablename__ = "vocab_word_assignments"
+    __table_args__ = (UniqueConstraint("word_id", "student_id", name="uq_vocab_word_student"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    word_id = Column(Integer, ForeignKey("vocab_words.id", ondelete="CASCADE"), nullable=False)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    assigned_at = Column(DateTime, default=datetime.utcnow)
+
+    student = relationship("User")
+
+
+class VocabWordProgress(Base):
+    __tablename__ = "vocab_word_progress"
+    __table_args__ = (UniqueConstraint("student_id", "word_id", name="uq_vocab_progress_student_word"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    word_id = Column(Integer, ForeignKey("vocab_words.id", ondelete="CASCADE"), nullable=False)
+    status = Column(Enum(VocabWordStatus), nullable=False, default=VocabWordStatus.nova)
+    last_reviewed = Column(DateTime, nullable=True)
+    next_review = Column(DateTime, default=datetime.utcnow, nullable=False)
+    first_correct_at = Column(DateTime, nullable=True)
+
+    student = relationship("User")
+
+
 class ReadingLevel(str, enum.Enum):
     A1 = "A1"
     A2 = "A2"

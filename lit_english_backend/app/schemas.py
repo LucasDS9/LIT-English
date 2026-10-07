@@ -13,6 +13,7 @@ from app.models import (
     ReviewCardStatus,
     ReviewMode,
     UserRole,
+    VocabWordStatus,
 )
 
 # Línguas-alvo aceitas hoje no cadastro de Acesso Especial. Só existe estrutura
@@ -297,6 +298,93 @@ class FlashcardBatchRenamePayload(BaseModel):
 class FlashcardBatchResendPayload(BaseModel):
     student_ids: List[int] = Field(min_length=1)
 
+
+# ---------- Aprender / Vocabulário ----------
+
+class VocabWordCreate(BaseModel):
+    word: str
+    part_of_speech: str
+    translation: str
+    example_sentence: Optional[str] = None
+    tip: Optional[str] = None
+    distractors: List[str] = Field(min_length=3, max_length=3)
+    explanation: Optional[str] = None
+    language: str = "ingles"
+    category: str = "palavras_essenciais"
+    level: str = "A1"
+    student_ids: Optional[List[int]] = None
+
+
+class VocabWordUpdate(BaseModel):
+    word: Optional[str] = None
+    part_of_speech: Optional[str] = None
+    translation: Optional[str] = None
+    example_sentence: Optional[str] = None
+    tip: Optional[str] = None
+    distractors: Optional[List[str]] = None
+    explanation: Optional[str] = None
+    language: Optional[str] = None
+    category: Optional[str] = None
+    level: Optional[str] = None
+    student_ids: Optional[List[int]] = None
+
+
+class VocabWordOut(BaseModel):
+    id: int
+    word: str
+    part_of_speech: str
+    translation: str
+    example_sentence: Optional[str]
+    tip: Optional[str]
+    distractors: List[str]
+    explanation: Optional[str]
+    language: str
+    category: str
+    level: str
+    created_at: datetime
+    students: List[FlashcardStudentOut] = []
+
+    class Config:
+        from_attributes = True
+
+
+class VocabLearnCardOut(BaseModel):
+    word_id: int
+    word: str
+    part_of_speech: str
+    translation: Optional[str] = None
+    example_sentence: Optional[str] = None
+    tip: Optional[str] = None
+    options: List[str]
+    level: str = "A1"
+    language: str
+
+
+class VocabLearnQueueOut(BaseModel):
+    cards: List[VocabLearnCardOut]
+    total_assigned: int
+    total_learned: int
+    new_words_count: int
+
+
+class VocabLearnSubmit(BaseModel):
+    selected_option: str
+
+
+class VocabLearnResult(BaseModel):
+    correct: bool
+    correct_answer: str
+    explanation: Optional[str] = None
+    graduated_to_review: bool = False
+
+
+class VocabWordProgressOut(BaseModel):
+    word_id: int
+    word: str
+    part_of_speech: str
+    translation: str
+    status: VocabWordStatus
+    next_review: datetime
 
 # ---------- Read and Listen ----------
 

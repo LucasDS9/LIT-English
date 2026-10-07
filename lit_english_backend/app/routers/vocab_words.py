@@ -15,6 +15,7 @@ from app.ai_judge import judge_answer
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
 from app.flashcard_judge import judge_flashcard_answer
+from app.vocab_seed import AUTO_VOCAB
 from app.models import (
     AccessType,
     CardProgress,
@@ -44,11 +45,11 @@ from app.schemas import (
 router = APIRouter(prefix="/vocab-words", tags=["Aprender"])
 
 # Máximo de palavras novas por sessão de Aprender.
-NEW_WORDS_PER_CYCLE = 15
+NEW_WORDS_PER_CYCLE = 10
 
 # Categoria padrão da tela "Aprender". A fila aceita uma categoria
 # explicitamente para que cada conteúdo liberado apareça separado no frontend.
-ACTIVE_LEARN_CATEGORY = "saudacoes"
+ACTIVE_LEARN_CATEGORY = "palavras_essenciais"
 
 # Separador interno dos distratores (a tradução pode conter vírgula, então
 # não usamos vírgula aqui).
@@ -140,6 +141,7 @@ def _to_word_out(word: VocabWord) -> VocabWordOut:
         explanation=word.explanation,
         language=word.language,
         category=word.category,
+        level=word.level,
         created_at=word.created_at,
         students=[{"id": s.id, "name": s.name} for s in word.students],
     )
@@ -150,7 +152,7 @@ def _graduate_word_to_review(word: VocabWord, student: User, db: Session) -> Fla
     if word.review_flashcard_id:
         flashcard = db.query(Flashcard).filter(Flashcard.id == word.review_flashcard_id).first()
     else:
-        flashcard = Flashcard(front=word.word, back=word.translation)
+        flashcard = Flashcard(front=word.word, back=word.translation, description=f"{word.part_of_speech} · {word.level}")
         db.add(flashcard)
         db.flush()
         word.review_flashcard_id = flashcard.id
@@ -191,6 +193,54 @@ def _graduate_word_to_review(word: VocabWord, student: User, db: Session) -> Fla
     return flashcard
 
 
+
+def _ensure_auto_vocab_for_student(student: User, db: Session) -> None:
+    """Cria/atribui automaticamente o núcleo de vocabulário da língua do aluno.
+
+    Isso roda sob demanda ao abrir Aprender, portanto novos alunos não dependem
+    de um seed manual ou de uma lista de IDs de alunos.
+    """
+    language = student_language(student)
+    catalog = AUTO_VOCAB.get(language, [])
+    if not catalog:
+        return
+
+    for item in catalog:
+        word = (
+            db.query(VocabWord)
+            .filter(VocabWord.language == language, VocabWord.word == item.word)
+            .first()
+        )
+        if not word:
+            word = VocabWord(
+                word=item.word,
+                part_of_speech=item.part_of_speech,
+                translation=item.translation,
+                example_sentence=item.example_sentence,
+                tip=None,
+                distractors=_pack_distractors(list(item.distractors)),
+                explanation=None,
+                language=language,
+                category=ACTIVE_LEARN_CATEGORY,
+                level=item.level,
+            )
+            db.add(word)
+            db.flush()
+
+        assignment = (
+            db.query(VocabWordAssignment)
+            .filter(
+                VocabWordAssignment.word_id == word.id,
+                VocabWordAssignment.student_id == student.id,
+            )
+            .first()
+        )
+        if not assignment:
+            db.add(VocabWordAssignment(word_id=word.id, student_id=student.id))
+
+    db.commit()
+
+
 # ============================================================
 # PROFESSOR: CRUD de palavras
 # ============================================================
@@ -202,7 +252,7 @@ def create_vocab_word(
     _professor: User = Depends(get_current_professor),
 ):
     language = (data.language or "ingles").strip().lower()
-    category = (data.category or "saudacoes").strip().lower()
+    category = (data.category or ACTIVE_LEARN_CATEGORY).strip().lower()
     student_ids = _resolve_student_ids(data.student_ids, language, db)
     if not student_ids:
         raise HTTPException(
@@ -222,6 +272,7 @@ def create_vocab_word(
         explanation=(data.explanation or "").strip() or None,
         language=language,
         category=category,
+        level=(data.level or "A1").strip().upper(),
     )
     db.add(word)
     db.flush()
@@ -285,6 +336,8 @@ def update_vocab_word(
 
     if data.category is not None:
         word.category = data.category.strip().lower()
+    if data.level is not None:
+        word.level = data.level.strip().upper()
 
     if data.student_ids is not None:
         if len(data.student_ids) == 0:
@@ -339,6 +392,7 @@ def get_learn_categories(
     separadas com total e progresso para a tela Aprender."""
     _require_student(student)
     language = student_language(student)
+    _ensure_auto_vocab_for_student(student, db)
 
     rows = (
         db.query(VocabWord.category)
@@ -412,6 +466,7 @@ def get_learn_queue(
     """
     _require_student(student)
     language = student_language(student)
+    _ensure_auto_vocab_for_student(student, db)
     category = (category or ACTIVE_LEARN_CATEGORY).strip().lower()
 
     assigned_subquery = db.query(VocabWordAssignment.word_id).filter(
@@ -427,10 +482,10 @@ def get_learn_queue(
         .filter(VocabWord.language == language)
         .filter(VocabWord.category == category)
         .filter(~VocabWord.id.in_(attempted_subquery))
-        .order_by(VocabWord.created_at.asc())
-        .limit(NEW_WORDS_PER_CYCLE)
         .all()
     )
+    random.shuffle(new_words)
+    new_words = new_words[:NEW_WORDS_PER_CYCLE]
 
     already_in_cycle_ids = [w.id for w in new_words]
     wrong_words = (
@@ -453,7 +508,10 @@ def get_learn_queue(
             part_of_speech=w.part_of_speech,
             example_sentence=w.example_sentence,
             tip=w.tip,
+            translation=w.translation,
             options=_build_options(w),
+            level=w.level,
+            language=w.language,
         )
         for w in cycle_words
     ]
