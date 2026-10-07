@@ -335,6 +335,7 @@ class VocabWordOut(BaseModel):
     part_of_speech: str
     translation: str
     example_sentence: Optional[str]
+    example_sentences: List[str] = []
     tip: Optional[str]
     distractors: List[str]
     explanation: Optional[str]
@@ -354,6 +355,7 @@ class VocabLearnCardOut(BaseModel):
     part_of_speech: str
     translation: Optional[str] = None
     example_sentence: Optional[str] = None
+    example_sentences: List[str] = []
     tip: Optional[str] = None
     options: List[str]
     level: str = "A1"

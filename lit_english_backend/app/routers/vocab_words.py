@@ -5,6 +5,7 @@ Rotas de "Aprender" (treino de vocabulário por reconhecimento/múltipla escolha
   Aprender exibe somente palavras ainda não aprendidas. O aluno decide
   separadamente quais palavras quer salvar como flashcards.
 """
+import json
 import random
 from datetime import datetime
 
@@ -137,6 +138,7 @@ def _to_word_out(word: VocabWord) -> VocabWordOut:
         language=word.language,
         category=word.category,
         level=word.level,
+        example_sentences=(json.loads(word.example_sentences) if word.example_sentences else []),
         created_at=word.created_at,
         students=[{"id": s.id, "name": s.name} for s in word.students],
     )
@@ -165,6 +167,7 @@ def _ensure_auto_vocab_for_student(student: User, db: Session) -> None:
                 part_of_speech=item.part_of_speech,
                 translation=item.translation,
                 example_sentence=item.example_sentence,
+                example_sentences=json.dumps(list(item.example_sentences), ensure_ascii=False),
                 tip=None,
                 distractors=_pack_distractors(list(item.distractors)),
                 explanation=None,
@@ -183,6 +186,10 @@ def _ensure_auto_vocab_for_student(student: User, db: Session) -> None:
             )
             .first()
         )
+        # Backfill das 3 frases para palavras criadas antes deste campo.
+        if not word.example_sentences:
+            word.example_sentences = json.dumps(list(item.example_sentences), ensure_ascii=False)
+
         if not assignment:
             db.add(VocabWordAssignment(word_id=word.id, student_id=student.id))
 
@@ -455,6 +462,7 @@ def get_learn_queue(
             word=w.word,
             part_of_speech=w.part_of_speech,
             example_sentence=w.example_sentence,
+            example_sentences=(json.loads(w.example_sentences) if w.example_sentences else []),
             tip=w.tip,
             translation=w.translation,
             options=_build_options(w),

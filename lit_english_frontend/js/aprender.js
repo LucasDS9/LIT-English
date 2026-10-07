@@ -175,8 +175,9 @@ function renderVocabCard(card) {
   setVocabFlag(card.language);
 
   vocabMoreExamplesBox.hidden = true;
-  vocabMoreExamplesLabel.textContent = "Ver tradução";
-  vocabMoreExamplesText.innerHTML = `<p>${escapeHtml(card.translation || "")}</p>`;
+  vocabMoreExamplesLabel.textContent = "Ver mais 3 exemplos";
+  const examples = Array.isArray(card.example_sentences) ? card.example_sentences : [];
+  vocabMoreExamplesText.innerHTML = examples.slice(0, 3).map(sentence => `<p>${escapeHtml(sentence)}</p>`).join("");
 
   vocabOptionsEl.innerHTML = (card.options || []).map(option =>
     `<button type="button" class="vocab-browse-option" data-answer="${escapeHtml(option)}">${escapeHtml(option)}</button>`
@@ -254,7 +255,7 @@ vocabMoreExamplesBtn?.addEventListener("click", () => {
   if (!vocabMoreExamplesBox) return;
   const hidden = vocabMoreExamplesBox.hidden;
   vocabMoreExamplesBox.hidden = !hidden;
-  if (vocabMoreExamplesLabel) vocabMoreExamplesLabel.textContent = hidden ? "Ocultar" : "Ver tradução";
+  if (vocabMoreExamplesLabel) vocabMoreExamplesLabel.textContent = hidden ? "Ocultar exemplos" : "Ver mais 3 exemplos";
 });
 
 vocabSaveBtn?.addEventListener("click", async () => {
