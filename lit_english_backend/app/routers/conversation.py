@@ -48,7 +48,7 @@ from app.routers.pronunciation import transcribe_with_confidence, detect_spoken_
 from ..services.conversation_ai import ConversationAiUnavailable, get_tutor_turn
 from ..services.conversation_schemas import TranslateRequest, TranslateResponse, TTSRequest
 from ..services.conversation_session_manager import conversation_sessions, ConversationTurn
-from ..services.translation_service import translate_to_pt_br
+from ..services.translation_service import translate_to_native
 from ..services.tts_service import synthesize_speech
 
 logger = logging.getLogger("lit.conversation_router")
@@ -434,7 +434,10 @@ async def translate_message(
         "portuguese": "portugues",
     }
     native = aliases.get(native, native)
-    translated = await translate_to_pt_br(payload.text, native)
+    # Este endpoint é usado EXCLUSIVAMENTE pelo botão "Traduzir" da
+    # mensagem do tutor. A mensagem original permanece na língua-alvo;
+    # somente a tradução exibida abaixo dela vai para a língua nativa.
+    translated = await translate_to_native(payload.text, native)
     return TranslateResponse(original=payload.text, translated=translated)
 
 

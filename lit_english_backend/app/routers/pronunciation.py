@@ -344,16 +344,132 @@ def _align_word_scores(reference_text: str, azure_words: list[dict[str, Any]]) -
     return aligned
 
 
-def _build_feedback(score: int, word_scores: list[dict[str, Any]]) -> tuple[str, str]:
+def _extract_phoneme_scores(azure_words: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Extrai os scores de fonema retornados pelo Azure.
+
+    O Azure pode devolver os fonemas diretamente em ``Phonemes`` ou dentro de
+    ``Syllables[].Phonemes``. Cada fonema traz a nota do fonema esperado e,
+    quando disponível, ``NBestPhonemes`` com os sons que o Azure considerou
+    como candidatos. Isso permite detectar um som errado mesmo quando a
+    palavra inteira foi reconhecida corretamente.
+    """
+    per_word: list[dict[str, Any]] = []
+    flat: list[dict[str, Any]] = []
+
+    for word_info in azure_words:
+        word = str(word_info.get("Word") or word_info.get("word") or "").strip()
+        phoneme_nodes: list[dict[str, Any]] = []
+
+        direct = word_info.get("Phonemes") or word_info.get("phonemes") or []
+        if isinstance(direct, list):
+            phoneme_nodes.extend(x for x in direct if isinstance(x, dict))
+
+        syllables = word_info.get("Syllables") or word_info.get("syllables") or []
+        if isinstance(syllables, list):
+            for syllable in syllables:
+                if not isinstance(syllable, dict):
+                    continue
+                nodes = syllable.get("Phonemes") or syllable.get("phonemes") or []
+                if isinstance(nodes, list):
+                    phoneme_nodes.extend(x for x in nodes if isinstance(x, dict))
+
+        word_phonemes: list[dict[str, Any]] = []
+        for node in phoneme_nodes:
+            assessment = node.get("PronunciationAssessment") or {}
+            if not assessment and any(k in node for k in ("AccuracyScore", "Score", "NBestPhonemes")):
+                assessment = {
+                    k: node[k]
+                    for k in ("AccuracyScore", "Score", "NBestPhonemes")
+                    if k in node
+                }
+
+            score = _clamp_score(assessment.get("AccuracyScore", assessment.get("Score")))
+            expected = str(node.get("Phoneme") or node.get("phoneme") or "").strip()
+            if score is None and not expected:
+                continue
+
+            candidates = assessment.get("NBestPhonemes") or node.get("NBestPhonemes") or []
+            spoken = None
+            if isinstance(candidates, list) and candidates:
+                best = candidates[0] if isinstance(candidates[0], dict) else {}
+                spoken = str(best.get("Phoneme") or "").strip() or None
+
+            item = {
+                "phoneme": expected or None,
+                "score": score if score is not None else 0,
+                "spoken_phoneme": spoken,
+            }
+            word_phonemes.append(item)
+            flat.append({"word": word, **item})
+
+        if word_phonemes:
+            per_word.append({"word": word, "phonemes": word_phonemes})
+
+    return per_word, flat
+
+
+def _calculate_strict_score(
+    azure_score: int,
+    word_scores: list[dict[str, Any]],
+    phoneme_scores: list[dict[str, Any]],
+    completeness_score: int | None,
+) -> tuple[int, list[str]]:
+    """Cria a nota usada pela LIT para feedback, sem substituir a nota Azure.
+
+    A nota oficial do Azure continua disponível como ``azure_pron_score``.
+    Aqui aplicamos apenas travas de segurança pedagógicas: um fonema claramente
+    ruim ou uma palavra marcada como mispronunciation não pode continuar sendo
+    exibida como "ótima pronúncia" por causa de uma média alta no restante.
+    """
+    strict = azure_score
+    reasons: list[str] = []
+
+    phoneme_values = [
+        int(p["score"]) for p in phoneme_scores
+        if p.get("score") is not None
+    ]
+    if phoneme_values:
+        worst = min(phoneme_values)
+        if worst < 50:
+            strict = min(strict, 59)
+            reasons.append("há pelo menos um som claramente abaixo do esperado")
+        elif worst < 60:
+            strict = min(strict, 69)
+            reasons.append("há um som com precisão baixa")
+        elif worst < 75:
+            strict = min(strict, 79)
+            reasons.append("há um som que ainda precisa de refinamento")
+
+    severe_words = [
+        w for w in word_scores
+        if (w.get("error_type") or "").lower() in {"mispronunciation", "omission"}
+        or int(w.get("score") or 0) < 60
+    ]
+    if severe_words:
+        strict = min(strict, 59)
+        reasons.append("uma ou mais palavras foram marcadas como incorretas")
+
+    if completeness_score is not None and completeness_score < 80:
+        strict = min(strict, 69)
+        reasons.append("parte da frase não foi pronunciada completamente")
+
+    return max(0, min(100, int(strict))), reasons
+
+
+def _build_feedback(score: int, word_scores: list[dict[str, Any]], phoneme_scores: list[dict[str, Any]], strict_reasons: list[str]) -> tuple[str, str]:
     weak = sorted(
         [w for w in word_scores if w.get("score", 100) < 80],
         key=lambda item: item.get("score", 0),
     )
+    weak_phonemes = sorted(
+        [p for p in phoneme_scores if p.get("score", 100) < 75],
+        key=lambda item: item.get("score", 0),
+    )
 
-    if score >= 80:
+    if score >= 80 and not strict_reasons:
         title = "Ótima pronúncia!"
         detail = "Sua pronúncia está clara e próxima do esperado."
-    elif score >= 60:
+    elif score >= 60 and not strict_reasons:
         title = "Boa pronúncia!"
         if weak:
             quoted = ", ".join(f'"{w["word"]}"' for w in weak[:2])
@@ -361,9 +477,16 @@ def _build_feedback(score: int, word_scores: list[dict[str, Any]]) -> tuple[str,
         else:
             detail = "Boa base — refine o ritmo e os sons finais."
     else:
-        title = "Tente novamente!"
-        if weak:
+        title = "Preste atenção à pronúncia"
+        if weak_phonemes:
+            first = weak_phonemes[0]
+            phoneme = first.get("phoneme") or "um som"
+            word = first.get("word") or "esta palavra"
+            detail = f'O som {phoneme} em "{word}" precisa de mais precisão.'
+        elif weak:
             detail = f'Preste atenção ao som de "{weak[0]["word"]}" e ao ritmo da frase.'
+        elif strict_reasons:
+            detail = strict_reasons[0].capitalize() + "."
         else:
             detail = "Tente falar mais devagar, acompanhando cada palavra."
 
@@ -383,13 +506,6 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
         )
 
     nbest = (data.get("NBest") or [{}])[0]
-    # A Azure ora aninha as notas dentro de "PronunciationAssessment", ora
-    # (como confirmado na resposta real desse ambiente) as coloca direto no
-    # nível do NBest -- ex.: nbest["AccuracyScore"] em vez de
-    # nbest["PronunciationAssessment"]["AccuracyScore"]. Era exatamente isso
-    # que zerava tudo: procurávamos só na "gaveta" aninhada e ela vinha
-    # vazia, mesmo com as notas certas logo ao lado. Agora aceitamos as duas
-    # formas.
     pron = nbest.get("PronunciationAssessment") or {}
     if not pron:
         pron = {
@@ -413,53 +529,65 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
     fluency_score = _clamp_score(pron.get("FluencyScore"))
     completeness_score = _clamp_score(pron.get("CompletenessScore"))
     pron_score = _clamp_score(pron.get("PronScore"))
+    prosody_score = _clamp_score(pron.get("ProsodyScore"))
 
-    # PronScore é a nota "oficial" da Azure: ela mesma combina Accuracy,
-    # Fluency e Completeness, mas com pesos próprios (não é uma média simples
-    # 1/3-1/3-1/3) -- então é a nota mais fiel à intenção da Azure. Usamos
-    # ela quando vier; a média manual das três métricas é só um plano B para
-    # quando o PronScore não estiver presente na resposta.
     if pron_score is not None:
-        score = pron_score
+        azure_score = pron_score
     else:
         component_scores = [s for s in (accuracy_score, fluency_score, completeness_score) if s is not None]
-        score = int(round(sum(component_scores) / len(component_scores))) if component_scores else None
+        azure_score = int(round(sum(component_scores) / len(component_scores))) if component_scores else None
 
     azure_words = nbest.get("Words") or []
     word_scores = _align_word_scores(reference_text, azure_words)
+    word_phonemes, phoneme_scores = _extract_phoneme_scores(azure_words)
 
-    if score is None and word_scores:
+    if azure_score is None and word_scores:
         scores = [w["score"] for w in word_scores if w.get("score") is not None]
         if scores:
-            score = int(round(sum(scores) / len(scores)))
+            azure_score = int(round(sum(scores) / len(scores)))
 
-    logger.info(
-        "Azure PronunciationAssessment bruto: pron=%r, n_azure_words=%s, word_scores=%r, score_final=%s",
-        pron, len(azure_words), word_scores, score,
-    )
-
-    if score is None:
+    if azure_score is None:
         logger.warning("Resposta Azure sem pontuação. Keys=%s", list(data.keys()))
         raise PronunciationAssessmentUnavailable(
             "Azure não retornou pontuação de pronúncia. "
             "Confirme se o recurso Speech suporta Pronunciation Assessment nesta região/idioma."
         )
 
-    feedback_title, feedback_detail = _build_feedback(score, word_scores)
+    strict_score, strict_reasons = _calculate_strict_score(
+        azure_score,
+        word_scores,
+        phoneme_scores,
+        completeness_score,
+    )
+    feedback_title, feedback_detail = _build_feedback(
+        strict_score,
+        word_scores,
+        phoneme_scores,
+        strict_reasons,
+    )
+
+    logger.info(
+        "Azure PronunciationAssessment: azure_pron=%s strict=%s accuracy=%s fluency=%s completeness=%s prosody=%s words=%s phonemes=%s",
+        azure_score, strict_score, accuracy_score, fluency_score, completeness_score,
+        prosody_score, len(word_scores), len(phoneme_scores),
+    )
 
     return {
         "transcribed_text": transcribed_text,
-        "score": score,
+        "score": strict_score,
+        "azure_pron_score": azure_score,
         "word_scores": word_scores,
+        "phoneme_scores": word_phonemes,
+        "phoneme_issues": [p for p in phoneme_scores if p.get("score", 100) < 75],
         "feedback_title": feedback_title,
         "feedback_detail": feedback_detail,
         "accuracy_score": accuracy_score,
         "fluency_score": fluency_score,
         "completeness_score": completeness_score,
         "pron_score": pron_score,
-        "prosody_score": _clamp_score(pron.get("ProsodyScore")),
+        "prosody_score": prosody_score,
+        "strict_reasons": strict_reasons,
     }
-
 
 def _build_pronunciation_header(reference_text: str, locale: str) -> str:
     # Azure espera strings "True"/"False" nos flags booleanos (documentação oficial).
@@ -467,6 +595,7 @@ def _build_pronunciation_header(reference_text: str, locale: str) -> str:
         "ReferenceText": reference_text,
         "GradingSystem": "HundredMark",
         "Granularity": "Phoneme",
+        "PhonemeAlphabet": "IPA",
         "Dimension": "Comprehensive",
         "EnableMiscue": "True",
     }
@@ -548,6 +677,14 @@ def _assess_with_sdk(wav_path: str, locale: str, reference_text: str) -> dict[st
         granularity=speechsdk.PronunciationAssessmentGranularity.Phoneme,
         enable_miscue=True,
     )
+    # Pedimos IPA para que os problemas de som possam ser mostrados de forma
+    # útil ao aluno quando o Azure disponibilizar o nome do fonema.
+    try:
+        pronunciation_config.phoneme_alphabet = "IPA"
+    except Exception:
+        # Versões antigas do SDK podem não expor essa propriedade; o REST
+        # continua sendo a via principal e já envia PhonemeAlphabet=IPA.
+        pass
     # A avaliação de prosódia da Azure só é suportada em en-US. Ativá-la para
     # outros idiomas (italiano, francês, etc.) faz a Azure devolver a
     # avaliação de pronúncia inteira vazia (sem nenhuma nota), silenciosamente

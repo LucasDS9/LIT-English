@@ -518,6 +518,8 @@ function renderTypeCard(card) {
   // Língua nativa -> língua-alvo: mostra a frase na língua nativa (back) e o
   // aluno digita na língua que está aprendendo. Passamos card=null pra não
   // exibir o lápis de "editar frente" em cima do texto do verso.
+  appendReviewCardHeader(cardBox, card);
+
   appendPromptText(body, card.native_text || card.back, "front-text", null);
 
   const targetLabel = languageMetaForReview(session.targetLanguage).label.toLowerCase();
@@ -583,6 +585,8 @@ function renderSpeakCard(card) {
 
   const body = document.createElement("div");
   body.className = "card-body";
+
+  appendReviewCardHeader(cardBox, card);
 
   appendPromptText(body, card.native_text || card.back, "front-text", null);
 
@@ -801,6 +805,19 @@ function buildReviewDescription(description) {
   return box;
 }
 
+function formatReviewInterval(days) {
+  const value = Math.max(1, Number(days) || 1);
+  if (value < 1) return "<1d";
+  if (value === 1) return "1 dia";
+  if (value < 30) return `${value} dias`;
+  if (value < 365) {
+    const months = Math.round(value / 30);
+    return `${months} ${months === 1 ? "mês" : "meses"}`;
+  }
+  const years = Math.round(value / 365);
+  return `${years} ${years === 1 ? "ano" : "anos"}`;
+}
+
 function renderFlipCard(card) {
   const wrapper = document.createElement("div");
 
@@ -918,7 +935,12 @@ function renderFlipCard(card) {
       const btn = document.createElement("button");
       btn.className = `quality-btn${opt.solid ? " solid" : ""}`;
       btn.type = "button";
-      btn.innerHTML = `${opt.icon}<span>${opt.label}</span>`;
+      const intervalDays = Number(card.review_intervals?.[String(opt.quality)] ?? 1);
+      const timeEl = document.createElement("small");
+      timeEl.className = "quality-time";
+      timeEl.textContent = formatReviewInterval(intervalDays);
+      btn.innerHTML = `${opt.icon}<span class="quality-label">${opt.label}</span>`;
+      btn.appendChild(timeEl);
       btn.addEventListener("click", () => submitReview(card.flashcard_id, opt.quality, qualityRow));
       qualityRow.appendChild(btn);
     });

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.activity_queue import should_defer_flashcards
 from app.ai_judge import judge_answer
-from app.ai_translate import TranslationUnavailable, build_target_language_flashcard
+from app.ai_translate import TranslationUnavailable, build_target_language_flashcard, translate_to_portuguese
 from app.card_sides import orient_card, orient_many
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
@@ -880,7 +880,30 @@ def self_add_flashcard(
         raise HTTPException(status_code=422, detail="Digite uma palavra, frase ou expressão.")
 
     back = (data.back or "").strip()
-    if not back:
+    if data.source_is_target and not back:
+        # O fluxo de Aprender/Vocabulário já sabe que `front` está na
+        # língua-alvo. Não use o orientador genérico aqui: ele pode interpretar
+        # uma frase de exemplo pelo substantivo/termo que originou a frase e
+        # devolver apenas a tradução da palavra (ex.: "money").
+        try:
+            target_language = student_language(student)
+            if target_language in {"ingles", "italiano", "frances"}:
+                back = translate_to_portuguese(front, target_language)
+            else:
+                # Mantém o fluxo genérico para línguas que ainda não estão
+                # habilitadas no tradutor direto.
+                native_language = student.native_language or "pt"
+                front, back = build_target_language_flashcard(
+                    front,
+                    native_language=native_language,
+                    target_language=target_language,
+                )
+        except (TranslationUnavailable, ValueError):
+            raise HTTPException(
+                status_code=502,
+                detail="Não foi possível gerar a tradução automaticamente agora. Tente de novo em instantes.",
+            )
+    elif not back:
         try:
             native_language = student.native_language or "pt"
             front, back = build_target_language_flashcard(
@@ -1014,6 +1037,20 @@ def get_review_queue(
         else:
             stage = "aprendendo"
 
+        # Prévia dos intervalos que cada avaliação produziria, sem alterar o estado.
+        current_repetitions = progress.repetitions if progress else 0
+        current_interval = progress.interval_days if progress else 0
+        current_ease = progress.ease_factor if progress else 2.5
+        preview_intervals = {
+            str(q): calculate_sm2(
+                quality=q,
+                repetitions=current_repetitions,
+                interval_days=current_interval,
+                ease_factor=current_ease,
+            ).interval_days
+            for q in (0, 3, 4, 5)
+        }
+
         buckets[stage].append(ReviewCardOut(
             flashcard_id=card.id,
             front=card.front,
@@ -1021,6 +1058,7 @@ def get_review_queue(
             description=card.description,
             status=status_value,
             mode=mode,
+            review_intervals=preview_intervals,
         ))
 
     if repaired:
@@ -1207,13 +1245,20 @@ async def pronounce_flashcard(
         )
         log_pronunciation_attempt(db, student.id)
         return FlashcardPronunciationResult(
-            correct=score >= 60,
+            correct=score >= 70,
             correct_answer=expected,
             transcribed_text=assessment.get("transcribed_text") or None,
             feedback_title=assessment.get("feedback_title"),
             reason=assessment.get("feedback_detail"),
             score=score,
+            azure_pron_score=assessment.get("azure_pron_score"),
             word_scores=assessment.get("word_scores"),
+            phoneme_scores=assessment.get("phoneme_scores"),
+            phoneme_issues=assessment.get("phoneme_issues"),
+            accuracy_score=assessment.get("accuracy_score"),
+            fluency_score=assessment.get("fluency_score"),
+            completeness_score=assessment.get("completeness_score"),
+            prosody_score=assessment.get("prosody_score"),
         )
     except PronunciationAssessmentUnavailable:
         logger.warning("Avaliação de pronúncia (Azure) indisponível, usando fallback de transcrição + IA.")
@@ -1337,6 +1382,13 @@ async def submit_speak_review(
         transcribed_text=transcribed_text or None,
         score=score,
         word_scores=word_scores,
+        phoneme_scores=assessment.get("phoneme_scores") if 'assessment' in locals() and assessment else None,
+        phoneme_issues=assessment.get("phoneme_issues") if 'assessment' in locals() and assessment else None,
+        azure_pron_score=assessment.get("azure_pron_score") if 'assessment' in locals() and assessment else None,
+        accuracy_score=assessment.get("accuracy_score") if 'assessment' in locals() and assessment else None,
+        fluency_score=assessment.get("fluency_score") if 'assessment' in locals() and assessment else None,
+        completeness_score=assessment.get("completeness_score") if 'assessment' in locals() and assessment else None,
+        prosody_score=assessment.get("prosody_score") if 'assessment' in locals() and assessment else None,
         feedback_title=feedback_title,
     )
 

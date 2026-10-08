@@ -96,8 +96,9 @@ const FlashcardPronounce = (() => {
     });
   }
 
-  /** Usa apenas score e word_scores reais da Azure — sem estimativas.
-   *  Quando a Azure não está disponível (score null), a IA ainda avalia se
+  /** Usa as notas reais da Azure e uma camada de rigor da LIT — sem inventar
+   *  pontuação. `score` é a nota final pedagógica da LIT; `azurePron` guarda
+   *  a nota oficial do Azure. Quando a Azure não está disponível (score null), a IA ainda avalia se
    *  a frase dita bate com a esperada (result.correct) -- isso vira a base
    *  do tier/feedback aqui, em vez de cair sempre no vermelho "errado". */
   function normalizePronunciationResult(result) {
@@ -110,17 +111,49 @@ const FlashcardPronounce = (() => {
       ? result.word_scores.map((item) => ({
         word: item.word,
         score: Math.max(0, Math.min(100, Number(item.score))),
+        errorType: item.error_type || "None",
       }))
       : [];
 
     const wordScores = hasAssessment
       ? buildWordScoresFromReference(result.correct_answer, rawWordScores)
       : [];
+
+    const metrics = {
+      accuracy: result.accuracy_score != null ? Number(result.accuracy_score) : null,
+      fluency: result.fluency_score != null ? Number(result.fluency_score) : null,
+      completeness: result.completeness_score != null ? Number(result.completeness_score) : null,
+      prosody: result.prosody_score != null ? Number(result.prosody_score) : null,
+      azurePron: result.azure_pron_score != null ? Number(result.azure_pron_score) : null,
+    };
+
+    const phonemeWords = Array.isArray(result.phoneme_scores)
+      ? result.phoneme_scores.map((entry) => ({
+        word: entry.word || "",
+        phonemes: Array.isArray(entry.phonemes)
+          ? entry.phonemes.map((p) => ({
+            phoneme: p.phoneme || "",
+            score: Math.max(0, Math.min(100, Number(p.score))),
+            spokenPhoneme: p.spoken_phoneme || "",
+          }))
+          : [],
+      }))
+      : [];
+
+    const phonemeIssues = phonemeWords.flatMap((entry) =>
+      entry.phonemes
+        .filter((p) => p.score < 75)
+        .map((p) => ({ ...p, word: entry.word }))
+    );
+
     const effectiveScore = hasAssessment ? score : (result.correct ? 100 : 0);
 
     return {
       score,
       wordScores,
+      metrics,
+      phonemeWords,
+      phonemeIssues,
       feedbackTitle: result.feedback_title || "",
       reason: result.reason || "",
       transcribedText: result.transcribed_text || "",
@@ -224,6 +257,65 @@ const FlashcardPronounce = (() => {
     return "Preste atenção ao ritmo da frase e aos sons de cada palavra.";
   }
 
+  function metricLabel(key) {
+    return {
+      accuracy: "Precisão dos sons",
+      fluency: "Fluência",
+      completeness: "Completude",
+      prosody: "Prosódia",
+    }[key] || key;
+  }
+
+  function buildMetricGrid(metrics) {
+    const entries = ["accuracy", "fluency", "completeness"];
+    if (metrics.prosody != null) entries.push("prosody");
+
+    const grid = document.createElement("div");
+    grid.className = "pronunciation-metric-grid";
+    grid.innerHTML = entries.map((key) => {
+      const value = metrics[key];
+      const tier = getScoreTier(value);
+      return `
+        <div class="pronunciation-metric ${tier.className}">
+          <span class="pronunciation-metric-name">${metricLabel(key)}</span>
+          <strong>${value}<small>/100</small></strong>
+        </div>
+      `;
+    }).join("");
+    return grid;
+  }
+
+  function buildPhonemeIssues(phonemeIssues) {
+    if (!phonemeIssues || phonemeIssues.length === 0) return null;
+
+    const section = document.createElement("div");
+    section.className = "pronunciation-phoneme-section";
+    const unique = [];
+    const seen = new Set();
+    for (const issue of phonemeIssues) {
+      const key = `${issue.word}|${issue.phoneme}|${issue.score}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(issue);
+      }
+      if (unique.length >= 4) break;
+    }
+
+    section.innerHTML = `
+      <div class="pronunciation-detail-title">Sons para melhorar</div>
+      <div class="pronunciation-phoneme-list">
+        ${unique.map((issue) => `
+          <div class="pronunciation-phoneme-item">
+            <span class="pronunciation-phoneme-word">${escapeHtml(issue.word)}</span>
+            <span class="pronunciation-phoneme-symbol">${escapeHtml(issue.phoneme || "som")}</span>
+            <span class="pronunciation-phoneme-score">${issue.score}/100</span>
+          </div>
+        `).join("")}
+      </div>
+    `;
+    return section;
+  }
+
   /**
    * Feedback visual de pronúncia em Revisar (após gravar).
    */
@@ -290,6 +382,11 @@ const FlashcardPronounce = (() => {
     if (normalized.hasAssessment) {
       scoreSection.innerHTML = `<p class="pronunciation-score-label">Sua pronúncia</p>`;
       scoreSection.appendChild(buildScoreRing(displayScore, normalized.tier));
+      if (normalized.metrics.accuracy != null) {
+        scoreSection.appendChild(buildMetricGrid(normalized.metrics));
+      }
+      const phonemeSection = buildPhonemeIssues(normalized.phonemeIssues);
+      if (phonemeSection) scoreSection.appendChild(phonemeSection);
     }
 
     const feedback = document.createElement("div");
@@ -364,6 +461,11 @@ const FlashcardPronounce = (() => {
     if (normalized.hasAssessment) {
       scoreSection.innerHTML = `<p class="pronunciation-score-label">Sua pronúncia</p>`;
       scoreSection.appendChild(buildScoreRing(displayScore, normalized.tier));
+      if (normalized.metrics.accuracy != null) {
+        scoreSection.appendChild(buildMetricGrid(normalized.metrics));
+      }
+      const phonemeSection = buildPhonemeIssues(normalized.phonemeIssues);
+      if (phonemeSection) scoreSection.appendChild(phonemeSection);
     }
 
     const feedback = document.createElement("div");

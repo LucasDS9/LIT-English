@@ -742,13 +742,20 @@ async def pronounce_vocab_word(
     log_pronunciation_attempt(db, student.id)
 
     return FlashcardPronunciationResult(
-        correct=score >= 60,
+        correct=score >= 70,
         correct_answer=expected,
         transcribed_text=assessment.get("transcribed_text") or None,
         feedback_title=assessment.get("feedback_title"),
         reason=assessment.get("feedback_detail"),
         score=score,
+        azure_pron_score=assessment.get("azure_pron_score"),
         word_scores=assessment.get("word_scores"),
+        phoneme_scores=assessment.get("phoneme_scores"),
+        phoneme_issues=assessment.get("phoneme_issues"),
+        accuracy_score=assessment.get("accuracy_score"),
+        fluency_score=assessment.get("fluency_score"),
+        completeness_score=assessment.get("completeness_score"),
+        prosody_score=assessment.get("prosody_score"),
     )
 
 

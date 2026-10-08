@@ -1079,8 +1079,8 @@ svg {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 14px 8px;
+  gap: 4px;
+  padding: 10px 8px;
   border-radius: var(--radius-md);
   border: 1.5px solid var(--primary);
   background: var(--bg);
@@ -1088,7 +1088,18 @@ svg {
   font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
-  flex-direction: row;
+  flex-direction: column;
+}
+
+.quality-label {
+  line-height: 1.15;
+}
+
+.quality-time {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.7;
+  line-height: 1.1;
 }
 
 .quality-btn svg {
@@ -5585,5 +5596,102 @@ body.reader-fs-open {
 
   .vocab-browse-more-examples-text p {
     font-size: 14px;
+  }
+}
+
+/* Pronunciation — análise detalhada (Azure + camada rigorosa LIT) */
+.pronunciation-metric-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.pronunciation-metric {
+  min-width: 0;
+  padding: 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: center;
+}
+
+.pronunciation-metric-name {
+  font-size: 10px;
+  line-height: 1.25;
+  color: var(--text-secondary);
+}
+
+.pronunciation-metric strong {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text);
+}
+
+.pronunciation-metric strong small {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
+.pronunciation-metric.tier-good strong { color: #861E19; }
+.pronunciation-metric.tier-medium strong { color: #A66B6B; }
+.pronunciation-metric.tier-bad strong { color: #861E19; }
+
+.pronunciation-phoneme-section {
+  width: 100%;
+  padding-top: 4px;
+}
+
+.pronunciation-detail-title {
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--primary);
+  text-align: left;
+}
+
+.pronunciation-phoneme-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pronunciation-phoneme-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 9px;
+  border: 1px solid #E8D5D3;
+  border-radius: 8px;
+  background: #FFF9F8;
+  font-size: 12px;
+}
+
+.pronunciation-phoneme-word {
+  color: var(--text-secondary);
+}
+
+.pronunciation-phoneme-symbol {
+  font-weight: 700;
+  color: #861E19;
+  font-family: "Noto Sans", "Segoe UI", sans-serif;
+}
+
+.pronunciation-phoneme-score {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+@media (max-width: 560px) {
+  .pronunciation-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

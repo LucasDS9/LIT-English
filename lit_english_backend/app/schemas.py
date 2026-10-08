@@ -150,6 +150,11 @@ class FlashcardSelfAdd(BaseModel):
     front: str
     back: Optional[str] = None
     description: Optional[str] = None
+    # Quando verdadeiro, `front` já é uma frase na língua-alvo (ex.:
+    # uma frase de exemplo de Aprender/Vocabulário). Nesse fluxo não
+    # precisamos pedir à IA para decidir qual lado é qual: traduzimos
+    # diretamente a frase inteira para a língua nativa.
+    source_is_target: bool = False
 
 
 # ---------- Revisão ----------
@@ -165,6 +170,8 @@ class ReviewCardOut(BaseModel):
     # língua nativa, mesmo se o card estiver salvo com frente/verso trocados.
     target_text: Optional[str] = None
     native_text: Optional[str] = None
+    # Próxima revisão estimada por avaliação SM-2 (em dias).
+    review_intervals: dict[str, int] = Field(default_factory=dict)
 
 
 class ReviewQueueOut(BaseModel):
@@ -190,6 +197,19 @@ class WordPronunciationScore(BaseModel):
     error_type: Optional[str] = None
 
 
+class PhonemePronunciationScore(BaseModel):
+    """Pontuação dos fonemas esperados dentro de uma palavra."""
+    phoneme: Optional[str] = None
+    score: int = Field(ge=0, le=100)
+    spoken_phoneme: Optional[str] = None
+
+
+class WordPhonemePronunciationScore(BaseModel):
+    """Fonemas avaliados de uma palavra."""
+    word: str
+    phonemes: List[PhonemePronunciationScore]
+
+
 class ReviewResultOut(BaseModel):
     """Resposta após revisão (flip ou digitação)."""
     correct: bool
@@ -202,7 +222,14 @@ class ReviewResultOut(BaseModel):
     # Preenchidos best-effort no exercício de falar (type_speak) quando o
     # Azure Pronunciation Assessment está disponível.
     score: Optional[int] = Field(default=None, ge=0, le=100)
+    azure_pron_score: Optional[int] = Field(default=None, ge=0, le=100)
     word_scores: Optional[List["WordPronunciationScore"]] = None
+    phoneme_scores: Optional[List["WordPhonemePronunciationScore"]] = None
+    phoneme_issues: Optional[List["dict"]] = None
+    accuracy_score: Optional[int] = Field(default=None, ge=0, le=100)
+    fluency_score: Optional[int] = Field(default=None, ge=0, le=100)
+    completeness_score: Optional[int] = Field(default=None, ge=0, le=100)
+    prosody_score: Optional[int] = Field(default=None, ge=0, le=100)
     feedback_title: Optional[str] = None
 
 
@@ -214,7 +241,14 @@ class FlashcardPronunciationResult(BaseModel):
     reason: Optional[str] = None
     feedback_title: Optional[str] = None
     score: Optional[int] = Field(default=None, ge=0, le=100)
+    azure_pron_score: Optional[int] = Field(default=None, ge=0, le=100)
     word_scores: Optional[List[WordPronunciationScore]] = None
+    phoneme_scores: Optional[List[WordPhonemePronunciationScore]] = None
+    phoneme_issues: Optional[List[dict]] = None
+    accuracy_score: Optional[int] = Field(default=None, ge=0, le=100)
+    fluency_score: Optional[int] = Field(default=None, ge=0, le=100)
+    completeness_score: Optional[int] = Field(default=None, ge=0, le=100)
+    prosody_score: Optional[int] = Field(default=None, ge=0, le=100)
 
 
 class CardProgressOut(BaseModel):

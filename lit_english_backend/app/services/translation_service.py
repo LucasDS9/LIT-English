@@ -1,5 +1,5 @@
 """
-Tradução das falas do tutor (EN) para português, para o botão "Traduzir".
+Tradução das falas do tutor para a língua nativa do aluno, para o botão "Traduzir".
 
 Usa a Groq (mesma IA de texto usada na análise gramatical da Conversa com IA
 Tutor -- ver conversation_ai.py), em vez da sessão de voz em tempo real da
@@ -30,13 +30,16 @@ _LANGUAGE_NAMES = {
 def _system_prompt(native_language: str) -> str:
     name = _LANGUAGE_NAMES.get((native_language or "pt").strip().lower(), "português do Brasil")
     return (
-    f"Você traduz frases curtas para {name}, de forma natural e coloquial, como uma pessoa falaria. Responda APENAS com um "
-    'JSON no formato exato: {"translated": "..."}, sem nenhum texto antes ou '
-    "depois, sem repetir o texto original dentro da tradução."
+    f"A mensagem recebida está na LÍNGUA-ALVO que o aluno está aprendendo. "
+    f"Traduza essa mensagem exclusivamente para a LÍNGUA NATIVA do aluno: {name}. "
+    "A tradução aparece abaixo da mensagem original quando o aluno clica em 'Traduzir'. "
+    "NUNCA traduza para a língua-alvo, nunca mantenha a resposta na língua-alvo e nunca altere a mensagem original. "
+    "Faça uma tradução natural e coloquial, preservando o sentido. "
+    'Responda APENAS com um JSON no formato exato: {"translated": "..."}, sem nenhum texto antes ou depois.'
 )
 
 
-async def translate_to_pt_br(text: str, native_language: str = "pt") -> str:
+async def translate_to_native(text: str, native_language: str = "pt") -> str:
     text = text.strip()
     if not text:
         return ""

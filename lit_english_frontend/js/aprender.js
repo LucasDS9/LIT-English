@@ -381,7 +381,8 @@ vocabMoreExamplesText?.addEventListener("click", async event => {
       body: JSON.stringify({
         front: sentence,
         back: "",
-        description: vocabWordEl?.textContent?.trim() || "",
+        description: "",
+        source_is_target: true,
       }),
     });
     vocabSavedExamples.add(index);
@@ -408,8 +409,9 @@ vocabSaveBtn?.addEventListener("click", async () => {
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
         front,
-        back: vocabCards[vocabIndex]?.translation || "",
-        description: vocabWordEl?.textContent?.trim() || "",
+        back: "",
+        description: "",
+        source_is_target: true,
       }),
     });
     showToast("Flashcard salvo!");
