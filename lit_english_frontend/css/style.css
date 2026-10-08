@@ -5599,6 +5599,160 @@ body.reader-fs-open {
   }
 }
 
+
+/* --------------------------------------------------------------------------
+   Revisar — análise de pronúncia dentro do próprio flashcard
+   A análise é mais alta e compacta para que score, métricas, sons, feedback
+   e botão de áudio nunca escapem da borda do card. Os botões de avaliação
+   (Esqueci/Difícil/Ok/Fácil) continuam fora, como ações do card.
+   -------------------------------------------------------------------------- */
+.main-review .review-area-centered .review-card.pronunciation-analysis-card {
+  height: 680px;
+  min-height: 680px;
+  overflow: hidden;
+}
+
+.main-review .review-card.pronunciation-analysis-card .review-flip-body {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.main-review .review-card.pronunciation-analysis-card .review-card-back {
+  min-height: 0;
+  height: 100%;
+  justify-content: flex-start;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-analyzer-panel {
+  max-width: 100%;
+  min-height: 0;
+  height: 100%;
+  box-sizing: border-box;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 8px;
+  overflow: hidden;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-phrase {
+  max-width: 94%;
+  font-size: clamp(25px, 3.5vw, 34px);
+  line-height: 1.15;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-score-section {
+  max-width: 520px;
+  gap: 8px;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-score-label {
+  font-size: 11px;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-score-ring-wrap {
+  width: 112px;
+  height: 112px;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-score-value .score-num {
+  font-size: 28px;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 0;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-metric {
+  padding: 7px 5px;
+  border-radius: 8px;
+  gap: 3px;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-metric-name {
+  font-size: 9px;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-metric strong {
+  font-size: 16px;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-phoneme-section {
+  padding-top: 0;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-detail-title {
+  margin-bottom: 5px;
+  font-size: 10px;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-phoneme-list {
+  gap: 5px;
+  max-height: 48px;
+  overflow: hidden;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-phoneme-item {
+  padding: 5px 7px;
+  border-radius: 7px;
+  font-size: 11px;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-ai-feedback {
+  gap: 7px;
+  max-width: 520px;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-ai-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-ai-text strong {
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-ai-text p {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.main-review .review-card.pronunciation-analysis-card .pronunciation-listen-btn {
+  width: min(360px, 100%);
+  max-width: 100%;
+  height: 44px;
+  min-height: 44px;
+  margin-top: 0;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .main-review .review-area-centered .review-card.pronunciation-analysis-card {
+    height: 660px;
+    min-height: 660px;
+  }
+}
+
+@media (max-width: 560px) {
+  .main-review .review-area-centered .review-card.pronunciation-analysis-card {
+    height: 650px;
+    min-height: 650px;
+  }
+
+  .main-review .review-card.pronunciation-analysis-card .pronunciation-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .main-review .review-card.pronunciation-analysis-card .pronunciation-phrase {
+    font-size: clamp(23px, 7vw, 30px);
+  }
+}
+
 /* Pronunciation — análise detalhada (Azure + camada rigorosa LIT) */
 .pronunciation-metric-grid {
   width: 100%;

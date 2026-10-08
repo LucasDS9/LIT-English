@@ -839,6 +839,7 @@ function renderFlipCard(card) {
     backWrap.className = "review-card-back card-flip-anim";
 
     if (showingPronunciation) {
+      cardBox.classList.add("pronunciation-analysis-card");
       FlashcardPronounce.renderAnalyzerPanel(backWrap, {
         phraseText: card.front,
         pronunciationResult: session.pronunciationResult,
