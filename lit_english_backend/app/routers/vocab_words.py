@@ -6,7 +6,9 @@ Rotas de "Aprender" (treino de vocabulário por reconhecimento/múltipla escolha
   separadamente quais palavras quer salvar como flashcards.
 """
 import json
+import logging
 import random
+import threading
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
@@ -16,6 +18,7 @@ from app.ai_judge import judge_answer
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
 from app.flashcard_judge import judge_flashcard_answer
+from app.services.vocab_generator import LEVELS, VocabGenerationUnavailable, generate_words
 from app.vocab_seed import AUTO_VOCAB
 from app.models import (
     AccessType,
@@ -46,6 +49,20 @@ NEW_WORDS_PER_CYCLE = 10
 # Categoria padrão da tela "Aprender". A fila aceita uma categoria
 # explicitamente para que cada conteúdo liberado apareça separado no frontend.
 ACTIVE_LEARN_CATEGORY = "palavras_essenciais"
+
+logger = logging.getLogger(__name__)
+
+# Geração automática (Groq): quando restam menos que AI_TOPUP_THRESHOLD palavras
+# novas na fila do aluno, pedimos AI_BATCH_SIZE palavras novas. Só vale para a
+# categoria padrão — as demais categorias (saudações, verbos, pronomes) são
+# conteúdo fixo e curado.
+AI_TOPUP_THRESHOLD = NEW_WORDS_PER_CYCLE
+AI_BATCH_SIZE = 10
+# O aluno só avança para o próximo nível CEFR depois de aprender essa
+# quantidade de palavras do nível atual.
+AI_LEVEL_ADVANCE_AFTER = 25
+_ai_locks: dict[int, threading.Lock] = {}
+_ai_locks_guard = threading.Lock()
 
 # Separador interno dos distratores (a tradução pode conter vírgula, então
 # não usamos vírgula aqui).
@@ -194,6 +211,110 @@ def _ensure_auto_vocab_for_student(student: User, db: Session) -> None:
             db.add(VocabWordAssignment(word_id=word.id, student_id=student.id))
 
     db.commit()
+
+
+def _count_new_words(student: User, language: str, category: str, db: Session) -> int:
+    assigned = db.query(VocabWordAssignment.word_id).filter(VocabWordAssignment.student_id == student.id)
+    attempted = db.query(VocabWordProgress.word_id).filter(VocabWordProgress.student_id == student.id)
+    return (
+        db.query(VocabWord)
+        .filter(VocabWord.id.in_(assigned), VocabWord.language == language, VocabWord.category == category)
+        .filter(~VocabWord.id.in_(attempted))
+        .count()
+    )
+
+
+def _next_ai_level(student: User, language: str, category: str, db: Session) -> str:
+    """Nível CEFR das próximas palavras geradas, conforme o que o aluno já aprendeu."""
+    for level in LEVELS[:-1]:
+        learned = (
+            db.query(VocabWordProgress)
+            .join(VocabWord, VocabWord.id == VocabWordProgress.word_id)
+            .filter(
+                VocabWordProgress.student_id == student.id,
+                VocabWordProgress.first_correct_at.isnot(None),
+                VocabWord.language == language,
+                VocabWord.category == category,
+                VocabWord.level == level,
+            )
+            .count()
+        )
+        if learned < AI_LEVEL_ADVANCE_AFTER:
+            return level
+    return LEVELS[-1]
+
+
+def _top_up_ai_vocab(student: User, category: str, db: Session) -> None:
+    """Gera palavras novas via Groq quando a fila do aluno está acabando.
+
+    Nunca derruba a tela Aprender: se a Groq falhar, o aluno segue com as
+    palavras que já tem e a geração é tentada de novo na próxima abertura.
+    """
+    language = student_language(student)
+    if category != ACTIVE_LEARN_CATEGORY:
+        return
+    if _count_new_words(student, language, category, db) >= AI_TOPUP_THRESHOLD:
+        return
+
+    with _ai_locks_guard:
+        lock = _ai_locks.setdefault(student.id, threading.Lock())
+    # Duas abas abrindo ao mesmo tempo não geram dois lotes.
+    if not lock.acquire(blocking=False):
+        return
+    try:
+        db.expire_all()
+        if _count_new_words(student, language, category, db) >= AI_TOPUP_THRESHOLD:
+            return
+
+        known = [
+            w for (w,) in db.query(VocabWord.word)
+            .join(VocabWordAssignment, VocabWordAssignment.word_id == VocabWord.id)
+            .filter(VocabWordAssignment.student_id == student.id, VocabWord.language == language)
+            .all()
+        ]
+        level = _next_ai_level(student, language, category, db)
+        try:
+            generated = generate_words(language, level, AI_BATCH_SIZE, known)
+        except VocabGenerationUnavailable as exc:
+            logger.warning("Geração automática de vocabulário indisponível: %s", exc)
+            return
+
+        for item in generated:
+            word = (
+                db.query(VocabWord)
+                .filter(VocabWord.language == language, VocabWord.word == item.word)
+                .first()
+            )
+            if not word:
+                word = VocabWord(
+                    word=item.word,
+                    part_of_speech=item.part_of_speech,
+                    translation=item.translation,
+                    example_sentence=item.example_sentence,
+                    example_sentences=json.dumps(list(item.example_sentences), ensure_ascii=False),
+                    tip=None,
+                    distractors=_pack_distractors(list(item.distractors)),
+                    explanation=None,
+                    language=language,
+                    category=category,
+                    level=item.level,
+                )
+                db.add(word)
+                db.flush()
+            exists = (
+                db.query(VocabWordAssignment)
+                .filter(VocabWordAssignment.word_id == word.id, VocabWordAssignment.student_id == student.id)
+                .first()
+            )
+            if not exists:
+                db.add(VocabWordAssignment(word_id=word.id, student_id=student.id))
+        db.commit()
+        logger.info("Geradas %d palavras (%s, %s) para o aluno %s.", len(generated), language, level, student.id)
+    except Exception:
+        db.rollback()
+        logger.exception("Erro ao gerar vocabulário automaticamente.")
+    finally:
+        lock.release()
 
 
 # ============================================================
@@ -423,6 +544,7 @@ def get_learn_queue(
     language = student_language(student)
     _ensure_auto_vocab_for_student(student, db)
     category = (category or ACTIVE_LEARN_CATEGORY).strip().lower()
+    _top_up_ai_vocab(student, category, db)
 
     assigned_subquery = db.query(VocabWordAssignment.word_id).filter(
         VocabWordAssignment.student_id == student.id
