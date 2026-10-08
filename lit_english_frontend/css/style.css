@@ -4756,8 +4756,55 @@ body.reader-fs-open {
   line-height: 1.6;
 }
 
-.vocab-browse-more-examples-text p + p {
+.vocab-example-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.vocab-example-row + .vocab-example-row {
   margin-top: 10px;
+}
+
+.vocab-example-row p {
+  flex: 1;
+  min-width: 0;
+}
+
+.vocab-example-save {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  padding: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  color: var(--primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.vocab-example-save svg {
+  width: 100%;
+  height: 100%;
+}
+
+.vocab-example-save:hover:not(:disabled) {
+  background: var(--primary-pale);
+  border-color: var(--primary);
+}
+
+.vocab-example-save.is-saved {
+  background: var(--primary-pale);
+  border-color: var(--primary);
+}
+
+.vocab-example-save:disabled {
+  cursor: default;
 }
 
 .vocab-browse-more-examples-text strong {
