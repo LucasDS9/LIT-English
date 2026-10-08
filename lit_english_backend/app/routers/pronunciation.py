@@ -408,54 +408,6 @@ def _extract_phoneme_scores(azure_words: list[dict[str, Any]]) -> tuple[list[dic
     return per_word, flat
 
 
-def _calculate_strict_score(
-    azure_score: int,
-    word_scores: list[dict[str, Any]],
-    phoneme_scores: list[dict[str, Any]],
-    completeness_score: int | None,
-) -> tuple[int, list[str]]:
-    """Cria a nota usada pela LIT para feedback, sem substituir a nota Azure.
-
-    A nota oficial do Azure continua disponível como ``azure_pron_score``.
-    Aqui aplicamos apenas travas de segurança pedagógicas: um fonema claramente
-    ruim ou uma palavra marcada como mispronunciation não pode continuar sendo
-    exibida como "ótima pronúncia" por causa de uma média alta no restante.
-    """
-    strict = azure_score
-    reasons: list[str] = []
-
-    phoneme_values = [
-        int(p["score"]) for p in phoneme_scores
-        if p.get("score") is not None
-    ]
-    if phoneme_values:
-        worst = min(phoneme_values)
-        if worst < 50:
-            strict = min(strict, 59)
-            reasons.append("há pelo menos um som claramente abaixo do esperado")
-        elif worst < 60:
-            strict = min(strict, 69)
-            reasons.append("há um som com precisão baixa")
-        elif worst < 75:
-            strict = min(strict, 79)
-            reasons.append("há um som que ainda precisa de refinamento")
-
-    severe_words = [
-        w for w in word_scores
-        if (w.get("error_type") or "").lower() in {"mispronunciation", "omission"}
-        or int(w.get("score") or 0) < 60
-    ]
-    if severe_words:
-        strict = min(strict, 59)
-        reasons.append("uma ou mais palavras foram marcadas como incorretas")
-
-    if completeness_score is not None and completeness_score < 80:
-        strict = min(strict, 69)
-        reasons.append("parte da frase não foi pronunciada completamente")
-
-    return max(0, min(100, int(strict))), reasons
-
-
 def _build_feedback(score: int, word_scores: list[dict[str, Any]], phoneme_scores: list[dict[str, Any]], strict_reasons: list[str]) -> tuple[str, str]:
     weak = sorted(
         [w for w in word_scores if w.get("score", 100) < 80],
@@ -553,28 +505,23 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
             "Confirme se o recurso Speech suporta Pronunciation Assessment nesta região/idioma."
         )
 
-    strict_score, strict_reasons = _calculate_strict_score(
+    # A nota geral exibida pela LIT é a nota oficial do Azure.
+    feedback_title, feedback_detail = _build_feedback(
         azure_score,
         word_scores,
         phoneme_scores,
-        completeness_score,
-    )
-    feedback_title, feedback_detail = _build_feedback(
-        strict_score,
-        word_scores,
-        phoneme_scores,
-        strict_reasons,
+        [],
     )
 
     logger.info(
-        "Azure PronunciationAssessment: azure_pron=%s strict=%s accuracy=%s fluency=%s completeness=%s prosody=%s words=%s phonemes=%s",
-        azure_score, strict_score, accuracy_score, fluency_score, completeness_score,
+        "Azure PronunciationAssessment: azure_pron=%s accuracy=%s fluency=%s completeness=%s prosody=%s words=%s phonemes=%s",
+        azure_score, accuracy_score, fluency_score, completeness_score,
         prosody_score, len(word_scores), len(phoneme_scores),
     )
 
     return {
         "transcribed_text": transcribed_text,
-        "score": strict_score,
+        "score": azure_score,
         "azure_pron_score": azure_score,
         "word_scores": word_scores,
         "phoneme_scores": word_phonemes,
