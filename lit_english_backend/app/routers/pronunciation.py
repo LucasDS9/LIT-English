@@ -330,6 +330,7 @@ def _align_word_scores(reference_text: str, azure_words: list[dict[str, Any]]) -
                     if k in word_info
                 }
             score = _clamp_score(assessment.get("AccuracyScore"))
+
             aligned.append({
                 "word": ref_word,
                 "score": score if score is not None else 0,
@@ -342,6 +343,63 @@ def _align_word_scores(reference_text: str, azure_words: list[dict[str, Any]]) -
                 "error_type": "Omission",
             })
     return aligned
+
+
+def _apply_phoneme_penalty(
+    pron_score: int,
+    word_scores: list[dict[str, Any]],
+    phoneme_scores: list[dict[str, Any]],
+) -> tuple[int, list[dict[str, Any]]]:
+    """Transforma o PronScore da Azure em uma nota pedagógica da LIT.
+
+    O PronScore é mantido como ponto de partida, mas a Azure pode reconhecer
+    uma palavra inteira corretamente mesmo quando um ou mais fonemas daquela
+    palavra estão claramente errados. Para a interface da LIT, um fonema ruim
+    deve afetar a palavra e também a nota final.
+
+    Regras:
+    - palavra com fonemas avaliados recebe o menor score entre a avaliação da
+      palavra e seus fonemas (assim um /b/ 56 torna a palavra problemática);
+    - cada fonema abaixo de 70 gera uma penalização proporcional;
+    - não há "strict score": o PronScore continua sendo a base oficial;
+      a redução é apenas uma camada pedagógica transparente da LIT.
+    """
+    by_word: dict[str, list[int]] = {}
+    for item in phoneme_scores:
+        word = str(item.get("word") or "").strip().lower()
+        score = _clamp_score(item.get("score"))
+        if word and score is not None:
+            by_word.setdefault(word, []).append(score)
+
+    adjusted_words: list[dict[str, Any]] = []
+    for item in word_scores:
+        word = str(item.get("word") or "")
+        base = _clamp_score(item.get("score")) or 0
+        phonemes = by_word.get(word.strip().lower(), [])
+        if phonemes:
+            # A menor nota de fonema é o pior som daquela palavra.
+            # Isso faz o destaque visual refletir o problema real detectado.
+            effective = min(base, min(phonemes))
+        else:
+            effective = base
+        adjusted_words.append({**item, "score": effective})
+
+    # Penalização somente para fonemas realmente fracos. Dois erros de 56 e 42,
+    # por exemplo, retiram 14,7 pontos do PronScore 88 -> aproximadamente 73.
+    # Um único erro moderado não derruba a nota inteira.
+    penalty = sum(max(0, 70 - int(score)) * 0.35 for score in by_phoneme_scores(phoneme_scores))
+    penalty = min(35.0, penalty)
+    final_score = max(0, min(100, int(round(pron_score - penalty))))
+    return final_score, adjusted_words
+
+
+def by_phoneme_scores(phoneme_scores: list[dict[str, Any]]) -> list[int]:
+    scores: list[int] = []
+    for item in phoneme_scores:
+        score = _clamp_score(item.get("score"))
+        if score is not None:
+            scores.append(score)
+    return scores
 
 
 def _extract_phoneme_scores(azure_words: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -503,9 +561,15 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
             "Confirme se o recurso Speech suporta Pronunciation Assessment nesta região/idioma."
         )
 
-    # A nota exibida pela LIT é diretamente o PronScore oficial do Azure.
-    # Não aplicamos nenhuma camada "strict" ou redução adicional.
-    final_score = pron_score if pron_score is not None else azure_score
+    # O PronScore continua sendo a base oficial do Azure. A LIT só aplica
+    # uma penalização pedagógica quando existem fonemas claramente fracos,
+    # para que erros reais de som não sejam escondidos por uma nota geral alta.
+    base_score = pron_score if pron_score is not None else azure_score
+    final_score, word_scores = _apply_phoneme_penalty(
+        base_score,
+        word_scores,
+        phoneme_scores,
+    )
     feedback_title, feedback_detail = _build_feedback(
         final_score,
         word_scores,
@@ -513,8 +577,8 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
     )
 
     logger.info(
-        "Azure PronunciationAssessment: pron_score=%s accuracy=%s fluency=%s completeness=%s prosody=%s words=%s phonemes=%s",
-        final_score, accuracy_score, fluency_score, completeness_score,
+        "Azure PronunciationAssessment: azure_pron=%s lit_score=%s accuracy=%s fluency=%s completeness=%s prosody=%s words=%s phonemes=%s",
+        base_score, final_score, accuracy_score, fluency_score, completeness_score,
         prosody_score, len(word_scores), len(phoneme_scores),
     )
 

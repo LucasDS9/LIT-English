@@ -96,9 +96,9 @@ const FlashcardPronounce = (() => {
     });
   }
 
-  /** Usa as notas reais da Azure e uma camada de rigor da LIT — sem inventar
-   *  pontuação. `score` é a nota final pedagógica da LIT; `azurePron` guarda
-   *  a nota oficial do Azure. Quando a Azure não está disponível (score null), a IA ainda avalia se
+  /** Usa o PronScore do Azure como base e recebe do backend a nota pedagógica
+   *  da LIT após a penalização dos fonemas fracos. `azurePron` guarda a nota
+   *  oficial do Azure. Quando a Azure não está disponível (score null), a IA ainda avalia se
    *  a frase dita bate com a esperada (result.correct) -- isso vira a base
    *  do tier/feedback aqui, em vez de cair sempre no vermelho "errado". */
   function normalizePronunciationResult(result) {
