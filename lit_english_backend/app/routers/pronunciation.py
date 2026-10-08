@@ -408,7 +408,7 @@ def _extract_phoneme_scores(azure_words: list[dict[str, Any]]) -> tuple[list[dic
     return per_word, flat
 
 
-def _build_feedback(score: int, word_scores: list[dict[str, Any]], phoneme_scores: list[dict[str, Any]], strict_reasons: list[str]) -> tuple[str, str]:
+def _build_feedback(score: int, word_scores: list[dict[str, Any]], phoneme_scores: list[dict[str, Any]]) -> tuple[str, str]:
     weak = sorted(
         [w for w in word_scores if w.get("score", 100) < 80],
         key=lambda item: item.get("score", 0),
@@ -418,10 +418,10 @@ def _build_feedback(score: int, word_scores: list[dict[str, Any]], phoneme_score
         key=lambda item: item.get("score", 0),
     )
 
-    if score >= 80 and not strict_reasons:
+    if score >= 80:
         title = "Ótima pronúncia!"
         detail = "Sua pronúncia está clara e próxima do esperado."
-    elif score >= 60 and not strict_reasons:
+    elif score >= 60:
         title = "Boa pronúncia!"
         if weak:
             quoted = ", ".join(f'"{w["word"]}"' for w in weak[:2])
@@ -437,8 +437,6 @@ def _build_feedback(score: int, word_scores: list[dict[str, Any]], phoneme_score
             detail = f'O som {phoneme} em "{word}" precisa de mais precisão.'
         elif weak:
             detail = f'Preste atenção ao som de "{weak[0]["word"]}" e ao ritmo da frase.'
-        elif strict_reasons:
-            detail = strict_reasons[0].capitalize() + "."
         else:
             detail = "Tente falar mais devagar, acompanhando cada palavra."
 
@@ -510,7 +508,6 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
         azure_score,
         word_scores,
         phoneme_scores,
-        [],
     )
 
     logger.info(
@@ -533,7 +530,6 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
         "completeness_score": completeness_score,
         "pron_score": pron_score,
         "prosody_score": prosody_score,
-        "strict_reasons": strict_reasons,
     }
 
 def _build_pronunciation_header(reference_text: str, locale: str) -> str:
