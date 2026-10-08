@@ -258,11 +258,13 @@ function clearActiveVocabCard() {
 
 function renderVocabCard(card) {
   if (!card) {
-    vocabWordEl.textContent = "Você terminou!";
+    // Aprender é uma fila contínua: quando o lote atual acaba, buscamos
+    // automaticamente o próximo lote em vez de mostrar uma tela de fim.
+    vocabWordEl.textContent = "";
     vocabPosEl.textContent = "";
-    vocabExampleEl.textContent = "Novas palavras aparecerão aqui.";
+    vocabExampleEl.textContent = "";
     vocabOptionsEl.innerHTML = "";
-    vocabCounterEl.textContent = `${vocabCards.length} / ${vocabCards.length}`;
+    if (vocabCounterEl) vocabCounterEl.textContent = "";
     return;
   }
 
@@ -271,7 +273,8 @@ function renderVocabCard(card) {
   vocabWordEl.textContent = card.word;
   vocabPosEl.textContent = `${card.part_of_speech} · ${card.level}`;
   vocabExampleEl.innerHTML = highlightVocabWord(card.example_sentence || "", card.word);
-  vocabCounterEl.textContent = `${vocabIndex + 1} / ${vocabCards.length}`;
+  // Não há mais limite visual de 10 palavras por sessão.
+  if (vocabCounterEl) vocabCounterEl.textContent = "";
   setVocabFlag(card.language);
   saveActiveVocabCard(card);
 
@@ -293,11 +296,15 @@ function renderVocabCard(card) {
 
 async function advanceVocabCard() {
   vocabIndex += 1;
-  if (vocabIndex >= vocabCards.length) {
-    renderVocabCard(null);
+  if (vocabIndex < vocabCards.length) {
+    renderVocabCard(vocabCards[vocabIndex]);
     return;
   }
-  renderVocabCard(vocabCards[vocabIndex]);
+
+  // Terminou o lote atual. Busca o próximo automaticamente, sem tela
+  // "Você terminou!" e sem limite de 10 palavras.
+  clearActiveVocabCard();
+  await loadVocabLearn();
 }
 
 async function submitVocabAnswer(chosen, button) {
@@ -316,6 +323,7 @@ async function submitVocabAnswer(chosen, button) {
     });
 
     const correct = result.correct;
+    SFX.play(correct ? "correct" : "wrong");
     button.classList.add(correct ? "is-correct" : "is-wrong");
     if (!correct) {
       const correctOpt = buttons.find(opt => opt.textContent.trim().toLowerCase() === String(result.correct_answer).trim().toLowerCase());
@@ -447,7 +455,17 @@ async function loadVocabLearn() {
 
     vocabIndex = 0;
     if (!vocabCards.length) {
-      renderVocabCard(null);
+      // A fila é contínua. O backend tenta repor palavras automaticamente;
+      // se não houver nenhuma disponível neste instante, tenta novamente
+      // depois de um pequeno intervalo em vez de encerrar a atividade.
+      if (vocabWordEl) vocabWordEl.textContent = "Carregando novas palavras...";
+      if (vocabPosEl) vocabPosEl.textContent = "";
+      if (vocabExampleEl) vocabExampleEl.textContent = "";
+      if (vocabOptionsEl) vocabOptionsEl.innerHTML = "";
+      if (vocabCounterEl) vocabCounterEl.textContent = "";
+      setTimeout(() => {
+        if (vocabPanel && !vocabPanel.hidden) loadVocabLearn();
+      }, 1200);
       return;
     }
     renderVocabCard(vocabCards[0]);

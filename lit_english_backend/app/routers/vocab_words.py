@@ -43,7 +43,8 @@ from app.schemas import (
 
 router = APIRouter(prefix="/vocab-words", tags=["Aprender"])
 
-# Máximo de palavras novas por sessão de Aprender.
+# Tamanho de cada lote buscado pela tela Aprender. A atividade continua
+# automaticamente com o próximo lote, sem limite de palavras por sessão.
 NEW_WORDS_PER_CYCLE = 10
 
 # Categoria padrão da tela "Aprender". A fila aceita uma categoria

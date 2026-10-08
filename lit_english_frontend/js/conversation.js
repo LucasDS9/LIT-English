@@ -447,11 +447,12 @@ function escapeRegExp(str) {
 
 function normalizeLanguage(value) {
   const raw = String(value || "").trim().toLowerCase();
-  if (["it", "italiano"].includes(raw)) return "italiano";
-  if (["fr", "frances", "francês", "français"].includes(raw)) return "frances";
-  if (["es", "espanhol", "español"].includes(raw)) return "espanhol";
-  if (["de", "alemao", "alemão", "deutsch"].includes(raw)) return "alemao";
-  if (["pt", "pt-br", "portugues", "português"].includes(raw)) return "portugues";
+  if (["en", "ingles", "inglês", "english", "en-us", "en-gb"].includes(raw)) return "ingles";
+  if (["it", "italiano", "italian"].includes(raw)) return "italiano";
+  if (["fr", "frances", "francês", "français", "french"].includes(raw)) return "frances";
+  if (["es", "espanhol", "español", "spanish"].includes(raw)) return "espanhol";
+  if (["de", "alemao", "alemão", "deutsch", "german"].includes(raw)) return "alemao";
+  if (["pt", "pt-br", "portugues", "português", "portuguese"].includes(raw)) return "portugues";
   return "ingles";
 }
 

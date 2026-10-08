@@ -224,7 +224,6 @@ function buildReviewAudioControls(card, body, { listenLabel = "Ouvir novamente" 
             session.pronunciationResult = result;
             session.flipped = true;
             renderCard();
-            SFX.play(result.correct ? "correct" : "wrong");
           } catch (err) {
             showToast(err.message || "Não foi possível analisar a pronúncia.");
           } finally {
@@ -662,8 +661,6 @@ async function submitSpeakAnswer(card, getBlob, feedback, submitBtn, getLocked, 
       blob,
       `/flashcards/review/${card.flashcard_id}/submit-speak`
     );
-
-    SFX.play(result.correct ? "correct" : "wrong");
 
     // Quando a Azure Pronunciation Assessment está disponível, mostra o
     // mesmo analisador visual (score + palavra por palavra) usado em
