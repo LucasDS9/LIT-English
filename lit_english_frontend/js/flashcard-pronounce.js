@@ -81,7 +81,6 @@ const FlashcardPronounce = (() => {
         return {
           word,
           score: Math.max(0, Math.min(100, Number(direct.score))),
-          errorType: direct.errorType || "None",
         };
       }
       const match = wordScores.find(
@@ -91,20 +90,21 @@ const FlashcardPronounce = (() => {
         return {
           word,
           score: Math.max(0, Math.min(100, Number(match.score))),
-          errorType: match.errorType || "None",
         };
       }
       return { word, score: 0 };
     });
   }
 
-  /** Usa a nota oficial do Azure como nota geral. Quando a Azure não está
-   *  disponível, mantém o fallback existente de transcrição/correção. */
+  /** Usa as notas reais da Azure e uma camada de rigor da LIT — sem inventar
+   *  pontuação. `score` é a nota final pedagógica da LIT; `azurePron` guarda
+   *  a nota oficial do Azure. Quando a Azure não está disponível (score null), a IA ainda avalia se
+   *  a frase dita bate com a esperada (result.correct) -- isso vira a base
+   *  do tier/feedback aqui, em vez de cair sempre no vermelho "errado". */
   function normalizePronunciationResult(result) {
-    // A nota geral da LIT é sempre a nota oficial do Azure.
-    const score = result.azure_pron_score != null
-      ? Math.max(0, Math.min(100, Number(result.azure_pron_score)))
-      : (result.score != null ? Math.max(0, Math.min(100, Number(result.score))) : null);
+    const score = result.score != null
+      ? Math.max(0, Math.min(100, Number(result.score)))
+      : null;
     const hasAssessment = score != null;
 
     const rawWordScores = Array.isArray(result.word_scores)
@@ -171,9 +171,8 @@ const FlashcardPronounce = (() => {
 
     const aligned = buildWordScoresFromReference(text, wordScores);
     return aligned.map((entry) => {
-      const isMispronunciation = String(entry.errorType || "").toLowerCase() === "mispronunciation";
-      const className = isMispronunciation ? "mispronunciation" : "pronunciation-normal";
-      return `<span class="pronunciation-word ${className}">${escapeHtml(entry.word)}</span>`;
+      const tier = getScoreTier(entry.score);
+      return `<span class="pronunciation-word ${tier.className}">${escapeHtml(entry.word)}</span>`;
     }).join(" ");
   }
 

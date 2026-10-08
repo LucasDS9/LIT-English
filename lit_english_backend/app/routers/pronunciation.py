@@ -503,22 +503,24 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
             "Confirme se o recurso Speech suporta Pronunciation Assessment nesta região/idioma."
         )
 
-    # A nota geral exibida pela LIT é a nota oficial do Azure.
+    # A nota exibida pela LIT é diretamente o PronScore oficial do Azure.
+    # Não aplicamos nenhuma camada "strict" ou redução adicional.
+    final_score = pron_score if pron_score is not None else azure_score
     feedback_title, feedback_detail = _build_feedback(
-        azure_score,
+        final_score,
         word_scores,
         phoneme_scores,
     )
 
     logger.info(
-        "Azure PronunciationAssessment: azure_pron=%s accuracy=%s fluency=%s completeness=%s prosody=%s words=%s phonemes=%s",
-        azure_score, accuracy_score, fluency_score, completeness_score,
+        "Azure PronunciationAssessment: pron_score=%s accuracy=%s fluency=%s completeness=%s prosody=%s words=%s phonemes=%s",
+        final_score, accuracy_score, fluency_score, completeness_score,
         prosody_score, len(word_scores), len(phoneme_scores),
     )
 
     return {
         "transcribed_text": transcribed_text,
-        "score": azure_score,
+        "score": final_score,
         "azure_pron_score": azure_score,
         "word_scores": word_scores,
         "phoneme_scores": word_phonemes,
@@ -530,6 +532,7 @@ def _parse_azure_assessment_json(data: dict[str, Any], reference_text: str) -> d
         "completeness_score": completeness_score,
         "pron_score": pron_score,
         "prosody_score": prosody_score,
+        "strict_reasons": [],
     }
 
 def _build_pronunciation_header(reference_text: str, locale: str) -> str:

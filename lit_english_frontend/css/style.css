@@ -1703,7 +1703,6 @@ svg {
 .pronunciation-word.tier-good { color: #861E19; }
 .pronunciation-word.tier-medium { color: #D18C8C; }
 .pronunciation-word.tier-bad { color: #E8B8B8; }
-.pronunciation-word.mispronunciation { color: #D18C8C; }
 
 .learn-card--pronunciation-back {
   padding-top: 28px;
