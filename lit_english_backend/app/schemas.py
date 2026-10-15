@@ -654,6 +654,10 @@ class ExerciseBatchResendPayload(BaseModel):
     student_ids: List[int]
 
 
+class ExerciseBatchAddPayload(BaseModel):
+    exercise_ids: List[int] = Field(min_length=1)
+
+
 # ---------- QA ----------
 
 class QAQuestionBulkCreate(BaseModel):

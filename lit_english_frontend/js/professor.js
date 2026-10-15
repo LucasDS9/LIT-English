@@ -2432,7 +2432,7 @@ async function renderExercicios() {
   tabBar.style.cssText = "display:flex;gap:8px;margin-bottom:20px;";
   const tabEx     = document.createElement("button");
   tabEx.className  = "btn btn-primary btn-sm";
-  tabEx.textContent = "Exercícios";
+  tabEx.textContent = "Adicionar exercícios";
   const tabSub    = document.createElement("button");
   tabSub.className = "btn btn-outline btn-sm";
   tabSub.textContent = "Submissões";
@@ -2484,9 +2484,52 @@ function buildExerciciosView(container) {
   formCard.style.cssText = "padding:24px;margin-bottom:20px;";
 
   const formTitle = document.createElement("h3");
-  formTitle.textContent = "Novo exercício";
+  formTitle.textContent = "Adicionar exercícios";
   formTitle.style.marginBottom = "16px";
   formCard.appendChild(formTitle);
+
+  // ---- Seletor de grupo de exercícios (grupos do Histórico) ----
+  const groupRow = document.createElement("div");
+  groupRow.style.cssText = "margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);";
+  const groupLabel = document.createElement("label");
+  groupLabel.style.cssText = "font-size:13px;font-weight:600;color:#444;display:block;margin-bottom:4px;";
+  groupLabel.textContent = "Grupo de exercícios";
+  const groupSelect = document.createElement("select");
+  groupSelect.style.cssText = "width:100%;";
+  groupSelect.innerHTML = '<option value="">Novo grupo (enviar direto para alunos)</option>';
+  const groupHint = document.createElement("p");
+  groupHint.style.cssText = "font-size:12px;color:#888;margin:6px 0 0;";
+  groupHint.textContent = "Escolha um grupo do Histórico para adicionar os exercícios a ele. Depois é só reenviar o grupo para outros alunos.";
+  groupRow.appendChild(groupLabel); groupRow.appendChild(groupSelect); groupRow.appendChild(groupHint);
+  formCard.appendChild(groupRow);
+
+  // batch_id mais recente de cada nome de grupo
+  let groupsByName = new Map();
+  apiFetch("/exercises/batches").then(batches => {
+    groupsByName = new Map();
+    batches.forEach(b => { if (!groupsByName.has(b.batch_name)) groupsByName.set(b.batch_name, b); }); // lista já vem do mais recente
+    groupsByName.forEach((b, name) => {
+      const opt = document.createElement("option");
+      opt.value = String(b.batch_id);
+      opt.textContent = `${name} (${b.exercises.length} exercício${b.exercises.length === 1 ? "" : "s"})`;
+      groupSelect.appendChild(opt);
+    });
+    if (selectedGroupId) groupSelect.value = String(selectedGroupId);
+    if (groupSelect.value !== String(selectedGroupId || "")) selectedGroupId = null;
+    renderPendingList();
+  }).catch(() => { /* sem histórico: segue só com "Novo grupo" */ });
+
+  let selectedGroupId = null;
+  function selectedGroupName() {
+    const opt = groupSelect.options[groupSelect.selectedIndex];
+    return opt && groupSelect.value ? opt.textContent.replace(/ \(\d+ exercícios?\)$/, "") : "";
+  }
+  groupSelect.addEventListener("change", () => {
+    selectedGroupId = groupSelect.value ? parseInt(groupSelect.value) : null;
+    // sugere o nome do grupo como título (ex.: 01-verbs) se o campo estiver vazio
+    if (selectedGroupId && !titleInput.value.trim()) titleInput.value = selectedGroupName();
+    renderPendingList();
+  });
 
   // Type selector
   const typeRow = document.createElement("div");
@@ -2682,6 +2725,31 @@ function buildExerciciosView(container) {
       list.appendChild(row);
     });
     pendingSection.appendChild(list);
+
+    if (selectedGroupId) {
+      const groupBtn = document.createElement("button");
+      groupBtn.className = "btn btn-primary";
+      groupBtn.innerHTML = `${Icons.plus}<span>Adicionar ao grupo "${selectedGroupName()}"</span>`;
+      groupBtn.style.marginTop = "4px";
+      groupBtn.addEventListener("click", async () => {
+        groupBtn.disabled = true; groupBtn.textContent = "Salvando...";
+        try {
+          const res = await apiFetch(`/exercises/batches/${selectedGroupId}/add-exercises`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ exercise_ids: pendingExercises.map(e => e.id) }),
+          });
+          pendingExercises = [];
+          showToast(`${res.added} exercício(s) adicionado(s) ao grupo "${res.batch_name}". Veja no Histórico.`);
+          renderExercicios();
+        } catch (err) {
+          showToast(err.message || "Erro ao adicionar ao grupo.");
+          groupBtn.disabled = false; groupBtn.innerHTML = `${Icons.plus}<span>Adicionar ao grupo "${selectedGroupName()}"</span>`;
+        }
+      });
+      pendingSection.appendChild(groupBtn);
+      return;
+    }
 
     const sendBtn = document.createElement("button");
     sendBtn.className = "btn btn-primary";

@@ -31,6 +31,7 @@ from app.schemas import (
     ExerciseAnswerResult,
     ExerciseAnswerSubmit,
     ExerciseAssignPayload,
+    ExerciseBatchAddPayload,
     ExerciseBatchExerciseOut,
     ExerciseBatchOut,
     ExerciseBatchRenamePayload,
@@ -330,6 +331,37 @@ def delete_batch(
     db.delete(batch)
     db.commit()
     return None
+
+
+@router.post("/batches/{batch_id}/add-exercises", status_code=200)
+def add_exercises_to_batch(
+    batch_id: int,
+    payload: ExerciseBatchAddPayload,
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    """
+    Adiciona novos exercícios a um grupo (lote) que já está no histórico,
+    sem enviar nada a ninguém. Depois, o professor pode reenviar o grupo
+    completo para outros alunos pelo Histórico.
+    """
+    batch = db.query(ExerciseBatch).filter(ExerciseBatch.id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Grupo não encontrado.")
+
+    already = {item.exercise_id for item in batch.items}
+    added = 0
+    for ex_id in dict.fromkeys(payload.exercise_ids):  # sem repetidos, mantém ordem
+        if ex_id in already:
+            continue
+        exercise = db.query(Exercise).filter(Exercise.id == ex_id).first()
+        if not exercise:
+            continue
+        db.add(ExerciseBatchItem(batch_id=batch.id, exercise_id=ex_id))
+        added += 1
+
+    db.commit()
+    return {"added": added, "batch_name": batch.name}
 
 
 @router.post("/batches/{batch_id}/resend", status_code=201)
