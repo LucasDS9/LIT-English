@@ -318,3 +318,25 @@
 @media (max-width: 900px) {
   .analysis-card { max-width: 85%; }
 }
+
+
+/* ==========================================================================
+   Mobile — barra do microfone fixa na parte de baixo da tela (acima do menu)
+   A coluna do chat passa a ocupar toda a altura livre; o chat ocupa o meio
+   e o microfone fica encostado embaixo.
+   ========================================================================== */
+@media (max-width: 860px) {
+  .conv-chat-column {
+    flex: 1 1 0;
+  }
+
+  .chat-scroll {
+    min-height: 0;
+  }
+
+  .mic-bar {
+    flex-shrink: 0;
+    margin-top: auto;
+    padding: 14px 20px;
+  }
+}

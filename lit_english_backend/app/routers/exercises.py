@@ -4,6 +4,7 @@ Rotas de Exercícios:
 - Aluno: ver exercícios atribuídos, responder
 - Histórico de lotes: listar, renomear, reenviar
 """
+import re
 from collections import defaultdict
 from datetime import timedelta
 
@@ -62,7 +63,14 @@ router = APIRouter(prefix="/exercises", tags=["Exercícios"])
 
 
 def _normalize(text: str) -> str:
-    return text.strip().lower().rstrip(".,!?")
+    # Usada no "Listen and type": as PALAVRAS precisam ser as mesmas, mas
+    # ignora o que não muda a frase: maiúsculas/minúsculas, espaços extras,
+    # qualquer pontuação (vírgula, ponto, ?, !, etc.) e apóstrofos
+    # (dont == don't). Contrações NÃO são expandidas: "I'm" != "I am".
+    text = (text or "").lower()
+    text = re.sub(r"['\u2019\u2018`]", "", text)   # apóstrofos: some, sem virar espaço
+    text = re.sub(r"[^\w\s]", " ", text)           # demais pontuações viram espaço
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def _schedule_after_submit(progress, is_correct):
