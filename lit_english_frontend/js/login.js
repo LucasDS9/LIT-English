@@ -35,6 +35,7 @@
   const registerCard    = document.getElementById("register-card");
   const registerFooter  = document.getElementById("register-footer");
   const registerForm    = document.getElementById("register-form");
+  const regSubtitle     = document.getElementById("reg-subtitle");
   const regNameInput    = document.getElementById("reg-name");
   const regWhatsInput   = document.getElementById("reg-whatsapp");
   const whatsappField   = document.getElementById("whatsapp-field");
@@ -42,26 +43,49 @@
   const regEmailHidden  = document.getElementById("reg-email");
   const regPassInput    = document.getElementById("reg-password");
   const regPassConfirm  = document.getElementById("reg-password-confirm");
+  const normalFields    = document.getElementById("normal-user-fields");
+  const regAgeInput     = document.getElementById("reg-age");
+  const regTargetLang   = document.getElementById("reg-target-language");
+  const regPromoInput   = document.getElementById("reg-promo");
+  const promoOptional   = document.getElementById("promo-optional");
   const registerBtn     = document.getElementById("register-btn");
   const regErrorBox     = document.getElementById("reg-form-error");
   const regInfoBox      = document.getElementById("reg-form-info");
 
-  // -------------------------------------------------------------------------
-  // Acesso Especial (?acesso=especial na URL): cadastro pede língua-alvo no
-  // lugar do WhatsApp, e tanto login quanto cadastro ficam isolados do
-  // sistema normal (ver access_type enviado ao backend). Ver acesso.html.
-  // -------------------------------------------------------------------------
-  const isAcessoEspecial = new URLSearchParams(window.location.search).get("acesso") === "especial";
-  const specialFields    = document.getElementById("special-access-fields");
-  const regTargetLang    = document.getElementById("reg-target-language");
-  const regAgeInput      = document.getElementById("reg-age");
+  const PROMO_CODE_LENGTH = 5;
 
-  if (isAcessoEspecial) {
-    specialFields.hidden = false;
-    whatsappField.hidden = true;
-    regWhatsInput.required = false;
-    regAgeInput.required = true;
+  // -------------------------------------------------------------------------
+  // Tipo de conta no cadastro:
+  //   "normal" = usuário normal (antigo Acesso Especial): idade, língua e
+  //              plano; entra direto, sem aprovação do professor.
+  //   "aluno"  = aluno do professor: exige código promocional e WhatsApp, e
+  //              continua aguardando aprovação.
+  // -------------------------------------------------------------------------
+  function getAccountType() {
+    const checked = registerForm.querySelector('input[name="account_type"]:checked');
+    return checked ? checked.value : "normal";
   }
+
+  function getPlan() {
+    const checked = registerForm.querySelector('input[name="plan"]:checked');
+    return checked ? checked.value : "free";
+  }
+
+  function applyAccountType() {
+    const isAluno = getAccountType() === "aluno";
+    normalFields.hidden  = isAluno;
+    whatsappField.hidden = !isAluno;
+    promoOptional.hidden = isAluno; // código é obrigatório só para aluno
+    registerBtn.textContent = isAluno ? "Solicitar Cadastro" : "Criar Conta";
+    regSubtitle.textContent = isAluno
+      ? "Informe o código recebido e seus dados. Seu cadastro será analisado e aprovado por um professor antes da liberação do acesso."
+      : "Crie sua conta e comece a estudar agora mesmo.";
+  }
+
+  registerForm.querySelectorAll('input[name="account_type"]').forEach((radio) => {
+    radio.addEventListener("change", applyAccountType);
+  });
+  applyAccountType();
 
   // -------------------------------------------------------------------------
   // Alternar entre login e cadastro
@@ -151,7 +175,7 @@
     submitBtn.textContent = "Entrando...";
 
     try {
-      await login(email, password, isAcessoEspecial ? "especial" : "padrao");
+      await login(email, password);
       const user = await fetchCurrentUser();
 
       if (user.role === "aluno" && !user.is_approved) {
@@ -186,42 +210,50 @@
     event.preventDefault();
     hideRegMessages();
 
-    const name     = regNameInput.value.trim();
-    const whatsapp = regWhatsInput.value.trim();
+    const isAluno   = getAccountType() === "aluno";
+    const name      = regNameInput.value.trim();
+    const whatsapp  = regWhatsInput.value.trim();
     const emailUser = regEmailUser.value.trim();
     const password  = regPassInput.value;
     const confirm   = regPassConfirm.value;
-
-    const targetLanguage = isAcessoEspecial ? regTargetLang.value : "";
-    const ageRaw = isAcessoEspecial ? regAgeInput.value.trim() : "";
+    const promoCode = regPromoInput.value.trim();
+    const ageRaw    = regAgeInput.value.trim();
 
     if (!name) { showRegError("Informe seu nome completo."); return; }
-    if (!isAcessoEspecial && !whatsapp) { showRegError("Informe seu número de WhatsApp."); return; }
-    if (isAcessoEspecial) {
+    if (isAluno && !whatsapp) { showRegError("Informe seu número de WhatsApp."); return; }
+    if (!emailUser) { showRegError("Informe o nome de usuário do e-mail."); return; }
+    if (!password)  { showRegError("Crie uma senha."); return; }
+    if (password !== confirm) { showRegError("As senhas não coincidem."); return; }
+    if (!isAluno) {
       const age = Number(ageRaw);
       if (!ageRaw || !Number.isInteger(age) || age < 1 || age > 120) {
         showRegError("Informe uma idade válida (entre 1 e 120).");
         return;
       }
     }
-    if (!emailUser) { showRegError("Informe o nome de usuário do e-mail."); return; }
-    if (!password)  { showRegError("Crie uma senha."); return; }
-    if (password !== confirm) { showRegError("As senhas não coincidem."); return; }
+    if (isAluno && !promoCode) { showRegError("Informe o código promocional."); return; }
+    if (promoCode && promoCode.length !== PROMO_CODE_LENGTH) {
+      showRegError(`O código promocional deve ter ${PROMO_CODE_LENGTH} caracteres.`);
+      return;
+    }
 
     const email = `${emailUser}@litstudent.com`;
     regEmailHidden.value = email;
 
     const payload = { name, email, password, role: "aluno" };
-    if (isAcessoEspecial) {
-      payload.access_type      = "especial";
-      payload.target_language  = targetLanguage;
-      payload.age              = Number(ageRaw);
+    if (promoCode) payload.promo_code = promoCode;
+    if (isAluno) {
+      payload.access_type = "padrao";
+      payload.whatsapp    = whatsapp;
     } else {
-      payload.whatsapp = whatsapp;
+      payload.access_type     = "especial";
+      payload.target_language = regTargetLang.value;
+      payload.age             = Number(ageRaw);
+      payload.plan            = getPlan();
     }
 
     registerBtn.disabled    = true;
-    registerBtn.textContent = "Solicitando...";
+    registerBtn.textContent = isAluno ? "Solicitando..." : "Criando conta...";
 
     try {
       await apiFetch("/auth/register", {
@@ -230,15 +262,24 @@
         body: JSON.stringify(payload),
       });
 
-      showRegInfo(
-        "Cadastro solicitado! Assim que o professor aprovar seu acesso, você poderá fazer login."
-      );
-      registerForm.reset();
+      if (isAluno) {
+        showRegInfo(
+          "Cadastro solicitado! Assim que o professor aprovar seu acesso, você poderá fazer login."
+        );
+        registerForm.reset();
+        applyAccountType();
+        return;
+      }
+
+      // Usuário normal entra direto: faz login automático e vai para a home.
+      await login(email, password);
+      const user = await fetchCurrentUser();
+      await redirectAfterStudentLogin(user);
     } catch (err) {
       showRegError(err.message || "Não foi possível criar sua conta. Tente novamente.");
     } finally {
-      registerBtn.disabled    = false;
-      registerBtn.textContent = "Solicitar Cadastro";
+      registerBtn.disabled = false;
+      applyAccountType(); // restaura o texto do botão conforme o tipo de conta
     }
   });
 })();

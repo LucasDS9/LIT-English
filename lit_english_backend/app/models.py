@@ -56,6 +56,12 @@ class User(Base):
     target_language = Column(String, nullable=True)   # idem — ver ALLOWED_TARGET_LANGUAGES em schemas.py
     age = Column(Integer, nullable=True)
     nationality = Column(String, nullable=True)
+    # Plano escolhido no cadastro de usuário normal: "free", "premium" ou "pro".
+    # Nulo para contas antigas e para alunos (que entram com código). Por
+    # enquanto é só um rótulo — nada é cobrado nem bloqueado por plano.
+    plan = Column(String, nullable=True)
+    # Código promocional informado no cadastro (5 caracteres).
+    promo_code = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

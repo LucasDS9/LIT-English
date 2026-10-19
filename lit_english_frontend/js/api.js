@@ -38,17 +38,11 @@ const Auth = {
   },
 
   /**
-   * Descobre para qual tela de login o usuário deve voltar: alunos/professores
-   * do cadastro padrão voltam para "login.html", enquanto contas de Acesso
-   * Especial (access_type === "especial") voltam para "login.html?acesso=especial".
-   * Precisa ser chamado ANTES de Auth.clear(), enquanto os dados do usuário
-   * ainda estão salvos localmente.
+   * Tela de login para onde o usuário volta ao sair. Agora existe um único
+   * login para todos os tipos de conta.
    */
   loginRedirectUrl() {
-    const user = this.getUser();
-    return user && user.access_type === "especial"
-      ? "login.html?acesso=especial"
-      : "login.html";
+    return "login.html";
   },
 
   logout() {
@@ -143,12 +137,12 @@ async function apiFetchBlob(path) {
 
 /**
  * Login no padrão OAuth2 (form-urlencoded) exigido pelo backend.
+ * Único para todos os tipos de conta (aluno, usuário normal e professor).
  */
-async function login(email, password, accessType) {
+async function login(email, password) {
   const body = new URLSearchParams();
   body.set("username", email);
   body.set("password", password);
-  if (accessType) body.set("access_type", accessType);
 
   const data = await apiFetch("/auth/login", {
     method: "POST",

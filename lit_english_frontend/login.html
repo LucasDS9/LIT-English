@@ -51,17 +51,32 @@
     <!-- REGISTER FORM -->
     <div class="auth-card" id="register-card" style="display:none;">
       <h1>Criar Conta</h1>
-      <p class="muted">Preencha seus dados para solicitar acesso à plataforma. Seu cadastro será analisado e aprovado por um professor antes da liberação do acesso.</p>
+      <p class="muted" id="reg-subtitle">Crie sua conta e comece a estudar agora mesmo.</p>
 
       <form id="register-form" novalidate>
+        <div class="field">
+          <label>Tipo de conta</label>
+          <div class="option-grid option-grid-2" role="radiogroup" aria-label="Tipo de conta">
+            <label class="option-card">
+              <input type="radio" name="account_type" value="normal" checked />
+              <span class="option-body"><strong>Usuário normal</strong><small>Entrada direta</small></span>
+            </label>
+            <label class="option-card">
+              <input type="radio" name="account_type" value="aluno" />
+              <span class="option-body"><strong>Aluno</strong><small>Requer código</small></span>
+            </label>
+          </div>
+        </div>
+
         <div class="field">
           <label for="reg-name">Nome Completo</label>
           <input type="text" id="reg-name" name="name" placeholder="Lucas Vinicius" required />
         </div>
 
-        <div class="field" id="whatsapp-field">
+        <!-- Só para Aluno: o professor entra em contato pelo WhatsApp -->
+        <div class="field" id="whatsapp-field" hidden>
           <label for="reg-whatsapp">WhatsApp</label>
-          <input type="tel" id="reg-whatsapp" name="whatsapp" placeholder="(81) 99999-9999" required />
+          <input type="tel" id="reg-whatsapp" name="whatsapp" placeholder="(81) 99999-9999" />
         </div>
 
         <div class="field">
@@ -83,11 +98,11 @@
           <input type="password" id="reg-password-confirm" name="password_confirm" placeholder="••••••••" autocomplete="new-password" required />
         </div>
 
-        <!-- Campo exclusivo do cadastro via "Acesso Especial" -->
-        <div id="special-access-fields" hidden>
+        <!-- Só para Usuário normal (antigo Acesso Especial) -->
+        <div id="normal-user-fields">
           <div class="field">
             <label for="reg-age">Idade</label>
-            <input type="number" id="reg-age" name="age" min="1" max="120" placeholder="Ex: 25" required />
+            <input type="number" id="reg-age" name="age" min="1" max="120" placeholder="Ex: 25" />
           </div>
           <div class="field">
             <label for="reg-target-language">Língua que deseja aprender</label>
@@ -97,9 +112,32 @@
               <option value="frances">Francês</option>
             </select>
           </div>
+
+          <div class="field">
+            <label>Plano</label>
+            <div class="option-grid option-grid-3" role="radiogroup" aria-label="Plano">
+              <label class="option-card">
+                <input type="radio" name="plan" value="free" checked />
+                <span class="option-body"><strong>Free</strong><small>Gratuito</small></span>
+              </label>
+              <label class="option-card">
+                <input type="radio" name="plan" value="premium" />
+                <span class="option-body"><strong>Premium</strong></span>
+              </label>
+              <label class="option-card">
+                <input type="radio" name="plan" value="pro" />
+                <span class="option-body"><strong>Pro</strong></span>
+              </label>
+            </div>
+          </div>
         </div>
 
-        <button type="submit" class="btn btn-primary btn-block" id="register-btn">Solicitar Cadastro</button>
+        <div class="field">
+          <label for="reg-promo">Código promocional <span id="promo-optional" class="field-optional">(opcional)</span></label>
+          <input type="text" id="reg-promo" name="promo_code" maxlength="5" placeholder="5 caracteres" autocomplete="off" autocapitalize="off" spellcheck="false" />
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block" id="register-btn">Criar Conta</button>
       </form>
 
       <p class="form-error" id="reg-form-error" hidden></p>

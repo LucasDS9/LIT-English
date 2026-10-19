@@ -456,6 +456,14 @@ def run_migrations():
                     if not _col_exists(conn, "users", "nationality"):
                         conn.execute(text("ALTER TABLE users ADD COLUMN nationality VARCHAR"))
                         conn.commit()
+                    # Plano (free/premium/pro) e código promocional do novo
+                    # cadastro. Sem DEFAULT: contas já existentes ficam NULL.
+                    if not _col_exists(conn, "users", "plan"):
+                        conn.execute(text("ALTER TABLE users ADD COLUMN plan VARCHAR"))
+                        conn.commit()
+                    if not _col_exists(conn, "users", "promo_code"):
+                        conn.execute(text("ALTER TABLE users ADD COLUMN promo_code VARCHAR"))
+                        conn.commit()
                 except Exception:
                     logger.exception(
                         "Falha ao migrar users (access_type/native_language/target_language), ignorando."

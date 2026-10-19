@@ -22,6 +22,10 @@ from app.models import (
 # Pra liberar uma nova língua no futuro, basta adicionar aqui.
 ALLOWED_TARGET_LANGUAGES = {"ingles", "italiano", "frances"}
 
+# Planos disponíveis no cadastro de usuário normal. Por enquanto só existem as
+# opções — ainda não há cobrança nem limitação de recursos por plano.
+ALLOWED_PLANS = {"free", "premium", "pro"}
+
 
 # ---------- Auth ----------
 
@@ -36,6 +40,8 @@ class UserCreate(BaseModel):
     target_language: Optional[str] = None
     age: Optional[int] = Field(default=None, ge=1, le=120)
     nationality: Optional[str] = None
+    plan: Optional[str] = None
+    promo_code: Optional[str] = None
 
 
 class UserLogin(BaseModel):
@@ -55,6 +61,7 @@ class UserOut(BaseModel):
     target_language: Optional[str] = None
     age: Optional[int] = None
     nationality: Optional[str] = None
+    plan: Optional[str] = None
     created_at: datetime
 
     class Config:
