@@ -13,7 +13,6 @@ from app.activity_queue import resolve_next_activity
 from app.auth import get_current_approved_user
 from app.database import get_db
 from app.lit_points import (
-    DAILY_EXERCISE_LIMIT,
     POINTS_PER_TEXT_BLOCK,
     TEXT_BLOCK_SECONDS,
     bonus_points_total,
@@ -56,12 +55,8 @@ def build_dashboard_metrics(db: Session, student_id: int) -> DashboardMetricsOut
         )
         .count()
     )
-    # A meta do dia respeita o limite diário de exercícios (acúmulo do que
-    # exceder o limite é mostrado nos dias seguintes, não no mesmo dia).
-    exercises_today_target = min(
-        DAILY_EXERCISE_LIMIT,
-        exercises_today + due_exercises_count(db, student_id),
-    )
+    # Sem limite diário: a meta do dia é o que já foi feito + o que está devido.
+    exercises_today_target = exercises_today + due_exercises_count(db, student_id)
 
     # ---- Flashcards revisados + pontos ----
     flashcard_points, flashcards_reviewed = flashcard_points_total(db, student_id)

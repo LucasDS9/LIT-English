@@ -16,13 +16,9 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.lit_points import (
-    DAILY_EXERCISE_LIMIT,
-    DAILY_EXERCISE_LIMIT_WITH_BACKLOG,
-    due_exercises_count,
-)
-from app.models import Exercise, ExerciseAssignment, ExerciseProgress, ExerciseSubmission, User
-from app.timezone import start_of_day_brazil_utc, utcnow
+from app.lit_points import due_exercises_count
+from app.models import Exercise, ExerciseAssignment, ExerciseProgress, User
+from app.timezone import utcnow
 
 
 def _assigned_exercise_ids(db: Session, student_id: int) -> set[int]:
@@ -44,24 +40,6 @@ def _not_due_exercise_ids(db: Session, student_id: int, now) -> set[int]:
         .all()
     )
     return {ex_id for (ex_id,) in rows}
-
-
-def _remaining_daily_quota(db: Session, student_id: int, due_count: int) -> int:
-    start_today = start_of_day_brazil_utc()
-    answered_today = (
-        db.query(ExerciseSubmission)
-        .filter(
-            ExerciseSubmission.student_id == student_id,
-            ExerciseSubmission.created_at >= start_today,
-        )
-        .count()
-    )
-    daily_limit = (
-        DAILY_EXERCISE_LIMIT_WITH_BACKLOG
-        if due_count > DAILY_EXERCISE_LIMIT
-        else DAILY_EXERCISE_LIMIT
-    )
-    return max(0, daily_limit - answered_today)
 
 
 def _due_exercises_sorted(
@@ -111,7 +89,7 @@ def _due_exercises_sorted(
 
 
 def pending_exercises_count(db: Session, student: User) -> int:
-    """Quantos exercícios pendentes existem (ignora limite diário de exibição)."""
+    """Quantos exercícios pendentes existem."""
     return due_exercises_count(db, student.id)
 
 
@@ -121,7 +99,7 @@ def should_defer_flashcards(db: Session, student: User) -> bool:
 
 
 def build_student_exercise_queue(db: Session, student: User) -> list[Exercise]:
-    """Fila de exercícios para GET /exercises/my-assignments, respeitando o limite diário."""
+    """Fila de exercícios para GET /exercises/my-assignments (sem limite diário)."""
     now = utcnow()
     student_id = student.id
     assigned_ids = _assigned_exercise_ids(db, student_id)
@@ -133,8 +111,7 @@ def build_student_exercise_queue(db: Session, student: User) -> list[Exercise]:
         assigned_ids=assigned_ids,
         not_due_ids=not_due_ids,
     )
-    remaining_quota = _remaining_daily_quota(db, student_id, len(due_exercises))
-    return due_exercises[:remaining_quota]
+    return due_exercises
 
 
 def resolve_next_activity(db: Session, student: User) -> dict:

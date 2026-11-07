@@ -47,15 +47,6 @@ TEXT_BLOCK_SECONDS = 120
 DAILY_EXERCISE_BONUS = 50
 DAILY_FLASHCARD_BONUS = 15
 
-# Quantidade máxima de exercícios exibidos ao aluno por dia. O que exceder o
-# limite não se perde: permanece devido e é mostrado nos dias seguintes.
-DAILY_EXERCISE_LIMIT = 10
-
-# Quando o aluno acumula mais exercícios devidos do que o limite normal (ou
-# seja, não deu conta de algum dia anterior), o limite do dia dobra para que
-# o acúmulo seja resolvido mais rápido, em vez de crescer indefinidamente.
-DAILY_EXERCISE_LIMIT_WITH_BACKLOG = 20
-
 
 def points_for_correct_submission(prior_correct: int, prior_incorrect: int) -> int:
     """Pontos ganhos por UM acerto, dado o histórico anterior desse mesmo
