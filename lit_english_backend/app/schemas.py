@@ -20,7 +20,7 @@ from app.models import (
 # (campo salvo no usuário, TTS e conteúdo de Home) — ainda sem o vocabulário/
 # flashcards (frases) montado para "frances" e "ingles" nesse contexto.
 # Pra liberar uma nova língua no futuro, basta adicionar aqui.
-ALLOWED_TARGET_LANGUAGES = {"ingles", "italiano", "frances"}
+ALLOWED_TARGET_LANGUAGES = {"ingles", "italiano", "frances", "mandarim"}
 
 # Planos disponíveis no cadastro de usuário normal. Por enquanto só existem as
 # opções — ainda não há cobrança nem limitação de recursos por plano.
@@ -347,6 +347,8 @@ class VocabWordCreate(BaseModel):
     part_of_speech: str
     translation: str
     example_sentence: Optional[str] = None
+    pinyin: Optional[str] = None
+    example_pinyin_sentences: List[str] = []
     tip: Optional[str] = None
     distractors: List[str] = Field(min_length=3, max_length=3)
     explanation: Optional[str] = None
@@ -361,6 +363,8 @@ class VocabWordUpdate(BaseModel):
     part_of_speech: Optional[str] = None
     translation: Optional[str] = None
     example_sentence: Optional[str] = None
+    pinyin: Optional[str] = None
+    example_pinyin_sentences: Optional[List[str]] = None
     tip: Optional[str] = None
     distractors: Optional[List[str]] = None
     explanation: Optional[str] = None
@@ -377,6 +381,8 @@ class VocabWordOut(BaseModel):
     translation: str
     example_sentence: Optional[str]
     example_sentences: List[str] = []
+    pinyin: Optional[str] = None
+    example_pinyin_sentences: List[str] = []
     tip: Optional[str]
     distractors: List[str]
     explanation: Optional[str]
@@ -397,6 +403,8 @@ class VocabLearnCardOut(BaseModel):
     translation: Optional[str] = None
     example_sentence: Optional[str] = None
     example_sentences: List[str] = []
+    pinyin: Optional[str] = None
+    example_pinyin_sentences: List[str] = []
     tip: Optional[str] = None
     options: List[str]
     level: str = "A1"

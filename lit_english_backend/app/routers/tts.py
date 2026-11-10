@@ -40,6 +40,7 @@ TTS_LANGUAGE_CODES = {
     "ingles": "en-US",
     "italiano": "it",
     "frances": "fr",
+    "mandarim": "zh-CN",
 }
 DEFAULT_TTS_LANGUAGE_CODE = "en-US"
 
@@ -60,16 +61,16 @@ async def speak(
     """
     tts_language = student_language(user)
 
-    # Para italiano, a Immersion usa Azure Speech com a voz Imelda.
-    # As demais línguas continuam no fluxo legado abaixo.
-    if tts_language == "italiano":
+    # Italiano e mandarim usam Azure Speech; mandarim requer zh-CN.
+    if tts_language in {"italiano", "mandarim"}:
+        locale = "it-IT" if tts_language == "italiano" else "zh-CN"
         try:
-            audio_bytes = await synthesize_speech(text.strip(), "it-IT")
+            audio_bytes = await synthesize_speech(text.strip(), locale)
             return Response(content=audio_bytes, media_type="audio/mpeg")
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Não foi possível gerar o áudio em italiano agora: {exc}",
+                detail=f"Não foi possível gerar o áudio em {tts_language} agora: {exc}",
             )
 
     tl = TTS_LANGUAGE_CODES.get(tts_language, DEFAULT_TTS_LANGUAGE_CODE)

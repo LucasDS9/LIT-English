@@ -31,6 +31,7 @@ LANGUAGE_NAMES = {
     "ingles": "inglês",
     "italiano": "italiano",
     "frances": "francês",
+    "mandarim": "mandarim (chinês simplificado)",
 }
 DEFAULT_LANGUAGE_NAME = "inglês"
 
@@ -129,6 +130,8 @@ _LANGUAGE_NAMES = {
     "alemao": "alemão",
     "de": "alemão",
     "german": "alemão",
+    "mandarim": "mandarim (chinês simplificado)",
+    "zh": "mandarim (chinês simplificado)",
 }
 
 _TARGET_FRONT_PROMPT = (

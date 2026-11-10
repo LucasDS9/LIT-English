@@ -9,7 +9,7 @@ def student_language(student: User) -> str:
     O curso padrão usa inglês. Contas de Acesso Especial usam a língua
     escolhida no cadastro.
     """
-    if student.access_type == AccessType.especial and student.target_language:
+    if student.target_language:
         return student.target_language.strip().lower()
     return "ingles"
 

@@ -15,7 +15,7 @@ const metricsRootEl = document.getElementById("home-metrics");
 // normal (access_type "padrao") é sempre inglês; Acesso Especial usa a
 // target_language escolhida no cadastro (ex.: "italiano").
 function studentLanguage(user) {
-  if (user.access_type === "especial" && user.target_language) {
+  if (user.target_language) {
     return user.target_language.trim().toLowerCase();
   }
   return "ingles";
@@ -39,6 +39,11 @@ const HOME_CONTENT = {
     welcome: (firstName) => `Bienvenue, ${firstName}!`,
     quote: "Savoir étant sublime, apprendre sera doux.",
     author: "Victor Hugo",
+  },
+  mandarim: {
+    welcome: (firstName) => `欢迎, ${firstName}!`,
+    quote: "千里之行，始于足下。",
+    author: "老子 (Laozi) · Qiān lǐ zhī xíng, shǐ yú zú xià.",
   },
 };
 

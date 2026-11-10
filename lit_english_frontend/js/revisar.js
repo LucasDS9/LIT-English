@@ -519,14 +519,15 @@ function renderTypeCard(card) {
   // exibir o lápis de "editar frente" em cima do texto do verso.
   appendReviewCardHeader(cardBox, card);
 
-  appendPromptText(body, card.native_text || card.back, "front-text", null);
+  const isMandarin = normalizeTargetLanguage(session.targetLanguage) === "mandarim";
+  appendPromptText(body, isMandarin ? card.front : (card.native_text || card.back), "front-text", null);
 
   const targetLabel = languageMetaForReview(session.targetLanguage).label.toLowerCase();
 
   const hint = document.createElement("p");
   hint.className = "review-hint";
   hint.style.margin = "0";
-  hint.textContent = `Digite a tradução em ${targetLabel}`;
+  hint.textContent = isMandarin ? "Digite a tradução em português" : `Digite a tradução em ${targetLabel}`;
   body.appendChild(hint);
 
   const input = document.createElement("input");
@@ -718,6 +719,7 @@ async function submitSpeakAnswer(card, getBlob, feedback, submitBtn, getLocked, 
 
 function normalizeTargetLanguage(value) {
   const raw = String(value || "").trim().toLowerCase();
+  if (["zh", "zh-cn", "mandarim", "chinese"].includes(raw)) return "mandarim";
   if (["it", "italiano"].includes(raw)) return "italiano";
   if (["fr", "frances", "francês", "français"].includes(raw)) return "frances";
   if (["es", "espanhol", "español"].includes(raw)) return "espanhol";
@@ -735,6 +737,7 @@ function languageMetaForReview(languageCode) {
     espanhol: "Espanhol",
     alemao: "Alemão",
     portugues: "Português",
+    mandarim: "Mandarim",
   };
   const flags = {
     ingles: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#012169"/><path d="M0 0l24 16M24 0L0 16" stroke="#fff" stroke-width="2.4"/><path d="M0 0l24 16M24 0L0 16" stroke="#C8102E" stroke-width="1.2"/><path d="M12 0v16M0 8h24" stroke="#fff" stroke-width="3.2"/><path d="M12 0v16M0 8h24" stroke="#C8102E" stroke-width="1.6"/></svg>`,
@@ -743,6 +746,7 @@ function languageMetaForReview(languageCode) {
     espanhol: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#AA151B"/><rect y="4" width="24" height="8" fill="#F1BF00"/></svg>`,
     alemao: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" fill="#000"/><rect y="5.33" width="24" height="5.34" fill="#DD0000"/><rect y="10.66" width="24" height="5.34" fill="#FFCE00"/></svg>`,
     portugues: `<span class="review-language-placeholder">PT</span>`,
+    mandarim: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#DE2910"/><path d="M5 2.2l.8 2.3 2.4.1-1.9 1.4.7 2.3L5 7l-2 1.3.7-2.3L1.8 4.6l2.4-.1z" fill="#FFDE00"/></svg>`,
   };
   return { code, label: labels[code], flag: flags[code] || flags.ingles };
 }

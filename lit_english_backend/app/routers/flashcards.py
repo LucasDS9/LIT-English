@@ -83,6 +83,7 @@ _WHISPER_LANGUAGE = {
     "espanhol": "spanish",
     "alemao": "german",
     "portugues": "portuguese",
+    "mandarim": "chinese",
 }
 
 _ANSWER_LANGUAGE = {
@@ -92,6 +93,7 @@ _ANSWER_LANGUAGE = {
     "espanhol": "espanhol",
     "alemao": "alemão",
     "portugues": "português",
+    "mandarim": "mandarim",
 }
 
 _SPEAK_MODES = (ReviewMode.type_speak, ReviewMode.type_target)
@@ -123,12 +125,13 @@ def _judge_spoken_answer(*, student: User, expected: str, given: str, context: s
 
 def _card_sides(flashcard: Flashcard, student: User) -> tuple[str, str]:
     """(texto na língua-alvo, texto na língua nativa), corrigindo cards salvos com os lados trocados."""
-    return orient_card(
+    target_text, native_text = orient_card(
         flashcard.front,
         flashcard.back,
         student_language(student),
         student.native_language or "pt",
     )
+    return target_text, native_text
 
 
 def _check_typed_answer(
@@ -145,11 +148,24 @@ def _check_typed_answer(
     frases equivalentes e gramaticalmente corretas, não só a literal.
     """
     target_text, native_text = _card_sides(flashcard, student)
+    # Mandarim: exercício digitado pede a língua nativa; os exercícios de
+    # pronúncia continuam avaliando a língua-alvo normalmente.
+    expected_text = native_text if student_language(student) == "mandarim" else target_text
+    context_text = target_text if student_language(student) == "mandarim" else native_text
+    if student_language(student) == "mandarim":
+        # A resposta digitada é em português, não em caracteres chineses.
+        result = judge_answer(
+            expected=_strip_topic_label(expected_text),
+            given=given,
+            context=context_text,
+            language="português",
+        )
+        return {"correct": result["correct"], "reason": result["reason"], "confidence": None}
     return _judge_spoken_answer(
         student=student,
-        expected=_strip_topic_label(target_text),
+        expected=_strip_topic_label(expected_text),
         given=given,
-        context=native_text,
+        context=context_text,
     )
 
 
@@ -607,6 +623,7 @@ def _target_language_labels(target: str) -> dict[str, str]:
             "lingua": "francese",
             "langue": "français",
         },
+        "mandarim": {"language": "Chinese (Simplified)", "idioma": "mandarim", "lingua": "chinês", "langue": "chinois"},
     }
     return labels.get(target, labels["ingles"])
 
@@ -887,7 +904,7 @@ def self_add_flashcard(
         # devolver apenas a tradução da palavra (ex.: "money").
         try:
             target_language = student_language(student)
-            if target_language in {"ingles", "italiano", "frances"}:
+            if target_language in {"ingles", "italiano", "frances", "mandarim"}:
                 back = translate_to_portuguese(front, target_language)
             else:
                 # Mantém o fluxo genérico para línguas que ainda não estão
@@ -1137,7 +1154,8 @@ def submit_review(
         if not payload.typed_answer or not payload.typed_answer.strip():
             raise HTTPException(status_code=422, detail="Digite sua resposta.")
 
-        expected = _strip_topic_label(_card_sides(flashcard, student)[0])
+        card_target, card_native = _card_sides(flashcard, student)
+        expected = _strip_topic_label(card_native if student_language(student) == "mandarim" else card_target)
         judge_result = _check_typed_answer(
             given=payload.typed_answer,
             student=student,

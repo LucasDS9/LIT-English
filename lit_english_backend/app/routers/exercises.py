@@ -698,7 +698,10 @@ async def submit_audio_answer(
         raise HTTPException(status_code=400, detail="Áudio muito curto ou inválido.")
 
     try:
-        transcribed_text = transcribe(audio_bytes, "english")
+        from app.language import student_language
+        lang = student_language(user)
+        whisper_language = {"mandarim": "chinese", "italiano": "italian", "frances": "french"}.get(lang, "english")
+        transcribed_text = transcribe(audio_bytes, whisper_language)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro na transcrição: {e}")
 

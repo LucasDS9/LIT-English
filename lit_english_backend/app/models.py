@@ -252,6 +252,8 @@ class VocabWord(Base):
     # Três exemplos contextualizados exibidos em "Ver mais 3 exemplos".
     # Armazenados como JSON para manter compatibilidade com o schema atual.
     example_sentences = Column(Text, nullable=True)
+    pinyin = Column(Text, nullable=True)
+    example_pinyin_sentences = Column(Text, nullable=True)
     tip = Column(Text, nullable=True)
     distractors = Column(Text, nullable=False, default="")
     explanation = Column(Text, nullable=True)

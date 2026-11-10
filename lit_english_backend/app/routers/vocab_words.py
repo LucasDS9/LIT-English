@@ -87,7 +87,7 @@ def student_language(student: User) -> str:
     - Acesso Especial (access_type=especial): a língua escolhida no
       cadastro (target_language) — ex.: "italiano".
     """
-    if student.access_type == AccessType.especial and student.target_language:
+    if student.target_language:
         return student.target_language.strip().lower()
     return "ingles"
 
@@ -157,6 +157,8 @@ def _to_word_out(word: VocabWord) -> VocabWordOut:
         category=word.category,
         level=word.level,
         example_sentences=(json.loads(word.example_sentences) if word.example_sentences else []),
+        pinyin=word.pinyin,
+        example_pinyin_sentences=(json.loads(word.example_pinyin_sentences) if word.example_pinyin_sentences else []),
         created_at=word.created_at,
         students=[{"id": s.id, "name": s.name} for s in word.students],
     )
@@ -293,6 +295,8 @@ def _top_up_ai_vocab(student: User, category: str, db: Session) -> None:
                     translation=item.translation,
                     example_sentence=item.example_sentence,
                     example_sentences=json.dumps(list(item.example_sentences), ensure_ascii=False),
+                    pinyin=item.pinyin or None,
+                    example_pinyin_sentences=json.dumps(list(item.example_pinyin_sentences), ensure_ascii=False) if any(item.example_pinyin_sentences) else None,
                     tip=None,
                     distractors=_pack_distractors(list(item.distractors)),
                     explanation=None,
@@ -344,6 +348,8 @@ def create_vocab_word(
         part_of_speech=data.part_of_speech.strip(),
         translation=data.translation.strip(),
         example_sentence=example_sentence,
+        pinyin=(data.pinyin or "").strip() or None,
+        example_pinyin_sentences=json.dumps(data.example_pinyin_sentences, ensure_ascii=False) if data.example_pinyin_sentences else None,
         tip=tip,
         distractors=_pack_distractors(distractors),
         explanation=(data.explanation or "").strip() or None,
@@ -389,6 +395,10 @@ def update_vocab_word(
         word.part_of_speech = data.part_of_speech.strip()
     if data.example_sentence is not None:
         word.example_sentence = data.example_sentence.strip() or None
+    if data.pinyin is not None:
+        word.pinyin = data.pinyin.strip() or None
+    if data.example_pinyin_sentences is not None:
+        word.example_pinyin_sentences = json.dumps(data.example_pinyin_sentences, ensure_ascii=False) if data.example_pinyin_sentences else None
     if data.tip is not None:
         word.tip = data.tip.strip() or None
     if data.explanation is not None:
@@ -586,6 +596,8 @@ def get_learn_queue(
             part_of_speech=w.part_of_speech,
             example_sentence=w.example_sentence,
             example_sentences=(json.loads(w.example_sentences) if w.example_sentences else []),
+            pinyin=w.pinyin,
+            example_pinyin_sentences=(json.loads(w.example_pinyin_sentences) if w.example_pinyin_sentences else []),
             tip=w.tip,
             translation=w.translation,
             options=_build_options(w),

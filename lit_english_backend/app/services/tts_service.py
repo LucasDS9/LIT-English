@@ -27,6 +27,7 @@ def _voice_for_lang(lang: str) -> str:
         "fr": "fr-FR-DeniseNeural",
         "es": "es-ES-ElviraNeural",
         "de": "de-DE-KatjaNeural",
+        "zh": "zh-CN-XiaoxiaoNeural",
     }
     prefix = (lang or "en-US").lower().split("-")[0]
     return voices.get(prefix, cfg.DEFAULT_TUTOR_VOICE)

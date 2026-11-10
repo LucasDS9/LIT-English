@@ -19,6 +19,7 @@ const LANGUAGE_NAMES = {
   en: "inglês", ingles: "inglês", inglês: "inglês",
   it: "italiano", italiano: "italiano",
   fr: "francês", frances: "francês", francês: "francês",
+  zh: "mandarim", mandarim: "mandarim", chinese: "mandarim",
   es: "espanhol", espanhol: "espanhol",
   de: "alemão", alemao: "alemão", alemão: "alemão",
 };
@@ -29,6 +30,7 @@ const TARGET_GREETING_EXAMPLES = {
   frances: "Bonjour",
   espanhol: "Hola",
   alemão: "Hallo",
+  mandarim: "你好",
 };
 
 function languageLabel(value, fallback) {
@@ -46,7 +48,8 @@ function getTargetLanguage(user) {
 
 function getTargetKey(user) {
   const raw = String(getTargetLanguage(user) || "ingles").trim().toLowerCase();
-  return raw === "italiano" || raw === "it" ? "italiano"
+  return raw === "mandarim" || raw === "zh" || raw === "chinese" ? "mandarim"
+    : raw === "italiano" || raw === "it" ? "italiano"
     : raw === "frances" || raw === "francês" || raw === "fr" ? "frances"
     : raw === "espanhol" || raw === "es" ? "espanhol"
     : raw === "alemão" || raw === "alemao" || raw === "de" ? "alemão"
@@ -105,6 +108,7 @@ const FLAG_SVG = {
   ingles: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#fff"/><rect y="0.000" width="24" height="1.231" fill="#B22234"/><rect y="2.462" width="24" height="1.231" fill="#B22234"/><rect y="4.923" width="24" height="1.231" fill="#B22234"/><rect y="7.385" width="24" height="1.231" fill="#B22234"/><rect y="9.846" width="24" height="1.231" fill="#B22234"/><rect y="12.308" width="24" height="1.231" fill="#B22234"/><rect y="14.769" width="24" height="1.231" fill="#B22234"/><rect width="9.6" height="8.615" fill="#3C3B6E"/><circle cx="0.80" cy="0.86" r="0.36" fill="#fff"/><circle cx="2.40" cy="0.86" r="0.36" fill="#fff"/><circle cx="4.00" cy="0.86" r="0.36" fill="#fff"/><circle cx="5.60" cy="0.86" r="0.36" fill="#fff"/><circle cx="7.20" cy="0.86" r="0.36" fill="#fff"/><circle cx="8.80" cy="0.86" r="0.36" fill="#fff"/><circle cx="1.60" cy="1.72" r="0.36" fill="#fff"/><circle cx="3.20" cy="1.72" r="0.36" fill="#fff"/><circle cx="4.80" cy="1.72" r="0.36" fill="#fff"/><circle cx="6.40" cy="1.72" r="0.36" fill="#fff"/><circle cx="8.00" cy="1.72" r="0.36" fill="#fff"/><circle cx="0.80" cy="2.58" r="0.36" fill="#fff"/><circle cx="2.40" cy="2.58" r="0.36" fill="#fff"/><circle cx="4.00" cy="2.58" r="0.36" fill="#fff"/><circle cx="5.60" cy="2.58" r="0.36" fill="#fff"/><circle cx="7.20" cy="2.58" r="0.36" fill="#fff"/><circle cx="8.80" cy="2.58" r="0.36" fill="#fff"/><circle cx="1.60" cy="3.45" r="0.36" fill="#fff"/><circle cx="3.20" cy="3.45" r="0.36" fill="#fff"/><circle cx="4.80" cy="3.45" r="0.36" fill="#fff"/><circle cx="6.40" cy="3.45" r="0.36" fill="#fff"/><circle cx="8.00" cy="3.45" r="0.36" fill="#fff"/><circle cx="0.80" cy="4.31" r="0.36" fill="#fff"/><circle cx="2.40" cy="4.31" r="0.36" fill="#fff"/><circle cx="4.00" cy="4.31" r="0.36" fill="#fff"/><circle cx="5.60" cy="4.31" r="0.36" fill="#fff"/><circle cx="7.20" cy="4.31" r="0.36" fill="#fff"/><circle cx="8.80" cy="4.31" r="0.36" fill="#fff"/><circle cx="1.60" cy="5.17" r="0.36" fill="#fff"/><circle cx="3.20" cy="5.17" r="0.36" fill="#fff"/><circle cx="4.80" cy="5.17" r="0.36" fill="#fff"/><circle cx="6.40" cy="5.17" r="0.36" fill="#fff"/><circle cx="8.00" cy="5.17" r="0.36" fill="#fff"/><circle cx="0.80" cy="6.03" r="0.36" fill="#fff"/><circle cx="2.40" cy="6.03" r="0.36" fill="#fff"/><circle cx="4.00" cy="6.03" r="0.36" fill="#fff"/><circle cx="5.60" cy="6.03" r="0.36" fill="#fff"/><circle cx="7.20" cy="6.03" r="0.36" fill="#fff"/><circle cx="8.80" cy="6.03" r="0.36" fill="#fff"/><circle cx="1.60" cy="6.89" r="0.36" fill="#fff"/><circle cx="3.20" cy="6.89" r="0.36" fill="#fff"/><circle cx="4.80" cy="6.89" r="0.36" fill="#fff"/><circle cx="6.40" cy="6.89" r="0.36" fill="#fff"/><circle cx="8.00" cy="6.89" r="0.36" fill="#fff"/><circle cx="0.80" cy="7.75" r="0.36" fill="#fff"/><circle cx="2.40" cy="7.75" r="0.36" fill="#fff"/><circle cx="4.00" cy="7.75" r="0.36" fill="#fff"/><circle cx="5.60" cy="7.75" r="0.36" fill="#fff"/><circle cx="7.20" cy="7.75" r="0.36" fill="#fff"/><circle cx="8.80" cy="7.75" r="0.36" fill="#fff"/></svg>`,
   italiano: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#fff"/><rect x="0" width="8" height="16" fill="#009246"/><rect x="16" width="8" height="16" fill="#CE2B37"/></svg>`,
   frances: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#fff"/><rect width="8" height="16" fill="#0055A4"/><rect x="16" width="8" height="16" fill="#EF4135"/></svg>`,
+  mandarim: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#DE2910"/><path d="M5 2.2l.8 2.3 2.4.1-1.9 1.4.7 2.3L5 7l-2 1.3.7-2.3L1.8 4.6l2.4-.1z" fill="#FFDE00"/></svg>`,
 };
 
 const learnCreateArea = document.querySelector(".main-learn-create");
@@ -134,6 +138,7 @@ const vocabMoreExamplesText = document.getElementById("vocab-more-examples-text"
 const vocabSaveBtn = document.getElementById("vocab-save-btn");
 const vocabSaveLabel = document.getElementById("vocab-save-label");
 const vocabWordEl = document.getElementById("vocab-browse-word");
+const vocabPinyinEl = document.getElementById("vocab-browse-pinyin");
 const vocabPosEl = document.getElementById("vocab-browse-pos");
 const vocabExampleEl = document.getElementById("vocab-browse-example");
 const vocabOptionsEl = document.getElementById("vocab-browse-options");
@@ -271,20 +276,21 @@ function renderVocabCard(card) {
   vocabAnswered = false;
   vocabAudioCache = null;
   vocabWordEl.textContent = card.word;
+  if (vocabPinyinEl) { vocabPinyinEl.textContent = card.pinyin || ""; vocabPinyinEl.hidden = !card.pinyin; }
   vocabPosEl.textContent = `${card.part_of_speech} · ${card.level}`;
-  vocabExampleEl.innerHTML = highlightVocabWord(card.example_sentence || "", card.word);
+  vocabExampleEl.innerHTML = highlightVocabWord(card.example_sentence || "", card.word) + (card.language === "mandarim" && card.example_pinyin_sentences?.[0] ? `<small class="vocab-example-pinyin">${escapeHtml(card.example_pinyin_sentences[0])}</small>` : "");
   // Não há mais limite visual de 10 palavras por sessão.
   if (vocabCounterEl) vocabCounterEl.textContent = "";
   setVocabFlag(card.language);
   saveActiveVocabCard(card);
 
   vocabMoreExamplesBox.hidden = true;
-  vocabMoreExamplesLabel.textContent = "Ver mais 3 exemplos";
+  vocabMoreExamplesLabel.textContent = "Mais exemplos";
   vocabSavedExamples = new Set();
   vocabExamples = getDistinctExamples(card);
   vocabMoreExamplesText.innerHTML = vocabExamples.map((sentence, index) => `
     <div class="vocab-example-row">
-      <p>${highlightVocabWord(sentence, card.word)}</p>
+      <p>${highlightVocabWord(sentence, card.word)}${card.language === "mandarim" && card.example_pinyin_sentences?.[index] ? `<small class="vocab-example-pinyin">${escapeHtml(card.example_pinyin_sentences[index])}</small>` : ""}</p>
       <button type="button" class="vocab-example-save" data-index="${index}" aria-label="Salvar frase nos flashcards" title="Salvar nos flashcards">${bookmarkIcon(false)}</button>
     </div>`).join("");
   playVocabWord(card.word);
@@ -371,7 +377,7 @@ vocabMoreExamplesBtn?.addEventListener("click", () => {
   if (!vocabMoreExamplesBox) return;
   const hidden = vocabMoreExamplesBox.hidden;
   vocabMoreExamplesBox.hidden = !hidden;
-  if (vocabMoreExamplesLabel) vocabMoreExamplesLabel.textContent = hidden ? "Ocultar exemplos" : "Ver mais 3 exemplos";
+  if (vocabMoreExamplesLabel) vocabMoreExamplesLabel.textContent = hidden ? "Ocultar exemplos" : "Mais exemplos";
 });
 
 vocabMoreExamplesText?.addEventListener("click", async event => {

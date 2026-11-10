@@ -261,6 +261,12 @@ def run_migrations():
                     if not _col_exists(conn, "vocab_words", "example_sentences"):
                         conn.execute(text("ALTER TABLE vocab_words ADD COLUMN example_sentences TEXT"))
                         conn.commit()
+                    if not _col_exists(conn, "vocab_words", "pinyin"):
+                        conn.execute(text("ALTER TABLE vocab_words ADD COLUMN pinyin TEXT"))
+                        conn.commit()
+                    if not _col_exists(conn, "vocab_words", "example_pinyin_sentences"):
+                        conn.execute(text("ALTER TABLE vocab_words ADD COLUMN example_pinyin_sentences TEXT"))
+                        conn.commit()
                     # Coluna `language` (Acesso Especial): palavras antigas,
                     # todas em inglês, viram "ingles" — só entra conteúdo de
                     # outra língua quando explicitamente marcado como tal.

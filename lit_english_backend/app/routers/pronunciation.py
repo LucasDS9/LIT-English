@@ -35,6 +35,8 @@ LANGUAGE_LOCALES = {
     "espanhol": "es-ES",
     "alemao": "de-DE",
     "portugues": "pt-BR",
+    "mandarim": "zh-CN",
+    "chinese": "zh-CN",
 }
 
 # Mapa ISO 639-1 (o que o Whisper devolve na detecção automática) -> nomes
@@ -46,6 +48,7 @@ WHISPER_ISO_TO_LANGUAGE = {
     "es": "spanish",
     "de": "german",
     "pt": "portuguese",
+    "zh": "chinese",
 }
 
 
@@ -784,7 +787,7 @@ def _transcribe_whisper(audio_bytes: bytes, language: str) -> tuple[str, float |
     model = get_whisper_model()
     lang_map = {
         "english": "en", "german": "de", "french": "fr",
-        "italian": "it", "spanish": "es", "portuguese": "pt",
+        "italian": "it", "spanish": "es", "portuguese": "pt", "chinese": "zh",
     }
     whisper_lang = lang_map.get(language, "en")
 

@@ -65,6 +65,8 @@ def _system_prompt(
     native_language: str = "pt",
 ) -> str:
     level_txt = f'O nível estimado do aluno é "{level}". ' if level else ""
+    if (target_language or "").strip().lower() == "mandarim":
+        target_language = "mandarim (chinês simplificado da China continental)"
     return f"""Você é o IA Tutor da plataforma LIT English, conversando por voz com o
 aluno {student_name}. A língua-alvo que o aluno está praticando é {target_language}.
 A língua nativa do aluno é {native_language}. {level_txt}
@@ -99,6 +101,7 @@ de voz -- nunca invente um erro gramatical a partir de uma transcrição ruim.
 
 IMPORTANTE SOBRE AS DUAS LÍNGUAS:
 - A língua-alvo é a língua que o aluno está aprendendo: {target_language}.
+- Se a língua-alvo for mandarim, use exclusivamente caracteres chineses simplificados nas respostas em chinês; não use chinês tradicional.
 - A língua nativa é {native_language}.
 - O aluno pode misturar as duas línguas de propósito, especialmente para pedir ajuda de vocabulário,
   e pode até trocar de língua NO MEIO da mesma frase (code-switching) -- isso é normal, não é erro.

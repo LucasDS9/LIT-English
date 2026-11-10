@@ -22,7 +22,7 @@ GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 _LANGUAGE_NAMES = {
     "pt": "português do Brasil", "portugues": "português do Brasil",
     "en": "inglês", "ingles": "inglês", "it": "italiano", "italiano": "italiano",
-    "fr": "francês", "frances": "francês", "es": "espanhol", "espanhol": "espanhol",
+    "fr": "francês", "frances": "francês", "zh": "mandarim (chinês simplificado)", "mandarim": "mandarim (chinês simplificado)", "es": "espanhol", "espanhol": "espanhol",
     "de": "alemão", "alemao": "alemão",
 }
 

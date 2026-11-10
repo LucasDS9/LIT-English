@@ -74,6 +74,7 @@ _TARGET_HELP_RE = {
     "frances": re.compile(r"(?i)\b(?:comment\s+(?:je\s+peux|dire)|comment\s+dit[- ]on)\b"),
     "espanhol": re.compile(r"(?i)\b(?:como\s+(?:puedo|se)\s+decir|como\s+se\s+dice)\b"),
     "alemao": re.compile(r"(?i)\b(?:wie\s+(?:kann\s+ich|sagt\s+man)|wie\s+sagt\s+man)\b"),
+    "mandarim": re.compile(r"(?:怎么说|怎么讲|如何说|中文怎么说)"),
 }
 
 
@@ -156,14 +157,14 @@ def _pick_bilingual_transcript(
 
 def _speech_language(language: str) -> str:
     return {
-        "ingles": "english", "italiano": "italian", "frances": "french",
+        "ingles": "english", "italiano": "italian", "frances": "french", "mandarim": "chinese",
         "espanhol": "spanish", "alemao": "german", "portugues": "portuguese",
     }.get(language, "english")
 
 
 def _tts_locale(language: str) -> str:
     return {
-        "ingles": "en-US", "italiano": "it-IT", "frances": "fr-FR",
+        "ingles": "en-US", "italiano": "it-IT", "frances": "fr-FR", "mandarim": "zh-CN",
         "espanhol": "es-ES", "alemao": "de-DE", "portugues": "pt-BR",
     }.get(language, "en-US")
 

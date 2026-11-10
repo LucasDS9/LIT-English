@@ -4601,7 +4601,7 @@ body.reader-fs-open {
 .vocab-browse-option {
   min-height: 74px;
   border-radius: 16px;
-  border: 1.5px solid var(--text);
+  border: 1.5px solid #700000;
   background: var(--bg);
   color: var(--text);
   font-family: inherit;
@@ -6199,3 +6199,7 @@ img, video, iframe, canvas {
     display: none;
   }
 }
+
+/* Mandarim: apoio fonético sem alterar a estrutura dos cards. */
+.vocab-browse-pinyin{margin:-8px 0 12px;color:#777;font-size:.92rem;text-align:center;}
+.vocab-example-pinyin{display:block;margin-top:4px;color:#777;font-size:.88em;}

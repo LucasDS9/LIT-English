@@ -35,7 +35,7 @@ GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 LEVELS = ["A1", "A2", "B1", "B2"]
 ALLOWED_POS = {"noun", "verb", "adjective", "adverb", "expression", "preposition", "pronoun"}
 
-_LANGUAGE_NAMES = {"ingles": "inglês", "italiano": "italiano", "frances": "francês"}
+_LANGUAGE_NAMES = {"ingles": "inglês", "italiano": "italiano", "frances": "francês", "mandarim": "mandarim (chinês simplificado da China continental)"}
 _MAX_RETRIES = 1
 
 _SYSTEM_PROMPT = """Você cria vocabulário para um app de aprendizado de idiomas usado por brasileiros.
@@ -45,6 +45,7 @@ Você recebe um JSON com:
 - "count": quantas palavras gerar.
 - "already_known": palavras que o aluno JÁ tem — NÃO repita nenhuma delas.
 
+Para mandarim, escreva cada palavra em caracteres chineses simplificados e inclua também o campo "pinyin" com os tons marcados (ā á ǎ à; tom neutro sem marca). Os exemplos devem ser em caracteres chineses simplificados; inclua "example_pinyin_sentences" com o Pinyin tonal correspondente a cada frase.
 Gere "count" palavras ou expressões curtas MUITO comuns e úteis para esse nível, variando
 as classes gramaticais (substantivos, verbos, adjetivos, expressões...). Nada de gírias
 obscuras, palavrões ou conteúdo sensível.
@@ -61,7 +62,7 @@ Para cada palavra devolva:
 - "level": o nível CEFR da palavra.
 
 Responda APENAS com JSON válido, sem texto antes ou depois, no formato:
-{"words": [{"word": "...", "part_of_speech": "...", "translation": "...", "distractors": ["...","...","..."], "example_sentences": ["...","...","..."], "level": "A1"}]}
+{"words": [{"word": "...", "pinyin": "...", "part_of_speech": "...", "translation": "...", "distractors": ["...","...","..."], "example_sentences": ["...","...","..."], "example_pinyin_sentences": ["...","...","..."], "level": "A1"}]}
 """
 
 
@@ -78,6 +79,8 @@ class GeneratedWord:
     example_sentences: tuple[str, str, str]
     distractors: tuple[str, str, str]
     level: str
+    pinyin: str = ""
+    example_pinyin_sentences: tuple[str, str, str] = ("", "", "")
 
 
 def _norm(text: str) -> str:
@@ -109,6 +112,8 @@ def _validate_item(item: dict, level: str, known: set[str]) -> GeneratedWord | N
     # (a palavra pode vir flexionada, então comparamos pelo radical).
     if len(sentences) != 3 or any(not s for s in sentences):
         return None
+    if len({_norm(sentence) for sentence in sentences}) != 3:
+        return None
     stem = _norm(word)
     stem = stem[: max(3, len(stem) - 2)] if " " not in stem else stem
     if not any(stem in _norm(s) for s in sentences):
@@ -125,6 +130,8 @@ def _validate_item(item: dict, level: str, known: set[str]) -> GeneratedWord | N
         example_sentence=sentences[0],
         example_sentences=(sentences[0], sentences[1], sentences[2]),
         distractors=(distractors[0], distractors[1], distractors[2]),
+        pinyin=str(item.get("pinyin") or "").strip(),
+        example_pinyin_sentences=tuple((item.get("example_pinyin_sentences") or ["", "", ""])[:3]) if len(item.get("example_pinyin_sentences") or []) >= 3 else ("", "", ""),
         level=item_level,
     )
 

@@ -66,11 +66,6 @@
     return checked ? checked.value : "normal";
   }
 
-  function getPlan() {
-    const checked = registerForm.querySelector('input[name="plan"]:checked');
-    return checked ? checked.value : "free";
-  }
-
   function applyAccountType() {
     const isAluno = getAccountType() === "aluno";
     normalFields.hidden  = isAluno;
@@ -249,7 +244,6 @@
       payload.access_type     = "especial";
       payload.target_language = regTargetLang.value;
       payload.age             = Number(ageRaw);
-      payload.plan            = getPlan();
     }
 
     registerBtn.disabled    = true;
