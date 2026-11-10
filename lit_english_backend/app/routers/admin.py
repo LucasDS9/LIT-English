@@ -5,14 +5,16 @@ Rotas administrativas, acessíveis apenas pelo professor:
 - revogar/bloquear acesso de um aluno
 - excluir aluno
 """
+import base64
 import hashlib
 import secrets
 from datetime import datetime, timedelta
+from cryptography.fernet import Fernet
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_professor
+from app.auth import get_current_professor, SECRET_KEY
 from app.database import get_db
 from app.models import (
     AccessType,
@@ -147,23 +149,52 @@ def delete_student(
 
 
 _CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+_CODE_CIPHER = Fernet(base64.urlsafe_b64encode(hashlib.sha256(SECRET_KEY.encode("utf-8")).digest()))
+
 def _code_digest(code: str) -> str:
     return hashlib.sha256(code.upper().encode("utf-8")).hexdigest()
+
+def _encrypt_code(code: str) -> str:
+    return _CODE_CIPHER.encrypt(code.encode("utf-8")).decode("ascii")
+
+def _decrypt_code(value: str | None) -> str | None:
+    if not value:
+        return None  # códigos criados antes desta atualização não podem ser revelados
+    try:
+        return _CODE_CIPHER.decrypt(value.encode("ascii")).decode("utf-8")
+    except Exception:
+        return None
 
 @router.post("/registration-codes")
 def create_registration_code(
     db: Session = Depends(get_db),
     _professor: User = Depends(get_current_professor),
 ):
-    """Gera um código aleatório de cinco caracteres, válido por sete dias."""
+    """Gera código aleatório de cinco caracteres, válido por sete dias; mantém no máximo cinco ativos."""
+    now = datetime.utcnow()
+    # Limpa códigos já consumidos ou expirados antes de abrir espaço.
+    db.query(RegistrationCode).filter(
+        (RegistrationCode.used_at.is_not(None)) | (RegistrationCode.expires_at <= now)
+    ).delete(synchronize_session=False)
+    active = db.query(RegistrationCode).filter(
+        RegistrationCode.used_at.is_(None), RegistrationCode.expires_at > now
+    ).order_by(RegistrationCode.created_at.asc()).all()
+    # A lista mantém somente os cinco códigos mais recentes disponíveis.
+    while len(active) >= 5:
+        db.delete(active.pop(0))
     for _ in range(10):
         code = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(5))
         digest = _code_digest(code)
         if not db.query(RegistrationCode).filter(RegistrationCode.code_hash == digest).first():
-            item = RegistrationCode(code_hash=digest, expires_at=datetime.utcnow() + timedelta(days=7))
+            item = RegistrationCode(
+                code_hash=digest,
+                code_encrypted=_encrypt_code(code),
+                expires_at=now + timedelta(days=7),
+            )
             db.add(item)
             db.commit()
             return {"code": code, "expires_at": item.expires_at.isoformat()}
+    db.rollback()
     raise HTTPException(status_code=500, detail="Não foi possível gerar um código. Tente novamente.")
 
 @router.get("/registration-codes")
@@ -172,7 +203,20 @@ def list_registration_codes(
     _professor: User = Depends(get_current_professor),
 ):
     now = datetime.utcnow()
-    rows = db.query(RegistrationCode).order_by(RegistrationCode.created_at.desc()).limit(100).all()
-    return [{"id": r.id, "created_at": r.created_at.isoformat(), "expires_at": r.expires_at.isoformat(),
-             "used": r.used_at is not None, "expired": r.expires_at <= now,
-             "used_at": r.used_at.isoformat() if r.used_at else None} for r in rows]
+    # Remove usados/expirados e entrega no máximo cinco disponíveis.
+    db.query(RegistrationCode).filter(
+        (RegistrationCode.used_at.is_not(None)) | (RegistrationCode.expires_at <= now)
+    ).delete(synchronize_session=False)
+    db.commit()
+    active = db.query(RegistrationCode).filter(
+        RegistrationCode.used_at.is_(None), RegistrationCode.expires_at > now
+    ).order_by(RegistrationCode.created_at.desc()).all()
+    # Também corrige eventuais listas antigas com mais de cinco códigos.
+    for old_item in active[5:]:
+        db.delete(old_item)
+    if len(active) > 5:
+        db.commit()
+    rows = active[:5]
+    return [{"id": r.id, "code": _decrypt_code(r.code_encrypted),
+             "created_at": r.created_at.isoformat(), "expires_at": r.expires_at.isoformat(),
+             "used": False, "expired": False} for r in rows]

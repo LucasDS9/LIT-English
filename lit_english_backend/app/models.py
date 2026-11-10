@@ -70,6 +70,8 @@ class RegistrationCode(Base):
     __tablename__ = "registration_codes"
     id = Column(Integer, primary_key=True, index=True)
     code_hash = Column(String(64), unique=True, nullable=False, index=True)
+    # Valor reversivelmente criptografado para o professor poder revelar o código.
+    code_encrypted = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     expires_at = Column(DateTime, nullable=False)
     used_at = Column(DateTime, nullable=True)

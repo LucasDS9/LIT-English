@@ -349,18 +349,13 @@ async function renderConfiguracoes() {
   generateCodeBtn.className = "btn btn-primary btn-sm";
   generateCodeBtn.textContent = "Gerar código";
   codesSection.appendChild(generateCodeBtn);
-  const generatedCode = document.createElement("div");
-  generatedCode.style.cssText = "font-size:24px;font-weight:700;letter-spacing:4px;margin:14px 0;";
-  codesSection.appendChild(generatedCode);
   const codeList = document.createElement("div");
-  codeList.style.marginTop = "14px";
+  codeList.style.cssText = "display:flex;flex-direction:column;gap:8px;margin-top:14px;max-width:560px;";
   codesSection.appendChild(codeList);
   generateCodeBtn.addEventListener("click", async () => {
     generateCodeBtn.disabled = true;
     try {
       const result = await apiFetch("/admin/registration-codes", { method: "POST" });
-      generatedCode.textContent = result.code;
-      generatedCode.title = "Código gerado";
       if (navigator.clipboard?.writeText) navigator.clipboard.writeText(result.code).catch(() => {});
       showToast("Código gerado e copiado.");
       await loadCodes();
@@ -371,12 +366,37 @@ async function renderConfiguracoes() {
     try {
       const rows = await apiFetch("/admin/registration-codes");
       codeList.innerHTML = "";
-      if (!rows.length) { codeList.textContent = "Nenhum código gerado ainda."; return; }
+      if (!rows.length) { codeList.textContent = "Nenhum código disponível no momento."; return; }
       rows.forEach((item) => {
-        const line = document.createElement("p");
-        line.className = "secondary";
-        const status = item.used ? "Usado" : (item.expired ? "Expirado" : "Disponível");
-        line.textContent = `Código ${item.id} · ${status} · expira em ${formatDate(item.expires_at)}`;
+        const line = document.createElement("div");
+        line.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border:1px solid var(--border-color, #e5e5e5);border-radius:10px;";
+        const left = document.createElement("div");
+        left.style.cssText = "display:flex;align-items:center;gap:10px;min-width:0;";
+        const code = document.createElement("strong");
+        code.textContent = "•••••";
+        code.style.cssText = "font-size:15px;letter-spacing:2px;min-width:64px;";
+        code.dataset.realCode = item.code || "";
+        code.dataset.revealed = "false";
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "btn btn-secondary btn-sm";
+        toggle.style.cssText = "padding:5px 8px;min-width:34px;line-height:1;";
+        toggle.setAttribute("aria-label", "Mostrar código");
+        toggle.title = "Mostrar código";
+        toggle.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
+        toggle.addEventListener("click", () => {
+          const reveal = code.dataset.revealed !== "true";
+          code.textContent = reveal ? (code.dataset.realCode || "Indisponível") : "•••••";
+          code.dataset.revealed = reveal ? "true" : "false";
+          toggle.setAttribute("aria-label", reveal ? "Ocultar código" : "Mostrar código");
+          toggle.title = reveal ? "Ocultar código" : "Mostrar código";
+        });
+        left.append(code, toggle);
+        const details = document.createElement("span");
+        details.className = "secondary";
+        details.style.cssText = "font-size:13px;text-align:right;";
+        details.textContent = `Código ${item.id} · Disponível · expira em ${formatDate(item.expires_at)}`;
+        line.append(left, details);
         codeList.appendChild(line);
       });
     } catch (err) { codeList.textContent = "Não foi possível carregar os códigos."; }

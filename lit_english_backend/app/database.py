@@ -215,6 +215,12 @@ def run_migrations():
                     conn.execute(text("ALTER TABLE minha_tabela ADD COLUMN minha_coluna INTEGER DEFAULT 0"))
                     conn.commit()
     """
+    # Código de cadastro: coluna criptografada adicionada sem perder códigos existentes.
+    with engine.connect() as conn:
+        if _table_exists(conn, "registration_codes") and not _col_exists(conn, "registration_codes", "code_encrypted"):
+            conn.execute(text("ALTER TABLE registration_codes ADD COLUMN code_encrypted TEXT"))
+            conn.commit()
+
     if engine.dialect.name == "postgresql":
         with engine.connect() as conn:
             # Teste de Nivelamento: colunas novas (desempenho_b2 e o
