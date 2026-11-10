@@ -4524,6 +4524,7 @@ body.reader-fs-open {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  min-height: 583px;
 }
 
 .vocab-browse-card-header {
@@ -4568,10 +4569,12 @@ body.reader-fs-open {
   margin: 0 0 6px;
 }
 
-.vocab-browse-pos {
-  font-size: 17px;
+.vocab-browse-translation {
+  font-size: 30px;
+  line-height: 1.25;
   color: var(--text-muted);
-  margin: 0 0 30px;
+  font-weight: 400;
+  margin: 12px 0 22px;
 }
 
 .vocab-browse-example {
@@ -4645,6 +4648,7 @@ body.reader-fs-open {
   justify-content: center;
   gap: 16px;
   flex-shrink: 0;
+  margin-top: auto;
   margin-bottom: 30px;
   width: 100%;
 }
@@ -4872,6 +4876,7 @@ body.reader-fs-open {
 
 @media (max-width: 640px) {
   .vocab-browse-card {
+    min-height: 0;
     padding: 14px 16px 10px;
     border-radius: 16px;
     gap: 0;
@@ -4886,9 +4891,9 @@ body.reader-fs-open {
     font-size: 28px;
     margin: 0 0 3px;
   }
-  .vocab-browse-pos {
-    font-size: 13px;
-    margin: 0 0 12px;
+  .vocab-browse-translation {
+    font-size: 17px;
+    margin: 7px 0 12px;
   }
   .vocab-browse-example {
     font-size: 16px;
@@ -6203,3 +6208,50 @@ img, video, iframe, canvas {
 /* Mandarim: apoio fonético sem alterar a estrutura dos cards. */
 .vocab-browse-pinyin{margin:-8px 0 12px;color:#777;font-size:.92rem;text-align:center;}
 .vocab-example-pinyin{display:block;margin-top:4px;color:#777;font-size:.88em;}
+
+
+/* Layout de idiomas com escrita não latina (atualmente, mandarim). */
+.vocab-browse-card.mandarin-layout .vocab-browse-word {
+  font-size: clamp(76px, 8vw, 104px);
+  line-height: 1.08;
+  margin-bottom: 2px;
+  letter-spacing: 0;
+}
+.vocab-browse-card.mandarin-layout .vocab-browse-pinyin {
+  display: block;
+  margin: 0 0 8px;
+  color: var(--text);
+  font-size: 30px;
+  line-height: 1.25;
+}
+.vocab-browse-card.mandarin-layout .vocab-browse-translation {
+  font-size: 27px;
+  line-height: 1.3;
+  margin: 8px 0 32px;
+  color: var(--text);
+}
+.vocab-browse-card.mandarin-layout .vocab-browse-example {
+  font-size: 27px;
+  line-height: 1.4;
+}
+.vocab-example-translation {
+  display: block;
+  margin-top: 8px;
+  color: var(--text);
+  font-size: .9em;
+  line-height: 1.35;
+  font-weight: 400;
+}
+.vocab-browse-card.mandarin-layout .vocab-example-pinyin {
+  margin-top: 4px;
+  color: var(--text);
+  font-size: .9em;
+}
+@media (max-width: 700px) {
+  .vocab-browse-card.mandarin-layout .vocab-browse-word { font-size: clamp(64px, 17vw, 88px); }
+  .vocab-browse-card.mandarin-layout .vocab-browse-pinyin { font-size: 25px; }
+  .vocab-browse-card.mandarin-layout .vocab-browse-translation { font-size: 23px; margin-bottom: 24px; }
+  .vocab-browse-card.mandarin-layout .vocab-browse-example { font-size: 22px; }
+}
+
+.vocab-browse-card.mandarin-layout .vocab-browse-pinyin[hidden] { display: none; }

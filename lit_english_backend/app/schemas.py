@@ -349,6 +349,7 @@ class VocabWordCreate(BaseModel):
     example_sentence: Optional[str] = None
     pinyin: Optional[str] = None
     example_pinyin_sentences: List[str] = []
+    example_translations: List[str] = []
     tip: Optional[str] = None
     distractors: List[str] = Field(min_length=3, max_length=3)
     explanation: Optional[str] = None
@@ -365,6 +366,7 @@ class VocabWordUpdate(BaseModel):
     example_sentence: Optional[str] = None
     pinyin: Optional[str] = None
     example_pinyin_sentences: Optional[List[str]] = None
+    example_translations: Optional[List[str]] = None
     tip: Optional[str] = None
     distractors: Optional[List[str]] = None
     explanation: Optional[str] = None
@@ -383,6 +385,7 @@ class VocabWordOut(BaseModel):
     example_sentences: List[str] = []
     pinyin: Optional[str] = None
     example_pinyin_sentences: List[str] = []
+    example_translations: List[str] = []
     tip: Optional[str]
     distractors: List[str]
     explanation: Optional[str]
@@ -405,6 +408,7 @@ class VocabLearnCardOut(BaseModel):
     example_sentences: List[str] = []
     pinyin: Optional[str] = None
     example_pinyin_sentences: List[str] = []
+    example_translations: List[str] = []
     tip: Optional[str] = None
     options: List[str]
     level: str = "A1"

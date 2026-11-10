@@ -45,7 +45,7 @@ Você recebe um JSON com:
 - "count": quantas palavras gerar.
 - "already_known": palavras que o aluno JÁ tem — NÃO repita nenhuma delas.
 
-Para mandarim, escreva cada palavra em caracteres chineses simplificados e inclua também o campo "pinyin" com os tons marcados (ā á ǎ à; tom neutro sem marca). Os exemplos devem ser em caracteres chineses simplificados; inclua "example_pinyin_sentences" com o Pinyin tonal correspondente a cada frase.
+Para mandarim, escreva cada palavra em caracteres chineses simplificados e inclua também o campo "pinyin" com os tons marcados (ā á ǎ à; tom neutro sem marca). Os exemplos devem ser em caracteres chineses simplificados; inclua "example_pinyin_sentences" com o Pinyin tonal correspondente a cada frase e "example_translations" com a tradução natural de cada frase para português do Brasil, na mesma ordem. Para outros idiomas, não é necessário gerar Pinyin nem traduções de frases.
 Gere "count" palavras ou expressões curtas MUITO comuns e úteis para esse nível, variando
 as classes gramaticais (substantivos, verbos, adjetivos, expressões...). Nada de gírias
 obscuras, palavrões ou conteúdo sensível.
@@ -59,10 +59,11 @@ Para cada palavra devolva:
   Nenhuma pode ser sinônimo aceitável de "translation".
 - "example_sentences": EXATAMENTE 3 frases curtas e naturais (até ~12 palavras) na língua-alvo,
   cada uma contendo a palavra (pode estar flexionada).
+- Para mandarim: "example_pinyin_sentences" e "example_translations", cada um com EXATAMENTE 3 itens correspondentes às frases.
 - "level": o nível CEFR da palavra.
 
 Responda APENAS com JSON válido, sem texto antes ou depois, no formato:
-{"words": [{"word": "...", "pinyin": "...", "part_of_speech": "...", "translation": "...", "distractors": ["...","...","..."], "example_sentences": ["...","...","..."], "example_pinyin_sentences": ["...","...","..."], "level": "A1"}]}
+{"words": [{"word": "...", "pinyin": "...", "part_of_speech": "...", "translation": "...", "distractors": ["...","...","..."], "example_sentences": ["...","...","..."], "example_pinyin_sentences": ["...","...","..."], "example_translations": ["...","...","..."], "level": "A1"}]}
 """
 
 
@@ -81,6 +82,7 @@ class GeneratedWord:
     level: str
     pinyin: str = ""
     example_pinyin_sentences: tuple[str, str, str] = ("", "", "")
+    example_translations: tuple[str, str, str] = ("", "", "")
 
 
 def _norm(text: str) -> str:
@@ -132,6 +134,7 @@ def _validate_item(item: dict, level: str, known: set[str]) -> GeneratedWord | N
         distractors=(distractors[0], distractors[1], distractors[2]),
         pinyin=str(item.get("pinyin") or "").strip(),
         example_pinyin_sentences=tuple((item.get("example_pinyin_sentences") or ["", "", ""])[:3]) if len(item.get("example_pinyin_sentences") or []) >= 3 else ("", "", ""),
+        example_translations=tuple((item.get("example_translations") or ["", "", ""])[:3]) if len(item.get("example_translations") or []) >= 3 else ("", "", ""),
         level=item_level,
     )
 

@@ -139,7 +139,7 @@ const vocabSaveBtn = document.getElementById("vocab-save-btn");
 const vocabSaveLabel = document.getElementById("vocab-save-label");
 const vocabWordEl = document.getElementById("vocab-browse-word");
 const vocabPinyinEl = document.getElementById("vocab-browse-pinyin");
-const vocabPosEl = document.getElementById("vocab-browse-pos");
+const vocabTranslationEl = document.getElementById("vocab-browse-translation");
 const vocabExampleEl = document.getElementById("vocab-browse-example");
 const vocabOptionsEl = document.getElementById("vocab-browse-options");
 const vocabCounterEl = document.getElementById("vocab-browse-counter");
@@ -266,7 +266,7 @@ function renderVocabCard(card) {
     // Aprender é uma fila contínua: quando o lote atual acaba, buscamos
     // automaticamente o próximo lote em vez de mostrar uma tela de fim.
     vocabWordEl.textContent = "";
-    vocabPosEl.textContent = "";
+    if (vocabTranslationEl) vocabTranslationEl.textContent = "";
     vocabExampleEl.textContent = "";
     vocabOptionsEl.innerHTML = "";
     if (vocabCounterEl) vocabCounterEl.textContent = "";
@@ -276,9 +276,20 @@ function renderVocabCard(card) {
   vocabAnswered = false;
   vocabAudioCache = null;
   vocabWordEl.textContent = card.word;
-  if (vocabPinyinEl) { vocabPinyinEl.textContent = card.pinyin || ""; vocabPinyinEl.hidden = !card.pinyin; }
-  vocabPosEl.textContent = `${card.part_of_speech} · ${card.level}`;
-  vocabExampleEl.innerHTML = highlightVocabWord(card.example_sentence || "", card.word) + (card.language === "mandarim" && card.example_pinyin_sentences?.[0] ? `<small class="vocab-example-pinyin">${escapeHtml(card.example_pinyin_sentences[0])}</small>` : "");
+  const isMandarinCard = String(card.language || "").toLowerCase() === "mandarim";
+  const vocabCardEl = vocabWordEl.closest(".vocab-browse-card");
+  if (vocabCardEl) vocabCardEl.classList.toggle("mandarin-layout", isMandarinCard);
+  if (vocabPinyinEl) { vocabPinyinEl.textContent = isMandarinCard ? (card.pinyin || "") : ""; vocabPinyinEl.hidden = !isMandarinCard || !card.pinyin; }
+  if (vocabTranslationEl) {
+    const translation = String(card.translation || "").trim();
+    vocabTranslationEl.textContent = translation ? translation.charAt(0).toLocaleUpperCase("pt-BR") + translation.slice(1) : "";
+  }
+  const mainExample = card.example_sentence || "";
+  const mainExamplePinyin = isMandarinCard && card.example_pinyin_sentences?.[0]
+    ? `<small class="vocab-example-pinyin">${escapeHtml(card.example_pinyin_sentences[0])}</small>` : "";
+  const mainExampleTranslation = isMandarinCard && card.example_translations?.[0]
+    ? `<small class="vocab-example-translation">${escapeHtml(card.example_translations[0])}</small>` : "";
+  vocabExampleEl.innerHTML = highlightVocabWord(mainExample, card.word) + mainExamplePinyin + mainExampleTranslation;
   // Não há mais limite visual de 10 palavras por sessão.
   if (vocabCounterEl) vocabCounterEl.textContent = "";
   setVocabFlag(card.language);
@@ -288,11 +299,16 @@ function renderVocabCard(card) {
   vocabMoreExamplesLabel.textContent = "Mais exemplos";
   vocabSavedExamples = new Set();
   vocabExamples = getDistinctExamples(card);
-  vocabMoreExamplesText.innerHTML = vocabExamples.map((sentence, index) => `
+  vocabMoreExamplesText.innerHTML = vocabExamples.map((sentence, index) => {
+    const sourceIndex = (card.example_sentences || []).indexOf(sentence);
+    const pinyin = isMandarinCard && sourceIndex >= 0 ? card.example_pinyin_sentences?.[sourceIndex] : "";
+    const translation = isMandarinCard && sourceIndex >= 0 ? card.example_translations?.[sourceIndex] : "";
+    return `
     <div class="vocab-example-row">
-      <p>${highlightVocabWord(sentence, card.word)}${card.language === "mandarim" && card.example_pinyin_sentences?.[index] ? `<small class="vocab-example-pinyin">${escapeHtml(card.example_pinyin_sentences[index])}</small>` : ""}</p>
+      <p>${highlightVocabWord(sentence, card.word)}${pinyin ? `<small class="vocab-example-pinyin">${escapeHtml(pinyin)}</small>` : ""}${translation ? `<small class="vocab-example-translation">${escapeHtml(translation)}</small>` : ""}</p>
       <button type="button" class="vocab-example-save" data-index="${index}" aria-label="Salvar frase nos flashcards" title="Salvar nos flashcards">${bookmarkIcon(false)}</button>
-    </div>`).join("");
+    </div>`;
+  }).join("");
   playVocabWord(card.word);
 
   vocabOptionsEl.innerHTML = (card.options || []).map(option =>
@@ -465,7 +481,7 @@ async function loadVocabLearn() {
       // se não houver nenhuma disponível neste instante, tenta novamente
       // depois de um pequeno intervalo em vez de encerrar a atividade.
       if (vocabWordEl) vocabWordEl.textContent = "Carregando novas palavras...";
-      if (vocabPosEl) vocabPosEl.textContent = "";
+      if (vocabTranslationEl) vocabTranslationEl.textContent = "";
       if (vocabExampleEl) vocabExampleEl.textContent = "";
       if (vocabOptionsEl) vocabOptionsEl.innerHTML = "";
       if (vocabCounterEl) vocabCounterEl.textContent = "";

@@ -159,6 +159,7 @@ def _to_word_out(word: VocabWord) -> VocabWordOut:
         example_sentences=(json.loads(word.example_sentences) if word.example_sentences else []),
         pinyin=word.pinyin,
         example_pinyin_sentences=(json.loads(word.example_pinyin_sentences) if word.example_pinyin_sentences else []),
+        example_translations=(json.loads(word.example_translations) if word.example_translations else []),
         created_at=word.created_at,
         students=[{"id": s.id, "name": s.name} for s in word.students],
     )
@@ -188,6 +189,9 @@ def _ensure_auto_vocab_for_student(student: User, db: Session) -> None:
                 translation=item.translation,
                 example_sentence=item.example_sentence,
                 example_sentences=json.dumps(list(item.example_sentences), ensure_ascii=False),
+                pinyin=item.pinyin or None,
+                example_pinyin_sentences=json.dumps(list(item.example_pinyin_sentences), ensure_ascii=False) if any(item.example_pinyin_sentences) else None,
+                example_translations=json.dumps(list(item.example_translations), ensure_ascii=False) if any(item.example_translations) else None,
                 tip=None,
                 distractors=_pack_distractors(list(item.distractors)),
                 explanation=None,
@@ -297,6 +301,7 @@ def _top_up_ai_vocab(student: User, category: str, db: Session) -> None:
                     example_sentences=json.dumps(list(item.example_sentences), ensure_ascii=False),
                     pinyin=item.pinyin or None,
                     example_pinyin_sentences=json.dumps(list(item.example_pinyin_sentences), ensure_ascii=False) if any(item.example_pinyin_sentences) else None,
+                    example_translations=json.dumps(list(item.example_translations), ensure_ascii=False) if any(item.example_translations) else None,
                     tip=None,
                     distractors=_pack_distractors(list(item.distractors)),
                     explanation=None,
@@ -350,6 +355,7 @@ def create_vocab_word(
         example_sentence=example_sentence,
         pinyin=(data.pinyin or "").strip() or None,
         example_pinyin_sentences=json.dumps(data.example_pinyin_sentences, ensure_ascii=False) if data.example_pinyin_sentences else None,
+        example_translations=json.dumps(data.example_translations, ensure_ascii=False) if data.example_translations else None,
         tip=tip,
         distractors=_pack_distractors(distractors),
         explanation=(data.explanation or "").strip() or None,
@@ -399,6 +405,8 @@ def update_vocab_word(
         word.pinyin = data.pinyin.strip() or None
     if data.example_pinyin_sentences is not None:
         word.example_pinyin_sentences = json.dumps(data.example_pinyin_sentences, ensure_ascii=False) if data.example_pinyin_sentences else None
+    if data.example_translations is not None:
+        word.example_translations = json.dumps(data.example_translations, ensure_ascii=False) if data.example_translations else None
     if data.tip is not None:
         word.tip = data.tip.strip() or None
     if data.explanation is not None:
@@ -598,6 +606,7 @@ def get_learn_queue(
             example_sentences=(json.loads(w.example_sentences) if w.example_sentences else []),
             pinyin=w.pinyin,
             example_pinyin_sentences=(json.loads(w.example_pinyin_sentences) if w.example_pinyin_sentences else []),
+            example_translations=(json.loads(w.example_translations) if w.example_translations else []),
             tip=w.tip,
             translation=w.translation,
             options=_build_options(w),

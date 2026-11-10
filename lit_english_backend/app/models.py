@@ -254,6 +254,7 @@ class VocabWord(Base):
     example_sentences = Column(Text, nullable=True)
     pinyin = Column(Text, nullable=True)
     example_pinyin_sentences = Column(Text, nullable=True)
+    example_translations = Column(Text, nullable=True)
     tip = Column(Text, nullable=True)
     distractors = Column(Text, nullable=False, default="")
     explanation = Column(Text, nullable=True)
