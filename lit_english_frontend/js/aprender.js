@@ -277,9 +277,18 @@ function renderVocabCard(card) {
   vocabAnswered = false;
   vocabAudioCache = null;
   if (vocabWordEl) vocabWordEl.textContent = card.word;
-  const isMandarinCard = String(card.language || "").toLowerCase() === "mandarim";
+  const cardLanguage = String(card.language || "").trim().toLowerCase();
+  const isMandarinCard = ["mandarim", "zh", "chinese"].includes(cardLanguage);
+  const isLatinTargetCard = [
+    "ingles", "inglês", "en", "eng",
+    "frances", "francês", "fr",
+    "italiano", "it"
+  ].includes(cardLanguage);
   const vocabCardEl = vocabWordEl?.closest(".vocab-browse-card");
-  if (vocabCardEl) vocabCardEl.classList.toggle("mandarin-layout", isMandarinCard);
+  if (vocabCardEl) {
+    vocabCardEl.classList.toggle("mandarin-layout", isMandarinCard);
+    vocabCardEl.classList.toggle("latin-layout", isLatinTargetCard && !isMandarinCard);
+  }
   if (vocabPinyinEl) { vocabPinyinEl.textContent = isMandarinCard ? (card.pinyin || "") : ""; vocabPinyinEl.hidden = !isMandarinCard || !card.pinyin; }
   if (vocabTranslationEl) {
     const translation = String(card.translation || "").trim();
