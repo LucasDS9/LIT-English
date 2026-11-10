@@ -65,6 +65,25 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class RegistrationCode(Base):
+    """Código de cadastro de aluno, de uso único."""
+    __tablename__ = "registration_codes"
+    id = Column(Integer, primary_key=True, index=True)
+    code_hash = Column(String(64), unique=True, nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    used_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+
+class RegistrationAttempt(Base):
+    """Tentativas inválidas persistidas para limitar abuso por IP."""
+    __tablename__ = "registration_attempts"
+    id = Column(Integer, primary_key=True, index=True)
+    ip_address = Column(String(64), nullable=False, index=True)
+    attempted_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+
 class StarterFlashcard(Base):
     """Catálogo de flashcards sugeridos no primeiro acesso ao Aprender."""
     __tablename__ = "starter_flashcards"

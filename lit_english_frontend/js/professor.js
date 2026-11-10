@@ -334,6 +334,56 @@ async function renderConfiguracoes() {
   analyticsDivider.className = "analytics-section-divider";
   contentArea.appendChild(analyticsDivider);
 
+  // Códigos de cadastro: geração automática, uso único e validade de 7 dias.
+  const codesSection = document.createElement("section");
+  codesSection.className = "settings-subsection";
+  codesSection.style.marginBottom = "28px";
+  const codesTitle = document.createElement("h2");
+  codesTitle.textContent = "Códigos de cadastro";
+  codesSection.appendChild(codesTitle);
+  const codesDescription = document.createElement("p");
+  codesDescription.className = "secondary";
+  codesDescription.textContent = "Gere códigos de 5 caracteres para novos alunos. Cada código expira em 7 dias e só pode ser usado uma vez.";
+  codesSection.appendChild(codesDescription);
+  const generateCodeBtn = document.createElement("button");
+  generateCodeBtn.className = "btn btn-primary btn-sm";
+  generateCodeBtn.textContent = "Gerar código";
+  codesSection.appendChild(generateCodeBtn);
+  const generatedCode = document.createElement("div");
+  generatedCode.style.cssText = "font-size:24px;font-weight:700;letter-spacing:4px;margin:14px 0;";
+  codesSection.appendChild(generatedCode);
+  const codeList = document.createElement("div");
+  codeList.style.marginTop = "14px";
+  codesSection.appendChild(codeList);
+  generateCodeBtn.addEventListener("click", async () => {
+    generateCodeBtn.disabled = true;
+    try {
+      const result = await apiFetch("/admin/registration-codes", { method: "POST" });
+      generatedCode.textContent = result.code;
+      generatedCode.title = "Código gerado";
+      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(result.code).catch(() => {});
+      showToast("Código gerado e copiado.");
+      await loadCodes();
+    } catch (err) { showToast(err.message || "Não foi possível gerar o código."); }
+    finally { generateCodeBtn.disabled = false; }
+  });
+  async function loadCodes() {
+    try {
+      const rows = await apiFetch("/admin/registration-codes");
+      codeList.innerHTML = "";
+      if (!rows.length) { codeList.textContent = "Nenhum código gerado ainda."; return; }
+      rows.forEach((item) => {
+        const line = document.createElement("p");
+        line.className = "secondary";
+        const status = item.used ? "Usado" : (item.expired ? "Expirado" : "Disponível");
+        line.textContent = `Código ${item.id} · ${status} · expira em ${formatDate(item.expires_at)}`;
+        codeList.appendChild(line);
+      });
+    } catch (err) { codeList.textContent = "Não foi possível carregar os códigos."; }
+  }
+  await loadCodes();
+  contentArea.appendChild(codesSection);
+
   const settingsHeading = document.createElement("h2");
   settingsHeading.className = "analytics-settings-heading";
   settingsHeading.textContent = "Gerenciamento de alunos";

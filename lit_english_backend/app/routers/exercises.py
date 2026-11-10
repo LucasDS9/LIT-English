@@ -48,6 +48,8 @@ from app.schemas import (
     ExerciseUpdate,
 )
 from app.lit_points import (
+    DAILY_EXERCISE_LIMIT,
+    DAILY_EXERCISE_LIMIT_WITH_BACKLOG,
     maybe_award_exercise_daily_bonus,
 )
 from app.timezone import (

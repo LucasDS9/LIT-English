@@ -1,21 +1,36 @@
 """
 Rotas de autenticação: registro de usuário e login.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+import hashlib
+from datetime import datetime, timedelta
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.auth import create_access_token, get_current_user, hash_password, verify_password
 from app.database import get_db
-from app.models import AccessType, User, UserRole
+from app.models import AccessType, User, UserRole, RegistrationCode, RegistrationAttempt
 from app.promo import has_valid_format, is_valid_promo_code, normalize_promo_code
 from app.schemas import ALLOWED_PLANS, ALLOWED_TARGET_LANGUAGES, Token, UserCreate, UserOut
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
 
 
+def _request_ip(request: Request) -> str:
+    # Railway termina TLS no proxy. Usa o endereço encaminhado pelo proxy;
+    # fallback para o peer direto em desenvolvimento local.
+    forwarded = request.headers.get("x-forwarded-for", "")
+    return (forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "unknown"))[:64]
+
+def _check_registration_rate(ip: str, db: Session):
+    cutoff = datetime.utcnow() - timedelta(minutes=30)
+    count = db.query(RegistrationAttempt).filter(RegistrationAttempt.ip_address == ip, RegistrationAttempt.attempted_at >= cutoff).count()
+    if count >= 5:
+        raise HTTPException(status_code=429, detail="Muitas tentativas. Tente novamente em 30 minutos.")
+
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def register(user_in: UserCreate, db: Session = Depends(get_db)):
+def register(user_in: UserCreate, request: Request, db: Session = Depends(get_db)):
     """
     Cria um novo usuário. Há dois tipos de conta de aluno/usuário:
 
@@ -30,6 +45,8 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
 
     Os códigos válidos são configurados em app/promo.py (variável PROMO_CODES).
     """
+    ip = _request_ip(request)
+    _check_registration_rate(ip, db)
     existing = db.query(User).filter(User.email == user_in.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Este e-mail já está cadastrado.")
@@ -43,8 +60,17 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         # Aluno: o código é obrigatório.
         if not promo_code:
             raise HTTPException(status_code=400, detail="Informe o código promocional.")
-        if not is_valid_promo_code(promo_code):
-            raise HTTPException(status_code=400, detail="Código promocional inválido.")
+        if not has_valid_format(promo_code):
+            db.add(RegistrationAttempt(ip_address=ip)); db.commit()
+            raise HTTPException(status_code=400, detail="Código inválido ou expirado.")
+        digest = hashlib.sha256(promo_code.upper().encode("utf-8")).hexdigest()
+        code_row = db.query(RegistrationCode).filter(
+            RegistrationCode.code_hash == digest, RegistrationCode.used_at.is_(None),
+            RegistrationCode.expires_at > datetime.utcnow()
+        ).with_for_update().first()
+        if not code_row:
+            db.add(RegistrationAttempt(ip_address=ip)); db.commit()
+            raise HTTPException(status_code=400, detail="Código inválido ou expirado.")
 
     if is_normal_user:
         if not user_in.target_language:
@@ -87,6 +113,27 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
         promo_code=promo_code or None,
     )
     db.add(new_user)
+    try:
+        db.flush()
+        if is_student and not is_normal_user:
+            # Consumo condicional garante que duas requisições concorrentes não
+            # consigam cadastrar duas contas com o mesmo código.
+            from sqlalchemy import update
+            result = db.execute(update(RegistrationCode).where(
+                RegistrationCode.id == code_row.id, RegistrationCode.used_at.is_(None),
+                RegistrationCode.expires_at > datetime.utcnow()
+            ).values(used_at=datetime.utcnow(), used_by_user_id=new_user.id))
+            if result.rowcount != 1:
+                db.rollback()
+                db.add(RegistrationAttempt(ip_address=ip)); db.commit()
+                raise HTTPException(status_code=400, detail="Código inválido ou expirado.")
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception:
+        db.rollback()
+        raise
+    db.query(RegistrationAttempt).filter(RegistrationAttempt.ip_address == ip).delete()
     db.commit()
     db.refresh(new_user)
     return new_user

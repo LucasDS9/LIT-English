@@ -480,10 +480,7 @@ function advanceToNextCard() {
   session.pronunciationResult = null;
 
   if (session.index >= session.cards.length) {
-    // Sem tela de "ciclo concluído": ao fim dos 20, já carrega o próximo
-    // ciclo automaticamente. Se não houver mais cards, loadQueue mostra
-    // o estado "Você está em dia!".
-    loadQueue();
+    renderFinished();
   } else {
     renderCard();
   }
@@ -508,6 +505,11 @@ function renderTypeCard(card) {
 
   const cardBox = document.createElement("div");
   cardBox.className = `review-card review-card-status ${statusClassName(card)}`.trim();
+
+  const counter = document.createElement("div");
+  counter.className = "counter";
+  counter.textContent = `${session.index + 1} / ${session.cards.length}`;
+  cardBox.appendChild(counter);
 
   const body = document.createElement("div");
   body.className = "card-body";
@@ -574,6 +576,11 @@ function renderSpeakCard(card) {
 
   const cardBox = document.createElement("div");
   cardBox.className = `review-card review-card-status ${statusClassName(card)}`.trim();
+
+  const counter = document.createElement("div");
+  counter.className = "counter";
+  counter.textContent = `${session.index + 1} / ${session.cards.length}`;
+  cardBox.appendChild(counter);
 
   const body = document.createElement("div");
   body.className = "card-body";
@@ -730,7 +737,7 @@ function languageMetaForReview(languageCode) {
     portugues: "Português",
   };
   const flags = {
-    ingles: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#fff"/><rect y="0.000" width="24" height="1.231" fill="#B22234"/><rect y="2.462" width="24" height="1.231" fill="#B22234"/><rect y="4.923" width="24" height="1.231" fill="#B22234"/><rect y="7.385" width="24" height="1.231" fill="#B22234"/><rect y="9.846" width="24" height="1.231" fill="#B22234"/><rect y="12.308" width="24" height="1.231" fill="#B22234"/><rect y="14.769" width="24" height="1.231" fill="#B22234"/><rect width="9.6" height="8.615" fill="#3C3B6E"/><circle cx="0.80" cy="0.86" r="0.36" fill="#fff"/><circle cx="2.40" cy="0.86" r="0.36" fill="#fff"/><circle cx="4.00" cy="0.86" r="0.36" fill="#fff"/><circle cx="5.60" cy="0.86" r="0.36" fill="#fff"/><circle cx="7.20" cy="0.86" r="0.36" fill="#fff"/><circle cx="8.80" cy="0.86" r="0.36" fill="#fff"/><circle cx="1.60" cy="1.72" r="0.36" fill="#fff"/><circle cx="3.20" cy="1.72" r="0.36" fill="#fff"/><circle cx="4.80" cy="1.72" r="0.36" fill="#fff"/><circle cx="6.40" cy="1.72" r="0.36" fill="#fff"/><circle cx="8.00" cy="1.72" r="0.36" fill="#fff"/><circle cx="0.80" cy="2.58" r="0.36" fill="#fff"/><circle cx="2.40" cy="2.58" r="0.36" fill="#fff"/><circle cx="4.00" cy="2.58" r="0.36" fill="#fff"/><circle cx="5.60" cy="2.58" r="0.36" fill="#fff"/><circle cx="7.20" cy="2.58" r="0.36" fill="#fff"/><circle cx="8.80" cy="2.58" r="0.36" fill="#fff"/><circle cx="1.60" cy="3.45" r="0.36" fill="#fff"/><circle cx="3.20" cy="3.45" r="0.36" fill="#fff"/><circle cx="4.80" cy="3.45" r="0.36" fill="#fff"/><circle cx="6.40" cy="3.45" r="0.36" fill="#fff"/><circle cx="8.00" cy="3.45" r="0.36" fill="#fff"/><circle cx="0.80" cy="4.31" r="0.36" fill="#fff"/><circle cx="2.40" cy="4.31" r="0.36" fill="#fff"/><circle cx="4.00" cy="4.31" r="0.36" fill="#fff"/><circle cx="5.60" cy="4.31" r="0.36" fill="#fff"/><circle cx="7.20" cy="4.31" r="0.36" fill="#fff"/><circle cx="8.80" cy="4.31" r="0.36" fill="#fff"/><circle cx="1.60" cy="5.17" r="0.36" fill="#fff"/><circle cx="3.20" cy="5.17" r="0.36" fill="#fff"/><circle cx="4.80" cy="5.17" r="0.36" fill="#fff"/><circle cx="6.40" cy="5.17" r="0.36" fill="#fff"/><circle cx="8.00" cy="5.17" r="0.36" fill="#fff"/><circle cx="0.80" cy="6.03" r="0.36" fill="#fff"/><circle cx="2.40" cy="6.03" r="0.36" fill="#fff"/><circle cx="4.00" cy="6.03" r="0.36" fill="#fff"/><circle cx="5.60" cy="6.03" r="0.36" fill="#fff"/><circle cx="7.20" cy="6.03" r="0.36" fill="#fff"/><circle cx="8.80" cy="6.03" r="0.36" fill="#fff"/><circle cx="1.60" cy="6.89" r="0.36" fill="#fff"/><circle cx="3.20" cy="6.89" r="0.36" fill="#fff"/><circle cx="4.80" cy="6.89" r="0.36" fill="#fff"/><circle cx="6.40" cy="6.89" r="0.36" fill="#fff"/><circle cx="8.00" cy="6.89" r="0.36" fill="#fff"/><circle cx="0.80" cy="7.75" r="0.36" fill="#fff"/><circle cx="2.40" cy="7.75" r="0.36" fill="#fff"/><circle cx="4.00" cy="7.75" r="0.36" fill="#fff"/><circle cx="5.60" cy="7.75" r="0.36" fill="#fff"/><circle cx="7.20" cy="7.75" r="0.36" fill="#fff"/><circle cx="8.80" cy="7.75" r="0.36" fill="#fff"/></svg>`,
+    ingles: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#012169"/><path d="M0 0l24 16M24 0L0 16" stroke="#fff" stroke-width="2.4"/><path d="M0 0l24 16M24 0L0 16" stroke="#C8102E" stroke-width="1.2"/><path d="M12 0v16M0 8h24" stroke="#fff" stroke-width="3.2"/><path d="M12 0v16M0 8h24" stroke="#C8102E" stroke-width="1.6"/></svg>`,
     italiano: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#fff"/><rect x="16" width="8" height="16" fill="#CE2B37"/><rect width="8" height="16" fill="#009246"/></svg>`,
     frances: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#fff"/><rect width="8" height="16" fill="#0055A4"/><rect x="16" width="8" height="16" fill="#EF4135"/></svg>`,
     espanhol: `<svg viewBox="0 0 24 16" aria-hidden="true"><rect width="24" height="16" rx="2" fill="#AA151B"/><rect y="4" width="24" height="8" fill="#F1BF00"/></svg>`,
@@ -750,6 +757,10 @@ function appendReviewCardHeader(cardBox, card) {
   badge.innerHTML = `<span class="review-lang-flag">${meta.flag}</span><span>${meta.label}</span>`;
   header.appendChild(badge);
 
+  const counter = document.createElement("span");
+  counter.className = "review-card-counter";
+  counter.textContent = `${session.index + 1} / ${session.cards.length}`;
+  header.appendChild(counter);
 
   cardBox.appendChild(header);
 }

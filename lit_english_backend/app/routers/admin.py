@@ -5,6 +5,10 @@ Rotas administrativas, acessíveis apenas pelo professor:
 - revogar/bloquear acesso de um aluno
 - excluir aluno
 """
+import hashlib
+import secrets
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -25,6 +29,7 @@ from app.models import (
     TextAssignment,
     User,
     UserRole,
+    RegistrationCode,
 )
 from app.routers.dashboard import build_dashboard_metrics
 from app.language import student_language
@@ -139,3 +144,35 @@ def delete_student(
     db.delete(student)
     db.commit()
     return None
+
+
+_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+def _code_digest(code: str) -> str:
+    return hashlib.sha256(code.upper().encode("utf-8")).hexdigest()
+
+@router.post("/registration-codes")
+def create_registration_code(
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    """Gera um código aleatório de cinco caracteres, válido por sete dias."""
+    for _ in range(10):
+        code = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(5))
+        digest = _code_digest(code)
+        if not db.query(RegistrationCode).filter(RegistrationCode.code_hash == digest).first():
+            item = RegistrationCode(code_hash=digest, expires_at=datetime.utcnow() + timedelta(days=7))
+            db.add(item)
+            db.commit()
+            return {"code": code, "expires_at": item.expires_at.isoformat()}
+    raise HTTPException(status_code=500, detail="Não foi possível gerar um código. Tente novamente.")
+
+@router.get("/registration-codes")
+def list_registration_codes(
+    db: Session = Depends(get_db),
+    _professor: User = Depends(get_current_professor),
+):
+    now = datetime.utcnow()
+    rows = db.query(RegistrationCode).order_by(RegistrationCode.created_at.desc()).limit(100).all()
+    return [{"id": r.id, "created_at": r.created_at.isoformat(), "expires_at": r.expires_at.isoformat(),
+             "used": r.used_at is not None, "expired": r.expires_at <= now,
+             "used_at": r.used_at.isoformat() if r.used_at else None} for r in rows]
