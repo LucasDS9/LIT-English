@@ -265,19 +265,20 @@ function renderVocabCard(card) {
   if (!card) {
     // Aprender é uma fila contínua: quando o lote atual acaba, buscamos
     // automaticamente o próximo lote em vez de mostrar uma tela de fim.
-    vocabWordEl.textContent = "";
+    if (vocabWordEl) vocabWordEl.textContent = "";
     if (vocabTranslationEl) vocabTranslationEl.textContent = "";
-    vocabExampleEl.textContent = "";
-    vocabOptionsEl.innerHTML = "";
+    if (vocabPinyinEl) { vocabPinyinEl.textContent = ""; vocabPinyinEl.hidden = true; }
+    if (vocabExampleEl) vocabExampleEl.textContent = "";
+    if (vocabOptionsEl) vocabOptionsEl.innerHTML = "";
     if (vocabCounterEl) vocabCounterEl.textContent = "";
     return;
   }
 
   vocabAnswered = false;
   vocabAudioCache = null;
-  vocabWordEl.textContent = card.word;
+  if (vocabWordEl) vocabWordEl.textContent = card.word;
   const isMandarinCard = String(card.language || "").toLowerCase() === "mandarim";
-  const vocabCardEl = vocabWordEl.closest(".vocab-browse-card");
+  const vocabCardEl = vocabWordEl?.closest(".vocab-browse-card");
   if (vocabCardEl) vocabCardEl.classList.toggle("mandarin-layout", isMandarinCard);
   if (vocabPinyinEl) { vocabPinyinEl.textContent = isMandarinCard ? (card.pinyin || "") : ""; vocabPinyinEl.hidden = !isMandarinCard || !card.pinyin; }
   if (vocabTranslationEl) {
@@ -289,17 +290,17 @@ function renderVocabCard(card) {
     ? `<small class="vocab-example-pinyin">${escapeHtml(card.example_pinyin_sentences[0])}</small>` : "";
   const mainExampleTranslation = isMandarinCard && card.example_translations?.[0]
     ? `<small class="vocab-example-translation">${escapeHtml(card.example_translations[0])}</small>` : "";
-  vocabExampleEl.innerHTML = highlightVocabWord(mainExample, card.word) + mainExamplePinyin + mainExampleTranslation;
+  if (vocabExampleEl) vocabExampleEl.innerHTML = highlightVocabWord(mainExample, card.word) + mainExamplePinyin + mainExampleTranslation;
   // Não há mais limite visual de 10 palavras por sessão.
   if (vocabCounterEl) vocabCounterEl.textContent = "";
   setVocabFlag(card.language);
   saveActiveVocabCard(card);
 
-  vocabMoreExamplesBox.hidden = true;
-  vocabMoreExamplesLabel.textContent = "Mais exemplos";
+  if (vocabMoreExamplesBox) vocabMoreExamplesBox.hidden = true;
+  if (vocabMoreExamplesLabel) vocabMoreExamplesLabel.textContent = "Mais exemplos";
   vocabSavedExamples = new Set();
   vocabExamples = getDistinctExamples(card);
-  vocabMoreExamplesText.innerHTML = vocabExamples.map((sentence, index) => {
+  if (vocabMoreExamplesText) vocabMoreExamplesText.innerHTML = vocabExamples.map((sentence, index) => {
     const sourceIndex = (card.example_sentences || []).indexOf(sentence);
     const pinyin = isMandarinCard && sourceIndex >= 0 ? card.example_pinyin_sentences?.[sourceIndex] : "";
     const translation = isMandarinCard && sourceIndex >= 0 ? card.example_translations?.[sourceIndex] : "";
@@ -311,7 +312,7 @@ function renderVocabCard(card) {
   }).join("");
   playVocabWord(card.word);
 
-  vocabOptionsEl.innerHTML = (card.options || []).map(option =>
+  if (vocabOptionsEl) vocabOptionsEl.innerHTML = (card.options || []).map(option =>
     `<button type="button" class="vocab-browse-option" data-answer="${escapeHtml(option)}">${escapeHtml(option)}</button>`
   ).join("");
 }
@@ -334,7 +335,7 @@ async function submitVocabAnswer(chosen, button) {
   if (!card || vocabAnswered) return;
   vocabAnswered = true;
 
-  const buttons = Array.from(vocabOptionsEl.querySelectorAll(".vocab-browse-option"));
+  const buttons = Array.from(vocabOptionsEl?.querySelectorAll(".vocab-browse-option") || []);
   buttons.forEach(opt => { opt.disabled = true; });
 
   try {
@@ -492,9 +493,9 @@ async function loadVocabLearn() {
     }
     renderVocabCard(vocabCards[0]);
   } catch (err) {
-    vocabWordEl.textContent = "Não foi possível carregar";
-    vocabExampleEl.textContent = err.message || "Tente novamente.";
-    vocabOptionsEl.innerHTML = "";
+    if (vocabWordEl) vocabWordEl.textContent = "Não foi possível carregar";
+    if (vocabExampleEl) vocabExampleEl.textContent = err.message || "Tente novamente.";
+    if (vocabOptionsEl) vocabOptionsEl.innerHTML = "";
   }
 }
 
@@ -582,9 +583,17 @@ async function init() {
     frontInput.focus();
     await loadVocabLearn();
   } catch (err) {
-    const redirectUrl = Auth.loginRedirectUrl();
-    Auth.clear();
-    window.location.href = redirectUrl;
+    // Só encerra a sessão quando o servidor confirma que o token é inválido.
+    // Falhas de rede/servidor não devem expulsar o aluno da conta.
+    if (err?.status === 401 || err?.status === 403) {
+      Auth.clear();
+      window.location.href = Auth.loginRedirectUrl();
+      return;
+    }
+
+    console.error("Falha ao inicializar a página Learn:", err);
+    if (vocabWordEl) vocabWordEl.textContent = "Não foi possível carregar";
+    if (vocabExampleEl) vocabExampleEl.textContent = err?.message || "Verifique sua conexão e tente novamente.";
   }
 }
 
