@@ -663,6 +663,18 @@ svg {
   margin: 0;
 }
 
+.home-welcome .home-quote-pinyin {
+  font-size: 20px;
+  font-style: italic;
+  color: var(--text-muted);
+  max-width: 700px;
+  margin: -8px 0 0;
+}
+
+.home-welcome .home-quote-pinyin[hidden] {
+  display: none;
+}
+
 .home-welcome .home-author {
   color: var(--primary);
   font-size: 18px;
@@ -992,6 +1004,16 @@ svg {
   text-transform: uppercase;
   letter-spacing: 1px;
   margin: 0;
+}
+
+.review-card .front-romanization {
+  margin: 0;
+  font-size: clamp(20px, 5vw, 30px);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+  text-align: center;
+  overflow-wrap: break-word;
 }
 
 .review-card .back-text {
@@ -4524,7 +4546,7 @@ body.reader-fs-open {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  min-height: 583px;
+  min-height: 640px;
 }
 
 .vocab-browse-card-header {
@@ -4834,8 +4856,16 @@ body.reader-fs-open {
     overflow: hidden;
   }
 
+  .main-learn-create:not(.tab-criar-active) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* O painel ocupa só o que sobra abaixo do título e das abas (antes era
+     height:100% e passava da tela, escondendo o fim da caixa de exemplos). */
   .main-learn-create .learn-vocab-panel:not([hidden]) {
-    height: 100%;
+    flex: 1 1 0;
+    min-height: 0;
     justify-content: center;
   }
 
@@ -4876,8 +4906,12 @@ body.reader-fs-open {
 
 @media (max-width: 640px) {
   .vocab-browse-card {
+    /* Mesmo porte do card de Revisar: ocupa o espaço disponível da tela
+       (até um limite), em vez de encolher até caber só o conteúdo. */
+    flex: 1 1 480px;
     min-height: 0;
-    padding: 14px 16px 10px;
+    max-height: 560px;
+    padding: 20px 18px 16px;
     border-radius: 16px;
     gap: 0;
   }
@@ -4929,20 +4963,18 @@ body.reader-fs-open {
     display: none;
   }
 
-  /* "Ver mais exemplos" não empurra mais a página pra baixo: vira um
-     painel flutuante ancorado acima do menu inferior. Como sai do fluxo
-     normal (position: fixed), abrir/fechar não altera a altura da tela
-     e não causa scroll. */
+  /* "Mais exemplos" fica no fluxo, logo abaixo do card (o card encolhe
+     para abrir espaço), então a caixa aparece inteira — sem ficar cortada
+     nas bordas nem atrás do menu inferior. */
   .vocab-browse-more-examples {
-    position: fixed;
-    left: 14px;
-    right: 14px;
-    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
-    max-height: 38vh;
+    position: static;
+    width: 100%;
+    max-width: 100%;
+    flex-shrink: 0;
+    max-height: 34vh;
     overflow-y: auto;
-    padding: 16px 18px;
-    z-index: 55;
-    box-shadow: 0 -10px 30px rgba(20, 20, 30, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.04);
+    padding: 14px 16px;
+    box-shadow: none;
     animation: vocabSheetUp 0.16s ease-out;
   }
   .vocab-browse-more-examples-text p {
@@ -5887,6 +5919,14 @@ img, video, iframe, canvas {
     overflow-wrap: anywhere;
   }
 
+  .home-welcome .home-quote-pinyin {
+    font-size: clamp(14px, 4.2vw, 20px);
+    line-height: 1.4;
+    max-width: 100%;
+    margin: -6px 0 0;
+    overflow-wrap: anywhere;
+  }
+
   .home-welcome .home-author {
     font-size: clamp(14px, 4vw, 18px);
   }
@@ -6256,6 +6296,22 @@ img, video, iframe, canvas {
 
 .vocab-browse-card.mandarin-layout .vocab-browse-pinyin[hidden] { display: none; }
 
+/* Mandarim: o conteúdo se distribui e centraliza no card (como nos layouts
+   latinos), em vez de colar no topo e deixar um vazio grande embaixo. */
+.vocab-browse-card.mandarin-layout .vocab-browse-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 8px 12px;
+}
+.vocab-browse-card.mandarin-layout .vocab-browse-translation {
+  margin: 4px 0 18px;
+}
+
 
 /* Layout aprimorado para inglês, francês e italiano.
    Mantém exatamente a mesma caixa-base usada pelo mandarim; reorganiza
@@ -6305,4 +6361,169 @@ img, video, iframe, canvas {
   .vocab-browse-card.latin-layout .vocab-browse-example {
     font-size: 21px;
   }
+}
+
+
+/* ---------- Botão de seta "traduzir" (Home e frases de Aprender) ---------- */
+.translate-arrow-btn {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  padding: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--bg);
+  color: var(--primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.translate-arrow-btn svg { width: 100%; height: 100%; }
+.translate-arrow-btn:hover:not(:disabled) { background: var(--primary-pale); border-color: var(--primary); }
+.translate-arrow-btn.is-active,
+.translate-arrow-btn.is-active:hover:not(:disabled) { background: var(--primary); border-color: var(--primary); color: #fff; }
+.translate-arrow-btn.is-loading { opacity: 0.55; cursor: progress; }
+.translate-arrow-btn:disabled { cursor: default; }
+
+.home-welcome .translate-arrow-btn { margin-top: 4px; }
+
+/* Frase de exemplo + botão de traduzir: grade simétrica (espaço | texto |
+   botão), então o texto continua centralizado no card mesmo com o botão. */
+.vocab-sentence {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  align-items: center;
+  column-gap: 10px;
+  width: 100%;
+}
+.vocab-sentence-text { min-width: 0; text-align: center; }
+.vocab-sentence-original[hidden],
+.vocab-sentence-translated[hidden] { display: none; }
+.vocab-sentence .translate-arrow-btn,
+.vocab-example-row .translate-arrow-btn { width: 32px; height: 32px; padding: 6px; }
+.vocab-example-row .vocab-example-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+/* Espaçador à esquerda com a mesma largura dos botões da direita (32 + 8 + 36),
+   para a frase de "Mais exemplos" ficar centralizada. */
+.vocab-example-row::before { content: ""; width: 76px; flex-shrink: 0; }
+.vocab-example-translation[hidden] { display: none; }
+
+.review-meaning-question { text-align: center; }
+
+
+/* ==========================================================================
+   Aprender > Criar — layout limpo (rótulo à esquerda, campo à direita) com a
+   caixa do MESMO tamanho do card de Vocabulário.
+   ========================================================================== */
+.learn-page-header .learn-page-subtitle {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--primary);
+}
+.learn-page-header.is-criar { margin-bottom: 16px; }
+.learn-page-header.is-criar h1 { padding-bottom: 6px; margin-bottom: 0; }
+.learn-page-header.is-criar h1::after { display: none; }
+
+.learn-create-card {
+  min-height: 640px;
+  padding: 24px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+.learn-create-card form {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.learn-create-fields {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 34px;
+}
+.learn-create-field-row { margin-bottom: 0; align-items: center; }
+.learn-create-field-title { margin-bottom: 4px; gap: 8px; }
+.learn-create-field-title strong { font-size: 18px; font-weight: 800; color: var(--primary); }
+.learn-create-sparkle { width: 20px; height: 20px; color: var(--primary); flex-shrink: 0; }
+.learn-create-field-copy p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text-secondary); }
+.learn-create-input-wrap input {
+  width: 100%;
+  height: 56px;
+  box-sizing: border-box;
+  border: 1px solid #DDDDDD;
+  border-radius: 10px;
+  padding: 0 18px;
+  font-size: 16px;
+  color: var(--text);
+  background: #fff;
+}
+.learn-create-input-wrap input::placeholder { color: #9A9A9A; }
+.learn-create-input-wrap input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(134, 30, 25, 0.12); }
+.learn-create-input-wrap input:disabled { background: #F6F6F6; }
+.learn-create-actions { margin-top: 22px; }
+.learn-create-plus { border: 0; width: auto; height: auto; font-size: 24px; font-weight: 400; margin-right: 6px; }
+
+@media (max-width: 800px) {
+  .learn-create-field-row { gap: 8px; align-items: stretch; }
+  .learn-create-fields { gap: 18px; }
+}
+@media (max-width: 640px) {
+  .learn-create-card { min-height: 560px; padding: 20px 18px 20px; }
+  .learn-page-header .learn-page-subtitle { font-size: 16px; }
+}
+
+
+/* Aprender > Criar — título dentro da caixa e campos maiores (menos vazio). */
+.learn-create-title h2 {
+  margin: 0 0 6px;
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--text);
+}
+.learn-create-title p {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+.learn-create-card { padding: 30px 32px 30px; }
+.learn-create-fields { justify-content: space-evenly; gap: 20px; padding: 18px 0 6px; }
+.learn-create-field-row { grid-template-columns: 260px minmax(0, 1fr); align-items: start; }
+.learn-create-field-title strong { font-size: 22px; }
+.learn-create-field-copy p { font-size: 15px; line-height: 1.5; }
+.learn-create-input-wrap textarea {
+  width: 100%;
+  height: 130px;
+  min-height: 130px;
+  box-sizing: border-box;
+  resize: none;
+  border: 1px solid #DDDDDD;
+  border-radius: 12px;
+  padding: 16px 18px;
+  font-family: inherit;
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--text);
+  background: #fff;
+}
+.learn-create-input-wrap textarea::placeholder { color: #9A9A9A; }
+.learn-create-input-wrap textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(134, 30, 25, 0.12); }
+.learn-create-actions { margin-top: 8px; }
+.learn-create-actions .btn { min-width: 190px; height: 52px; font-size: 16px; }
+
+@media (max-width: 800px) {
+  .learn-create-field-row { grid-template-columns: 1fr; }
+  .learn-create-input-wrap textarea { height: 96px; min-height: 96px; }
+}
+@media (max-width: 640px) {
+  .learn-create-card { padding: 20px 18px; }
+  .learn-create-title h2 { font-size: 24px; }
+  .learn-create-title p { font-size: 14px; }
+  .learn-create-field-title strong { font-size: 19px; }
+  .learn-create-fields { gap: 14px; padding-top: 12px; }
+  .learn-create-input-wrap textarea { height: 84px; min-height: 84px; font-size: 16px; padding: 12px 14px; }
 }

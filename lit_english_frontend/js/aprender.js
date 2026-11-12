@@ -62,9 +62,10 @@ function updateFrontHint(user) {
   const targetKey = getTargetKey(user);
   const greeting = TARGET_GREETING_EXAMPLES[targetKey] || "Hello";
 
-  frontHintEl.textContent = `Digite a palavra, frase ou expressão em ${nativeLabel} ou ${targetLabel}. O flashcard será salvo em ${targetLabel}.`;
-  frontInput.placeholder = `Ex: ${greeting}`;
-  descriptionInput.placeholder = `Ex: É como falamos 'oi' de forma informal, ex: ${greeting}.`;
+  const cap = (t) => t.charAt(0).toLocaleUpperCase("pt-BR") + t.slice(1);
+  // Mantém o <br>: a primeira linha lista os idiomas, a segunda diz onde salva.
+  frontHintEl.innerHTML = `${escapeHtml(cap(targetLabel))} ou ${escapeHtml(nativeLabel === "português" ? "PT" : cap(nativeLabel))}.<br>A palavra será salva em ${escapeHtml(targetLabel)}.`;
+  frontInput.placeholder = `Ex: ${greeting} ou olá`;
 }
 
 let toastTimer = null;
@@ -76,6 +77,7 @@ function showToast(message) {
 }
 
 function updateCounter(input, counter, max = 200) {
+  if (!counter) return;
   counter.textContent = `${input.value.length}/${max}`;
 }
 
@@ -122,6 +124,7 @@ function setLearnTab(tab) {
   vocabPanel.hidden = !isVocab;
   criarPanel.hidden = isVocab;
   learnCreateArea?.classList.toggle("tab-criar-active", !isVocab);
+
 }
 
 vocabTabBtn?.addEventListener("click", () => setLearnTab("vocab"));
@@ -261,6 +264,77 @@ function clearActiveVocabCard() {
   try { localStorage.removeItem(vocabStorageKey); } catch (_) {}
 }
 
+const TRANSLATE_ARROW_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h14"/><path d="m14 4 4 4-4 4"/><path d="M20 16H6"/><path d="m10 12-4 4 4 4"/></svg>`;
+const vocabTranslationCache = new Map();
+
+function translateButtonHtml(key) {
+  return `<button type="button" class="translate-arrow-btn" data-translate="${key}" aria-pressed="false" aria-label="Traduzir frase" title="Traduzir">${TRANSLATE_ARROW_ICON}</button>`;
+}
+
+// Traduz (para o português) a frase original; a dupla caracteres + pinyin
+// é traduzida de uma vez porque o texto enviado é só a frase. Usa a tradução
+// já salva no card (mandarim) e, quando não há, pede ao servidor.
+async function getSentenceTranslation(sentence, stored) {
+  if (stored) return stored;
+  if (vocabTranslationCache.has(sentence)) return vocabTranslationCache.get(sentence);
+  const result = await apiFetch("/conversation/translate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: sentence, native_language: "pt" }),
+  });
+  const translated = String(result?.translated || "").trim();
+  if (!translated) throw new Error("Tradução indisponível.");
+  vocabTranslationCache.set(sentence, translated);
+  return translated;
+}
+
+document.addEventListener("click", async event => {
+  const btn = event.target.closest(".translate-arrow-btn[data-translate]");
+  if (!btn || btn.disabled) return;
+  const card = vocabCards[vocabIndex];
+  if (!card) return;
+  const key = btn.dataset.translate;
+  const holder = btn.closest(".vocab-sentence, .vocab-example-row");
+  const outEl = holder?.querySelector(".vocab-sentence-translated");
+  const origEl = holder?.querySelector(".vocab-sentence-original");
+  if (!outEl || !origEl) return;
+
+  // Segundo clique volta para a frase original.
+  if (!outEl.hidden) {
+    outEl.hidden = true;
+    origEl.hidden = false;
+    btn.classList.remove("is-active");
+    btn.setAttribute("aria-pressed", "false");
+    return;
+  }
+
+  let sentence, stored;
+  if (key === "main") {
+    sentence = card.example_sentence || "";
+    stored = card.example_translations?.[0];
+  } else {
+    sentence = vocabExamples[Number(key)] || "";
+    const srcIndex = (card.example_sentences || []).indexOf(sentence);
+    stored = srcIndex >= 0 ? card.example_translations?.[srcIndex] : "";
+  }
+  if (!sentence) return;
+
+  btn.disabled = true;
+  btn.classList.add("is-loading");
+  try {
+    outEl.textContent = await getSentenceTranslation(sentence, stored);
+    outEl.hidden = false;
+    origEl.hidden = true;
+    btn.classList.add("is-active");
+    btn.setAttribute("aria-pressed", "true");
+  } catch (err) {
+    showToast(err.message || "Não foi possível traduzir a frase.");
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove("is-loading");
+  }
+});
+
 function renderVocabCard(card) {
   if (!card) {
     // Aprender é uma fila contínua: quando o lote atual acaba, buscamos
@@ -297,9 +371,13 @@ function renderVocabCard(card) {
   const mainExample = card.example_sentence || "";
   const mainExamplePinyin = isMandarinCard && card.example_pinyin_sentences?.[0]
     ? `<small class="vocab-example-pinyin">${escapeHtml(card.example_pinyin_sentences[0])}</small>` : "";
-  const mainExampleTranslation = isMandarinCard && card.example_translations?.[0]
-    ? `<small class="vocab-example-translation">${escapeHtml(card.example_translations[0])}</small>` : "";
-  if (vocabExampleEl) vocabExampleEl.innerHTML = highlightVocabWord(mainExample, card.word) + mainExamplePinyin + mainExampleTranslation;
+  // Ao clicar na seta, a frase (e o pinyin) é trocada pela tradução no mesmo
+  // lugar; o segundo clique volta ao original.
+  if (vocabExampleEl) {
+    vocabExampleEl.innerHTML = mainExample
+      ? `<span class="vocab-sentence"><span class="vocab-sentence-spacer"></span><span class="vocab-sentence-text"><span class="vocab-sentence-original">${highlightVocabWord(mainExample, card.word)}${mainExamplePinyin}</span><span class="vocab-sentence-translated" hidden></span></span>${translateButtonHtml("main")}</span>`
+      : "";
+  }
   // Não há mais limite visual de 10 palavras por sessão.
   if (vocabCounterEl) vocabCounterEl.textContent = "";
   setVocabFlag(card.language);
@@ -312,11 +390,14 @@ function renderVocabCard(card) {
   if (vocabMoreExamplesText) vocabMoreExamplesText.innerHTML = vocabExamples.map((sentence, index) => {
     const sourceIndex = (card.example_sentences || []).indexOf(sentence);
     const pinyin = isMandarinCard && sourceIndex >= 0 ? card.example_pinyin_sentences?.[sourceIndex] : "";
-    const translation = isMandarinCard && sourceIndex >= 0 ? card.example_translations?.[sourceIndex] : "";
+    const translation = sourceIndex >= 0 ? card.example_translations?.[sourceIndex] : "";
     return `
     <div class="vocab-example-row">
-      <p>${highlightVocabWord(sentence, card.word)}${pinyin ? `<small class="vocab-example-pinyin">${escapeHtml(pinyin)}</small>` : ""}${translation ? `<small class="vocab-example-translation">${escapeHtml(translation)}</small>` : ""}</p>
-      <button type="button" class="vocab-example-save" data-index="${index}" aria-label="Salvar frase nos flashcards" title="Salvar nos flashcards">${bookmarkIcon(false)}</button>
+      <p><span class="vocab-sentence-original">${highlightVocabWord(sentence, card.word)}${pinyin ? `<small class="vocab-example-pinyin">${escapeHtml(pinyin)}</small>` : ""}</span><span class="vocab-sentence-translated" hidden></span></p>
+      <div class="vocab-example-actions">
+        ${translateButtonHtml(index)}
+        <button type="button" class="vocab-example-save" data-index="${index}" aria-label="Salvar frase nos flashcards" title="Salvar nos flashcards">${bookmarkIcon(false)}</button>
+      </div>
     </div>`;
   }).join("");
   playVocabWord(card.word);
@@ -379,7 +460,8 @@ vocabOptionsEl?.addEventListener("click", event => {
 
 async function playVocabAudio() {
   if (!vocabListenBtn) return;
-  const text = vocabExampleEl?.textContent?.trim();
+  // Só a frase original — sem o pinyin nem a tradução que aparecem no card.
+  const text = String(vocabCards[vocabIndex]?.example_sentence || "").trim();
   if (!text) return;
   vocabListenBtn.disabled = true;
   try {

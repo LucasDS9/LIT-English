@@ -117,7 +117,7 @@
             <button type="button" class="vocab-browse-action" id="vocab-listen-btn">
               <span class="vocab-browse-action-icon"></span>
               <span class="vocab-browse-action-divider"></span>
-              <span>Ouvir novamente</span>
+              <span>Ouvir frase</span>
             </button>
             <button type="button" class="vocab-browse-action" id="vocab-save-btn">
               <span class="vocab-browse-action-icon"></span>
@@ -146,65 +146,44 @@
       <div id="learn-tab-criar">
       <section id="learn-create-view" class="learn-create-area">
         <div class="learn-create-card">
-          <div class="learn-create-header">
-            <div class="learn-create-illustration" aria-hidden="true">
-              <svg viewBox="0 0 120 86" xmlns="http://www.w3.org/2000/svg">
-                <ellipse cx="74" cy="45" rx="37" ry="28" fill="#861E19" opacity="0.96"/>
-                <g transform="rotate(-6 58 40)">
-                  <rect x="18" y="20" width="58" height="45" rx="5" fill="#fff" stroke="#2A2A2A" stroke-width="1.5"/>
-                  <rect x="26" y="14" width="58" height="45" rx="5" fill="#fff" stroke="#2A2A2A" stroke-width="1.5"/>
-                  <line x1="31" y1="20" x2="74" y2="20" stroke="#E9E9E9" stroke-width="1.5"/>
-                  <text x="55" y="45" text-anchor="middle" font-family="Poppins, sans-serif" font-size="17" font-weight="800" fill="#861E19">LIT</text>
-                </g>
-              </svg>
-            </div>
-            <div>
-              <h2>Novo Flashcard</h2>
-              <p>Preencha as informações abaixo para criar seu flashcard.</p>
-            </div>
+          <div class="learn-create-title">
+            <h2>Novo Flashcard</h2>
+            <p>Preencha as informações abaixo para criar seu flashcard.</p>
           </div>
 
-          <div class="learn-create-divider"></div>
-
           <form id="flashcard-form" novalidate>
-            <div class="learn-create-field-row">
-              <div class="learn-create-field-copy">
-                <div class="learn-create-field-title"><span class="learn-create-icon">A</span><strong>Frente</strong></div>
-                <p id="front-hint">Digite a palavra, frase ou expressão em português ou inglês.</p>
+            <div class="learn-create-fields">
+              <div class="learn-create-field-row">
+                <div class="learn-create-field-copy">
+                  <div class="learn-create-field-title"><strong>Frente</strong></div>
+                  <p id="front-hint">Mandarim ou PT.<br>A palavra será salva em mandarim.</p>
+                </div>
+                <div class="learn-create-input-wrap">
+                  <textarea id="flashcard-front" maxlength="200" placeholder="Ex: 你好 ou olá" required></textarea>
+                </div>
               </div>
-              <div class="learn-create-input-wrap">
-                <textarea id="flashcard-front" maxlength="200" placeholder="Ex: Livro" required></textarea>
-                <span class="learn-create-counter" id="front-counter">0/200</span>
-              </div>
-            </div>
 
-            <div class="learn-create-field-row">
-              <div class="learn-create-field-copy">
-                <div class="learn-create-field-title"><span class="learn-create-icon">文</span><strong>Verso</strong></div>
-                <p>Deixe em branco para gerar automaticamente.</p>
+              <div class="learn-create-field-row">
+                <div class="learn-create-field-copy">
+                  <div class="learn-create-field-title">
+                    <strong>Verso</strong>
+                    <svg class="learn-create-sparkle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M10 4.5 11.8 9.2 16.5 11 11.8 12.8 10 17.5 8.2 12.8 3.5 11 8.2 9.2Z"/><path d="M17.5 3.5 18.2 5.3 20 6 18.2 6.7 17.5 8.5 16.8 6.7 15 6 16.8 5.3Z"/><path d="M17.5 14.5 18.2 16.3 20 17 18.2 17.7 17.5 19.5 16.8 17.7 15 17 16.8 16.3Z"/></svg>
+                  </div>
+                  <p>Traduzido automaticamente.</p>
+                </div>
+                <div class="learn-create-input-wrap">
+                  <textarea id="flashcard-back" maxlength="200" placeholder="Ex: olá"></textarea>
+                </div>
               </div>
-              <div class="learn-create-input-wrap">
-                <textarea id="flashcard-back" maxlength="200" placeholder="Deixe em branco para gerar automaticamente."></textarea>
-                <span class="learn-create-counter" id="back-counter">0/200</span>
-              </div>
-            </div>
 
-            <div class="learn-create-field-row">
-              <div class="learn-create-field-copy">
-                <div class="learn-create-field-title"><span class="learn-create-icon">▤</span><strong>Descrição</strong></div>
-                <p>Contexto, exemplo ou observação (opcional).</p>
-              </div>
-              <div class="learn-create-input-wrap">
-                <textarea id="flashcard-description" maxlength="300" placeholder="Ex: Usado para falar sobre leitura ou livros."></textarea>
-                <span class="learn-create-counter" id="description-counter">0/300</span>
-              </div>
-            </div>
-
-            <div class="learn-create-note">
-              <span class="learn-create-note-icon">✦</span>
-              <div>
-                <strong>Geração automática</strong>
-                <p>Se o campo "Verso" estiver vazio, a tradução será gerada automaticamente.</p>
+              <div class="learn-create-field-row">
+                <div class="learn-create-field-copy">
+                  <div class="learn-create-field-title"><strong>Descrição</strong></div>
+                  <p>Contexto, exemplo ou observação (opcional).</p>
+                </div>
+                <div class="learn-create-input-wrap">
+                  <textarea id="flashcard-description" maxlength="300" placeholder="Ex: É uma saudação comum."></textarea>
+                </div>
               </div>
             </div>
 

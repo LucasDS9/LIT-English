@@ -197,7 +197,10 @@ function listenTextForCard(card) {
   // Sem isso, quando o professor usa o formato "Tópico: frase" no front do
   // flashcard, o áudio lia o rótulo em voz alta junto com a frase (ex: "Future,
   // I will go to the store").
-  return splitTopicLabel(card.target_text || card.front).text;
+  // Idiomas de outro alfabeto: lê só a frase original; a transcrição (pinyin)
+  // é só apoio visual e não deve ser pronunciada uma segunda vez.
+  const text = splitTopicLabel(card.target_text || card.front).text;
+  return splitScriptAndRomanization(text).script;
 }
 
 function buildReviewAudioControls(card, body, { listenLabel = "Ouvir novamente" } = {}) {
@@ -423,6 +426,20 @@ async function editFlashcardFront(card, textEl, editBtn) {
   });
 }
 
+// Separa texto em escrita CJK da transcrição latina (pinyin) que vem depois.
+function splitScriptAndRomanization(text) {
+  const raw = (text || "").trim();
+  if (!/^[\u3000-\u303f\u3400-\u9fff\uff00-\uffef]/.test(raw)) return { script: raw, romanization: "" };
+  let end = -1;
+  for (let i = 0; i < raw.length; i++) {
+    if (/[\u3000-\u303f\u3400-\u9fff\uff00-\uffef]/.test(raw[i])) end = i;
+  }
+  const script = raw.slice(0, end + 1).trim();
+  const romanization = raw.slice(end + 1).trim();
+  if (!romanization || !/[A-Za-zÀ-ɏ]/.test(romanization)) return { script: raw, romanization: "" };
+  return { script, romanization };
+}
+
 function appendPromptText(container, text, className, card = null) {
   const { label, text: mainText } = splitTopicLabel(text);
   const holder = document.createElement("div");
@@ -438,9 +455,14 @@ function appendPromptText(container, text, className, card = null) {
   const line = document.createElement("div");
   line.className = "front-edit-line";
 
+  // Idiomas de outro alfabeto (mandarim): a frase vem como "我是学生。wǒ shì
+  // xuéshēng." — separamos os caracteres da transcrição para mostrar um
+  // abaixo do outro.
+  const { script, romanization } = splitScriptAndRomanization(mainText);
+
   const mainEl = document.createElement("p");
   mainEl.className = className;
-  mainEl.textContent = mainText;
+  mainEl.textContent = script;
   line.appendChild(mainEl);
 
   if (card?.flashcard_id) {
@@ -455,6 +477,12 @@ function appendPromptText(container, text, className, card = null) {
   }
 
   holder.appendChild(line);
+  if (romanization) {
+    const romanEl = document.createElement("p");
+    romanEl.className = "front-romanization";
+    romanEl.textContent = romanization;
+    holder.appendChild(romanEl);
+  }
   container.appendChild(holder);
   return mainEl;
 }
@@ -770,8 +798,12 @@ function appendReviewCardHeader(cardBox, card) {
 }
 
 function reviewMeaningQuestion(word) {
-  const safeWord = (word || "").trim();
+  // Para idiomas de outro alfabeto, a pergunta cita só a frase original (o
+  // pinyin já aparece logo acima).
+  const safeWord = splitScriptAndRomanization((word || "").trim()).script;
   switch (normalizeTargetLanguage(session.targetLanguage)) {
+    case "mandarim":
+      return `O que significa '${safeWord}'?`;
     case "italiano":
       return `Cosa significa '${safeWord}'?`;
     case "frances":

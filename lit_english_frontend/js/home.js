@@ -9,6 +9,8 @@ const roleLabelEl = document.getElementById("role-label");
 const welcomeTitleEl = document.getElementById("welcome-title");
 const homeQuoteEl = document.getElementById("home-quote");
 const homeQuoteAuthorEl = document.getElementById("home-quote-author");
+const homeQuotePinyinEl = document.getElementById("home-quote-pinyin");
+const homeTranslateBtn = document.getElementById("home-translate-btn");
 const metricsRootEl = document.getElementById("home-metrics");
 
 // Mesma regra do backend (ver student_language() em language.py): curso
@@ -29,32 +31,89 @@ const HOME_CONTENT = {
     welcome: (firstName) => `Welcome, ${firstName}!`,
     quote: "An investment in knowledge pays the best interest.",
     author: "Benjamin Franklin",
+    // Tradução para o português (botão de seta).
+    pt: {
+      welcome: (firstName) => `Bem-vindo, ${firstName}!`,
+      quote: "Um investimento em conhecimento rende os melhores juros.",
+      author: "Benjamin Franklin",
+    },
   },
   italiano: {
     welcome: (firstName) => `Benvenuto, ${firstName}!`,
     quote: "La mente non è un vaso da riempire, ma un fuoco da accendere.",
     author: "Plutarco",
+    // Tradução para o português (botão de seta).
+    pt: {
+      welcome: (firstName) => `Bem-vindo, ${firstName}!`,
+      quote: "A mente não é um vaso a ser enchido, mas um fogo a ser aceso.",
+      author: "Plutarco",
+    },
   },
   frances: {
     welcome: (firstName) => `Bienvenue, ${firstName}!`,
     quote: "Savoir étant sublime, apprendre sera doux.",
     author: "Victor Hugo",
+    // Tradução para o português (botão de seta).
+    pt: {
+      welcome: (firstName) => `Bem-vindo, ${firstName}!`,
+      quote: "Sendo o saber sublime, aprender será doce.",
+      author: "Victor Hugo",
+    },
   },
   mandarim: {
     welcome: (firstName) => `欢迎, ${firstName}!`,
     quote: "千里之行，始于足下。",
-    author: "老子 (Laozi) · Qiān lǐ zhī xíng, shǐ yú zú xià.",
+    // Idiomas com outro alfabeto: a transcrição (pinyin) vai numa linha
+    // própria, entre a frase e o autor.
+    pinyin: "Qiān lǐ zhī xíng, shǐ yú zú xià.",
+    author: "老子 (Laozi)",
+    // Tradução para o português (botão de seta).
+    pt: {
+      welcome: (firstName) => `Bem-vindo, ${firstName}!`,
+      quote: "A jornada de mil milhas começa com um único passo.",
+      author: "老子 (Laozi)",
+    },
   },
 };
 
+let homeShowingTranslation = false;
+let homeCurrent = null;
+
+function renderHomeContent() {
+  if (!homeCurrent) return;
+  const { content, firstName } = homeCurrent;
+  const view = homeShowingTranslation ? content.pt : content;
+
+  welcomeTitleEl.textContent = view.welcome(firstName);
+  if (homeQuoteEl) homeQuoteEl.textContent = `\u201c${view.quote}\u201d`;
+  // O pinyin só faz sentido junto da frase original; traduzido, some.
+  const pinyin = homeShowingTranslation ? "" : (content.pinyin || "");
+  if (homeQuotePinyinEl) {
+    homeQuotePinyinEl.textContent = pinyin;
+    homeQuotePinyinEl.hidden = !pinyin;
+  }
+  if (homeQuoteAuthorEl) homeQuoteAuthorEl.textContent = `\u2014 ${view.author}`;
+
+  if (homeTranslateBtn) {
+    homeTranslateBtn.classList.toggle("is-active", homeShowingTranslation);
+    homeTranslateBtn.setAttribute("aria-pressed", String(homeShowingTranslation));
+    const label = homeShowingTranslation ? "Ver no idioma original" : "Traduzir para português";
+    homeTranslateBtn.setAttribute("aria-label", label);
+    homeTranslateBtn.title = homeShowingTranslation ? "Original" : "Traduzir";
+  }
+}
+
 function applyHomeContent(user, firstName) {
   const language = studentLanguage(user);
-  const content = HOME_CONTENT[language] || HOME_CONTENT.ingles;
-
-  welcomeTitleEl.textContent = content.welcome(firstName);
-  if (homeQuoteEl) homeQuoteEl.textContent = `\u201c${content.quote}\u201d`;
-  if (homeQuoteAuthorEl) homeQuoteAuthorEl.textContent = `\u2014 ${content.author}`;
+  homeCurrent = { content: HOME_CONTENT[language] || HOME_CONTENT.ingles, firstName };
+  homeShowingTranslation = false;
+  renderHomeContent();
 }
+
+homeTranslateBtn?.addEventListener("click", () => {
+  homeShowingTranslation = !homeShowingTranslation;
+  renderHomeContent();
+});
 
 document.getElementById("logout-btn").addEventListener("click", () => {
   const ok = window.confirm("Deseja sair da sua conta?");
