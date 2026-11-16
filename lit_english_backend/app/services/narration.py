@@ -22,7 +22,7 @@ from app.models import NarrationAudio
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_VOICE_ID = "1s5ETcPtsJ9W2cUUQrDb"
+DEFAULT_VOICE_ID = "bIHbv24MWmeRgasZH58o"  # Will (default voice, funciona no plano gratuito)
 DEFAULT_MODEL_ID = "eleven_v4_turbo"
 ELEVENLABS_URL = "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
 
@@ -84,20 +84,31 @@ async def _generate(language: str, text: str) -> bytes:
     key = api_key()
     if not key:
         raise RuntimeError("LIT_narrator não configurada.")
-    body = {"text": text, "model_id": model_id()}
-    code = _LANGUAGE_CODES.get(language)
-    if code:
-        body["language_code"] = code
-    async with httpx.AsyncClient(timeout=40.0) as client:
-        resp = await client.post(
-            ELEVENLABS_URL.format(voice_id=voice_id()),
-            params={"output_format": "mp3_44100_64"},
-            headers={"xi-api-key": key, "Content-Type": "application/json", "Accept": "audio/mpeg"},
-            json=body,
-        )
-    if resp.status_code != 200 or not resp.content:
-        raise RuntimeError(f"ElevenLabs {resp.status_code}: {resp.text[:200]}")
-    return resp.content
+    # Tenta o modelo configurado (padrão v4 Turbo, que lê tags de emoção); se a
+    # conta não tiver acesso a ele, cai para o Eleven v4.
+    models = [model_id()]
+    if models[0] == "eleven_v4_turbo":
+        models.append("eleven_v4")
+    last_error = ""
+    for model in models:
+        body = {"text": text, "model_id": model}
+        code = _LANGUAGE_CODES.get(language)
+        if code:
+            body["language_code"] = code
+        async with httpx.AsyncClient(timeout=40.0) as client:
+            resp = await client.post(
+                ELEVENLABS_URL.format(voice_id=voice_id()),
+                params={"output_format": "mp3_44100_128"},
+                headers={"xi-api-key": key, "Content-Type": "application/json", "Accept": "audio/mpeg"},
+                json=body,
+            )
+        if resp.status_code == 200 and resp.content:
+            return resp.content
+        last_error = f"ElevenLabs {resp.status_code} ({model}): {resp.text[:200]}"
+        logger.warning(last_error)
+        if resp.status_code in (401, 402, 429):  # chave/plano/limite: trocar de modelo não ajuda
+            break
+    raise RuntimeError(last_error)
 
 
 async def get_narration(db: Session, language: str, text: str) -> bytes:

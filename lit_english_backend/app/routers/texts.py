@@ -205,7 +205,7 @@ async def text_narration(
         audio = await narration.get_narration(db, reading.language or "ingles", text)
     except Exception as exc:
         logger.warning("Falha na narração: %s", exc)
-        raise HTTPException(status_code=502, detail="Não foi possível gerar a narração agora.")
+        raise HTTPException(status_code=502, detail=f"Narração falhou: {str(exc)[:200]}")
     return Response(
         content=audio,
         media_type="audio/mpeg",

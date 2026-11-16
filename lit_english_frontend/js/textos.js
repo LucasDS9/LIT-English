@@ -102,7 +102,13 @@ async function fetchChunkAudio(text) {
       if (cache) await cache.put(key, new Response(blob, { headers: { "Content-Type": "audio/mpeg" } }));
     } catch (_) {}
     return blob;
-  } catch (_) {
+  } catch (err) {
+    // Mostra o motivo (uma vez) em vez de cair em silêncio na voz antiga.
+    console.warn("Narração ElevenLabs indisponível:", err && err.message);
+    if (!window.__narrationWarned) {
+      window.__narrationWarned = true;
+      showToast(`Voz do narrador indisponível: ${(err && err.message) || "erro desconhecido"}`);
+    }
     return cachedTtsBlob(text);
   }
 }
