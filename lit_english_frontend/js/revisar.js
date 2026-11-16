@@ -55,6 +55,58 @@ const session = {
 };
 
 // ---------------------------------------------------------------------------
+// Persistência do ciclo
+// ---------------------------------------------------------------------------
+// Guarda o lote já ordenado (respeitando o ciclo) e a posição atual, para que
+// sair da página (ou recarregar) não descarte o ciclo: ao voltar, continua do
+// card em que o aluno parou. Só é apagado ao concluir o ciclo ou ao carregar
+// um novo lote.
+let sessionStorageKey = "lit_review_session";
+
+function persistSession(nextIndex = session.index) {
+  try {
+    localStorage.setItem(
+      sessionStorageKey,
+      JSON.stringify({
+        cards: session.cards,
+        index: nextIndex,
+        remaining: session.remaining,
+        limit: session.limit,
+        hasMore: session.hasMore,
+      })
+    );
+  } catch (_) {}
+}
+
+function clearPersistedSession() {
+  try {
+    localStorage.removeItem(sessionStorageKey);
+  } catch (_) {}
+}
+
+function restorePersistedSession() {
+  try {
+    const raw = localStorage.getItem(sessionStorageKey);
+    if (!raw) return false;
+    const saved = JSON.parse(raw);
+    if (!saved || !Array.isArray(saved.cards) || saved.index >= saved.cards.length || saved.index < 0) {
+      clearPersistedSession();
+      return false;
+    }
+    session.cards = saved.cards;
+    session.index = saved.index;
+    session.remaining = saved.remaining;
+    session.limit = saved.limit || 20;
+    session.hasMore = Boolean(saved.hasMore);
+    session.flipped = false;
+    session.pronunciationResult = null;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Áudio (pronúncia em inglês)
 // ---------------------------------------------------------------------------
 // O áudio é gerado por um serviço de TTS neural (via nosso backend, que
@@ -508,8 +560,10 @@ function advanceToNextCard() {
   session.pronunciationResult = null;
 
   if (session.index >= session.cards.length) {
+    clearPersistedSession();
     renderFinished();
   } else {
+    persistSession();
     renderCard();
   }
 }
@@ -533,11 +587,6 @@ function renderTypeCard(card) {
 
   const cardBox = document.createElement("div");
   cardBox.className = `review-card review-card-status ${statusClassName(card)}`.trim();
-
-  const counter = document.createElement("div");
-  counter.className = "counter";
-  counter.textContent = `${session.index + 1} / ${session.cards.length}`;
-  cardBox.appendChild(counter);
 
   const body = document.createElement("div");
   body.className = "card-body";
@@ -605,11 +654,6 @@ function renderSpeakCard(card) {
 
   const cardBox = document.createElement("div");
   cardBox.className = `review-card review-card-status ${statusClassName(card)}`.trim();
-
-  const counter = document.createElement("div");
-  counter.className = "counter";
-  counter.textContent = `${session.index + 1} / ${session.cards.length}`;
-  cardBox.appendChild(counter);
 
   const body = document.createElement("div");
   body.className = "card-body";
@@ -690,6 +734,7 @@ async function submitSpeakAnswer(card, getBlob, feedback, submitBtn, getLocked, 
       blob,
       `/flashcards/review/${card.flashcard_id}/submit-speak`
     );
+    persistSession(session.index + 1);
 
     // Quando a Azure Pronunciation Assessment está disponível, mostra o
     // mesmo analisador visual (score + palavra por palavra) usado em
@@ -788,11 +833,6 @@ function appendReviewCardHeader(cardBox, card) {
   badge.className = "review-lang-badge";
   badge.innerHTML = `<span class="review-lang-flag">${meta.flag}</span><span>${meta.label}</span>`;
   header.appendChild(badge);
-
-  const counter = document.createElement("span");
-  counter.className = "review-card-counter";
-  counter.textContent = `${session.index + 1} / ${session.cards.length}`;
-  header.appendChild(counter);
 
   cardBox.appendChild(header);
 }
@@ -1028,6 +1068,7 @@ async function submitTypedAnswer(card, input, feedback, submitBtn) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ typed_answer: typed }),
     });
+    persistSession(session.index + 1);
 
     SFX.play(result.correct ? "correct" : "wrong");
 
@@ -1071,6 +1112,7 @@ async function submitReview(flashcardId, quality, qualityRow) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ quality }),
     });
+    persistSession(session.index + 1);
 
     // Aprendendo -> Dominando (type_pt) segue o `next_review` agendado
     // pelo SM-2, como qualquer outra etapa — não força reaparição nesta
@@ -1098,7 +1140,7 @@ function renderFinished() {
       ? `Você concluiu ${session.cards.length} flashcards deste ciclo. Quer prosseguir para o próximo?`
       : "Você concluiu todos os flashcards disponíveis por agora.",
     actionLabel: canContinue ? "Prosseguir" : "Verificar novamente",
-    onAction: loadQueue,
+    onAction: () => loadQueue(),
   });
 }
 
@@ -1108,7 +1150,7 @@ function renderEmpty() {
     title: "Você está em dia!",
     text: "Não há nenhum card para revisar agora. Volte mais tarde.",
     actionLabel: "Atualizar",
-    onAction: loadQueue,
+    onAction: () => loadQueue(),
   });
 }
 
@@ -1138,11 +1180,16 @@ function renderError(message) {
     title: "Algo deu errado",
     text: message || "Não foi possível carregar sua revisão. Tente novamente.",
     actionLabel: "Tentar novamente",
-    onAction: loadQueue,
+    onAction: () => loadQueue(),
   });
 }
 
-async function loadQueue() {
+async function loadQueue({ resume = false } = {}) {
+  if (resume && restorePersistedSession()) {
+    renderCard();
+    return;
+  }
+  clearPersistedSession();
   reviewArea.innerHTML = '<div class="skeleton">Carregando seus cards...</div>';
 
   try {
@@ -1173,9 +1220,8 @@ async function loadQueue() {
       });
     } else if (session.cards.length === 0) {
       renderEmpty();
-    } else if (session.cards.length === 0) {
-      renderEmpty();
     } else {
+      persistSession();
       renderCard();
     }
   } catch (err) {
@@ -1210,6 +1256,7 @@ async function init() {
   studentNameEl.textContent = user.name;
   roleLabelEl.textContent = user.role === "professor" ? "PROFESSOR" : "ALUNO";
   session.targetLanguage = normalizeTargetLanguage(user.target_language || "ingles");
+  sessionStorageKey = `lit_review_session_${user.id ?? user.email ?? "u"}`;
 
   if (user.role !== "aluno") {
     window.location.href = "professor.html";
@@ -1221,7 +1268,7 @@ async function init() {
     return;
   }
 
-  loadQueue();
+  loadQueue({ resume: true });
 }
 
 init();

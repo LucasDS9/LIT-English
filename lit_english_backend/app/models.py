@@ -14,6 +14,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     JSON,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -330,6 +331,10 @@ class ReadingText(Base):
     level = Column(Enum(ReadingLevel), nullable=False, default=ReadingLevel.A1)
     content = Column(Text, nullable=False)
     translation = Column(Text, nullable=True)
+    # Textos padrão (is_default) aparecem para todos os alunos da língua-alvo
+    # `language`, sem precisar de atribuição. Textos do professor: is_default False.
+    language = Column(String, nullable=True)
+    is_default = Column(Boolean, nullable=False, default=False, server_default="false")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     assignments = relationship(
@@ -339,6 +344,21 @@ class ReadingText(Base):
     @property
     def students(self):
         return [a.student for a in self.assignments]
+
+
+class NarrationAudio(Base):
+    """Áudio narrado (ElevenLabs) de um trecho de texto padrão, guardado para sempre.
+
+    Cada trecho é gerado UMA vez por (voz, modelo, língua, texto) e reaproveitado
+    por todos os alunos, inclusive depois de novos deploys (fica no banco).
+    """
+    __tablename__ = "narration_audio"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cache_key = Column(String, nullable=False, unique=True, index=True)
+    language = Column(String, nullable=True)
+    audio = Column(LargeBinary, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class TextAssignment(Base):

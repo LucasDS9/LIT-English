@@ -5,11 +5,16 @@ Rotas de Read and Listen:
 """
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import re
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_approved_user, get_current_professor
 from app.database import get_db
+from app.language import student_language
 from app.models import ReadingText, TextAssignment, User, UserRole
 from app.schemas import (
     ReadingTextCreate,
@@ -18,11 +23,24 @@ from app.schemas import (
     WordLookupOut,
     WordLookupRequest,
 )
+from app.services import narration
 from app.vocab_lookup import VocabLookupUnavailable, lookup_word
 
 router = APIRouter(prefix="/texts", tags=["Read and Listen"])
 
 logger = logging.getLogger(__name__)
+
+
+def _student_can_read(db: Session, text: ReadingText, user: User) -> bool:
+    """Aluno lê textos atribuídos a ele ou o texto padrão da sua língua-alvo."""
+    if text.is_default and (text.language or "ingles") == student_language(user):
+        return True
+    return (
+        db.query(TextAssignment)
+        .filter(TextAssignment.text_id == text.id, TextAssignment.student_id == user.id)
+        .first()
+        is not None
+    )
 
 
 def _sync_assignments(db: Session, text: ReadingText, student_ids: list[int]):
@@ -125,7 +143,15 @@ def list_texts(
     )
     return (
         db.query(ReadingText)
-        .filter(ReadingText.id.in_(assigned_ids))
+        .filter(
+            or_(
+                ReadingText.id.in_(assigned_ids),
+                and_(
+                    ReadingText.is_default.is_(True),
+                    ReadingText.language == student_language(current_user),
+                ),
+            )
+        )
         .order_by(ReadingText.created_at.desc())
         .all()
     )
@@ -142,15 +168,49 @@ def get_text(
         raise HTTPException(status_code=404, detail="Texto não encontrado.")
 
     # Aluno só pode ler textos atribuídos a ele
-    if current_user.role == UserRole.aluno:
-        assigned = db.query(TextAssignment).filter(
-            TextAssignment.text_id == text_id,
-            TextAssignment.student_id == current_user.id,
-        ).first()
-        if not assigned:
-            raise HTTPException(status_code=403, detail="Texto não disponível para você.")
+    if current_user.role == UserRole.aluno and not _student_can_read(db, text, current_user):
+        raise HTTPException(status_code=403, detail="Texto não disponível para você.")
 
     return text
+
+
+# ============================================================
+# NARRAÇÃO (ElevenLabs) dos textos padrão — gerada uma vez e guardada no banco
+# ============================================================
+
+def _loose(text: str) -> str:
+    """Sem pontuação/maiúsculas, para checar se o trecho pertence ao texto."""
+    return re.sub(r"[\W_]+", " ", (text or "").lower()).strip()
+
+
+@router.get("/{text_id}/narration")
+async def text_narration(
+    text_id: int,
+    text: str = Query(..., min_length=1, max_length=400),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_approved_user),
+):
+    """MP3 de um trecho do texto padrão, na voz do narrador. Só serve trechos
+    que realmente fazem parte do texto (evita usar a chave como TTS genérico)."""
+    reading = db.query(ReadingText).filter(ReadingText.id == text_id).first()
+    if not reading or not reading.is_default:
+        raise HTTPException(status_code=404, detail="Narração não disponível para este texto.")
+    if current_user.role == UserRole.aluno and not _student_can_read(db, reading, current_user):
+        raise HTTPException(status_code=403, detail="Texto não disponível para você.")
+    if _loose(text) not in _loose(reading.content):
+        raise HTTPException(status_code=400, detail="Trecho não pertence ao texto.")
+    if not narration.api_key():
+        raise HTTPException(status_code=503, detail="Narração indisponível.")
+    try:
+        audio = await narration.get_narration(db, reading.language or "ingles", text)
+    except Exception as exc:
+        logger.warning("Falha na narração: %s", exc)
+        raise HTTPException(status_code=502, detail="Não foi possível gerar a narração agora.")
+    return Response(
+        content=audio,
+        media_type="audio/mpeg",
+        headers={"Cache-Control": "private, max-age=31536000, immutable"},
+    )
 
 
 # ============================================================
@@ -175,15 +235,8 @@ def word_lookup(
     atribuído.
     """
     if data.text_id is not None and current_user.role == UserRole.aluno:
-        assigned = (
-            db.query(TextAssignment)
-            .filter(
-                TextAssignment.text_id == data.text_id,
-                TextAssignment.student_id == current_user.id,
-            )
-            .first()
-        )
-        if not assigned:
+        target_text = db.query(ReadingText).filter(ReadingText.id == data.text_id).first()
+        if not target_text or not _student_can_read(db, target_text, current_user):
             raise HTTPException(status_code=403, detail="Texto não disponível para você.")
 
     word = data.word.strip()

@@ -23,6 +23,12 @@ Base.metadata.create_all(bind=engine)
 logger.info("Rodando migrações...")
 run_migrations()
 
+# 3. Textos padrão do Read and Listen (um por língua, nível A2, para todas as contas)
+from app.default_texts import ensure_default_texts
+
+with SessionLocal() as _db:
+    ensure_default_texts(_db)
+
 logger.info("Banco de dados pronto.")
 
 app = FastAPI(title="LIT English API", version="0.19.0")
@@ -59,6 +65,9 @@ async def _start_conversation_cleanup():
     # por dia. O loop é idempotente porque os snapshots têm chave única.
     import asyncio
     asyncio.create_task(daily_cost_sync_loop(SessionLocal))
+    # Pré-gera (uma única vez, guardado no banco) a narração dos textos padrão.
+    from app.services.narration import prewarm_default_texts
+    asyncio.create_task(prewarm_default_texts(SessionLocal))
 
 
 @app.get("/")

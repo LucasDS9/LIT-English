@@ -49,6 +49,87 @@ function ttsUrl(text) {
   return `/tts/speak?text=${encodeURIComponent(text)}`;
 }
 
+// ---------------------------------------------------------------------------
+// Cache persistente (fica no navegador, sobrevive a recarregar/fechar a aba)
+// ---------------------------------------------------------------------------
+// - Áudio: Cache Storage, por língua + texto — cada trecho só é gerado uma vez.
+// - Textos: localStorage; abre na hora com a cópia guardada e atualiza em
+//   segundo plano.
+function currentLanguageKey() {
+  try {
+    return String((Auth.getUser() || {}).target_language || "ingles").toLowerCase();
+  } catch (_) {
+    return "ingles";
+  }
+}
+
+async function cachedTtsBlob(text) {
+  const key = `/__lit-tts-cache/${currentLanguageKey()}/${encodeURIComponent(text)}`;
+  let cache = null;
+  try {
+    if ("caches" in window) {
+      cache = await caches.open("lit-tts-v1");
+      const hit = await cache.match(key);
+      if (hit) return await hit.blob();
+    }
+  } catch (_) {}
+  const blob = await apiFetchBlob(ttsUrl(text));
+  try {
+    if (cache) await cache.put(key, new Response(blob, { headers: { "Content-Type": blob.type || "audio/mpeg" } }));
+  } catch (_) {}
+  return blob;
+}
+
+// Textos padrão: narração ElevenLabs (gerada uma vez no servidor e guardada no
+// banco). Se falhar/indisponível, cai no TTS comum. O navegador também guarda
+// o MP3 no Cache Storage, então cada aparelho baixa uma única vez.
+let narrationTextId = null;
+
+async function fetchChunkAudio(text) {
+  if (!narrationTextId) return cachedTtsBlob(text);
+  const key = `/__lit-tts-cache/narration/${narrationTextId}/${encodeURIComponent(text)}`;
+  let cache = null;
+  try {
+    if ("caches" in window) {
+      cache = await caches.open("lit-tts-v1");
+      const hit = await cache.match(key);
+      if (hit) return await hit.blob();
+    }
+  } catch (_) {}
+  try {
+    const blob = await apiFetchBlob(`/texts/${narrationTextId}/narration?text=${encodeURIComponent(text)}`);
+    try {
+      if (cache) await cache.put(key, new Response(blob, { headers: { "Content-Type": "audio/mpeg" } }));
+    } catch (_) {}
+    return blob;
+  } catch (_) {
+    return cachedTtsBlob(text);
+  }
+}
+
+function textsCacheKey(suffix) {
+  let uid = "u";
+  try {
+    const u = Auth.getUser() || {};
+    uid = u.id ?? u.email ?? "u";
+  } catch (_) {}
+  return `lit_texts_${uid}_${suffix}`;
+}
+
+function readTextsCache(suffix) {
+  try {
+    return JSON.parse(localStorage.getItem(textsCacheKey(suffix)) || "null");
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeTextsCache(suffix, value) {
+  try {
+    localStorage.setItem(textsCacheKey(suffix), JSON.stringify(value));
+  } catch (_) {}
+}
+
 let sharedAudioCtx = null;
 function getAudioCtx() {
   if (!sharedAudioCtx) {
@@ -61,7 +142,8 @@ function getAudioCtx() {
 const TTS_CHUNK_MAX = 180;
 
 // Regex de palavra — usada na segmentação, no player e no corpo clicável.
-const WORD_ONLY_RE = /[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’-][A-Za-zÀ-ÖØ-öø-ÿ]+)*/g;
+// Mandarim: cada caractere chinês conta como uma "palavra" (clicável/destacável).
+const WORD_ONLY_RE = /[A-Za-zÀ-ÖØ-öø-ÿ]+(?:['’-][A-Za-zÀ-ÖØ-öø-ÿ]+)*|[\u3400-\u9fff]/g;
 
 function splitIntoChunks(text) {
   const normalized = (text || "").replace(/\s+/g, " ").trim();
@@ -69,7 +151,7 @@ function splitIntoChunks(text) {
 
   // Primeiro separa por frases; depois, se uma frase ainda for muito longa,
   // quebra também por vírgulas/espaços para não passar do limite do TTS.
-  const sentences = normalized.match(/[^.!?]+[.!?]*\s*/g) || [normalized];
+  const sentences = normalized.match(/[^.!?。！？]+[.!?。！？]*\s*/g) || [normalized];
 
   const chunks = [];
   sentences.forEach((sentence) => {
@@ -217,7 +299,7 @@ function splitIntoShadowingSegments(text) {
   const normalized = (text || "").replace(/\s+/g, " ").trim();
   if (!normalized) return [];
 
-  const sentences = normalized.match(/[^.!?]+[.!?]*\s*/g) || [normalized];
+  const sentences = normalized.match(/[^.!?。！？]+[.!?。！？]*\s*/g) || [normalized];
   const segments = [];
 
   sentences.forEach((sentence) => {
@@ -312,8 +394,23 @@ async function renderTextList() {
   textsArea.innerHTML = '<div class="skeleton">Carregando textos...</div>';
 
   let texts;
+  const cachedList = readTextsCache("list");
+  if (cachedList && cachedList.length) {
+    // Abre na hora com a cópia guardada; atualiza em segundo plano.
+    drawTextList(cachedList);
+    apiFetch("/texts")
+      .then((fresh) => {
+        writeTextsCache("list", fresh);
+        if (JSON.stringify(fresh) !== JSON.stringify(cachedList) && textsArea.querySelector(".texts-grid")) {
+          drawTextList(fresh);
+        }
+      })
+      .catch(() => {});
+    return;
+  }
   try {
     texts = await apiFetch("/texts");
+    writeTextsCache("list", texts);
   } catch (err) {
     if (err.status === 403) {
       renderStateBox(textsArea, {
@@ -342,6 +439,10 @@ async function renderTextList() {
     return;
   }
 
+  drawTextList(texts);
+}
+
+function drawTextList(texts) {
   textsArea.innerHTML = "";
   const grid = document.createElement("div");
   grid.className = "texts-grid";
@@ -399,7 +500,7 @@ function stopWordAudio() {
 
 async function getWordAudioUrl(word) {
   if (wordAudioBlobUrls.has(word)) return wordAudioBlobUrls.get(word);
-  const blob = await apiFetchBlob(ttsUrl(word));
+  const blob = await cachedTtsBlob(word);
   const url = URL.createObjectURL(blob);
   wordAudioBlobUrls.set(word, url);
   return url;
@@ -1307,7 +1408,7 @@ async function loadShadowingSegmentAudios(segments, onProgress) {
       const idx = nextIdx;
       nextIdx += 1;
       const segment = segments[idx];
-      const blob = await apiFetchBlob(ttsUrl(segment.text));
+      const blob = await fetchChunkAudio(segment.text);
       const arrayBuffer = await blob.arrayBuffer();
       segment.buffer = await ctx.decodeAudioData(arrayBuffer);
       // Mesma técnica de ancoragem por silêncio real usada no modo normal,
@@ -1339,7 +1440,7 @@ async function loadFullTrack(wordSpans, onProgress) {
     while (nextIdx < total) {
       const idx = nextIdx;
       nextIdx += 1;
-      const blob = await apiFetchBlob(ttsUrl(player.chunks[idx]));
+      const blob = await fetchChunkAudio(player.chunks[idx]);
       const arrayBuffer = await blob.arrayBuffer();
       buffers[idx] = await ctx.decodeAudioData(arrayBuffer);
       loaded += 1;
@@ -1375,16 +1476,22 @@ async function loadFullTrack(wordSpans, onProgress) {
 async function openText(textId) {
   textsArea.innerHTML = '<div class="skeleton">Carregando texto...</div>';
 
-  let text;
-  try {
-    text = await apiFetch(`/texts/${textId}`);
-  } catch (err) {
-    showToast(err.message || "Não foi possível abrir este texto.");
-    renderTextList();
-    return;
+  let text = readTextsCache(`text_${textId}`);
+  if (text) {
+    apiFetch(`/texts/${textId}`).then((fresh) => writeTextsCache(`text_${textId}`, fresh)).catch(() => {});
+  } else {
+    try {
+      text = await apiFetch(`/texts/${textId}`);
+      writeTextsCache(`text_${textId}`, text);
+    } catch (err) {
+      showToast(err.message || "Não foi possível abrir este texto.");
+      renderTextList();
+      return;
+    }
   }
 
   resetPlayer();
+  narrationTextId = text.is_default ? text.id : null;
   player.chunks = splitIntoChunks(text.content);
 
   startReadingHeartbeat(text.id);

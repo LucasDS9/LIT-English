@@ -67,6 +67,11 @@ QUANDO "answer_language" FOR IGUAL A "target_language" (o aluno recebeu a frase 
 - a resposta também precisa ser gramaticalmente correta na língua-alvo: erros reais (concordância, tempo verbal, artigo/preposição errada, palavra de sentido diferente) tornam a resposta incorreta;
 - pontuação e maiúsculas/minúsculas nunca são erro.
 
+GÊNERO E FORMALIDADE: se a frase original (context) não indica o gênero de quem fala ou o grau de
+formalidade, aceite TODAS as formas equivalentes (ex.: "Eu fui a Milão" -> "sono andato" e "sono andata"
+são ambas corretas; masculino/feminino de adjetivos e particípios; tu/Lei). Só rejeite por gênero se o
+contexto o definir ou se a concordância interna da resposta estiver errada.
+
 IMPORTANTE: NÃO seja excessivamente rígido. O objetivo é avaliar se o aluno entendeu e expressou a mesma ideia, não se ele reproduziu uma única tradução "oficial".
 Aceite equivalentes naturais que um professor de inglês aceitaria em uma conversa real.
 Exemplo: "See you later" pode ser "te vejo mais tarde", "até mais tarde", "a gente se vê mais tarde" e outras formas naturais com o mesmo sentido.

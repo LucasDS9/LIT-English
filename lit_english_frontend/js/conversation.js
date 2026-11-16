@@ -453,11 +453,12 @@ function normalizeLanguage(value) {
   if (["es", "espanhol", "español", "spanish"].includes(raw)) return "espanhol";
   if (["de", "alemao", "alemão", "deutsch", "german"].includes(raw)) return "alemao";
   if (["pt", "pt-br", "portugues", "português", "portuguese"].includes(raw)) return "portugues";
+  if (["zh", "zh-cn", "mandarim", "mandarin", "chinese", "chinês"].includes(raw)) return "mandarim";
   return "ingles";
 }
 
 function targetLocale(language) {
-  return { ingles: "en-US", italiano: "it-IT", frances: "fr-FR", espanhol: "es-ES", alemao: "de-DE", portugues: "pt-BR" }[normalizeLanguage(language)] || "en-US";
+  return { ingles: "en-US", italiano: "it-IT", frances: "fr-FR", espanhol: "es-ES", alemao: "de-DE", portugues: "pt-BR", mandarim: "zh-CN" }[normalizeLanguage(language)] || "en-US";
 }
 
 // =========================================================================

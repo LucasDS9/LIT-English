@@ -465,6 +465,8 @@ class ReadingTextOut(BaseModel):
     level: ReadingLevel
     content: str
     translation: Optional[str]
+    language: Optional[str] = None
+    is_default: bool = False
     created_at: datetime
     students: List[FlashcardStudentOut] = []
 

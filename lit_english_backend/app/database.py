@@ -221,6 +221,16 @@ def run_migrations():
             conn.execute(text("ALTER TABLE registration_codes ADD COLUMN code_encrypted TEXT"))
             conn.commit()
 
+    # Textos padrão do Read and Listen: colunas novas em reading_texts.
+    with engine.connect() as conn:
+        if _table_exists(conn, "reading_texts"):
+            if not _col_exists(conn, "reading_texts", "language"):
+                conn.execute(text("ALTER TABLE reading_texts ADD COLUMN language VARCHAR"))
+                conn.commit()
+            if not _col_exists(conn, "reading_texts", "is_default"):
+                conn.execute(text("ALTER TABLE reading_texts ADD COLUMN is_default BOOLEAN NOT NULL DEFAULT FALSE"))
+                conn.commit()
+
     if engine.dialect.name == "postgresql":
         with engine.connect() as conn:
             # Teste de Nivelamento: colunas novas (desempenho_b2 e o

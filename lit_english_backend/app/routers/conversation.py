@@ -104,6 +104,11 @@ _LID_MIN_PROBABILITY = 0.55
 
 _CONFIDENCE_MARGIN = 0.15
 
+_LID_TO_INTERNAL = {
+    "english": "ingles", "italian": "italiano", "french": "frances", "spanish": "espanhol",
+    "german": "alemao", "portuguese": "portugues", "chinese": "mandarim",
+}
+
 
 def _pick_bilingual_transcript(
     target_text: str,
@@ -137,6 +142,10 @@ def _pick_bilingual_transcript(
 
     if _looks_like_help_request(native_text, native, target):
         return native_text
+
+    # O Whisper devolve nomes em inglês ("italian"); aqui a língua-alvo/nativa
+    # usa os nomes internos ("italiano"). Sem converter, a comparação nunca batia.
+    detected_language = _LID_TO_INTERNAL.get(detected_language, detected_language)
 
     if detected_language and detected_probability >= _LID_MIN_PROBABILITY:
         if detected_language == native and native != target:
@@ -200,10 +209,11 @@ async def conversation_turn(
         "en": "ingles", "english": "ingles", "it": "italiano", "italian": "italiano",
         "fr": "frances", "french": "frances", "es": "espanhol", "spanish": "espanhol",
         "de": "alemao", "german": "alemao", "pt": "portugues", "portuguese": "portugues",
+        "zh": "mandarim", "zh-cn": "mandarim", "chinese": "mandarim", "mandarin": "mandarim",
     }
     target = aliases.get(target, target)
     native = aliases.get(native, native)
-    allowed = {"ingles", "italiano", "frances", "espanhol", "alemao", "portugues"}
+    allowed = {"ingles", "italiano", "frances", "espanhol", "alemao", "portugues", "mandarim"}
     if target not in allowed:
         raise HTTPException(status_code=400, detail="Língua-alvo não suportada para a conversa.")
     if native not in allowed:
@@ -433,6 +443,7 @@ async def translate_message(
         "fr": "frances", "french": "frances", "es": "espanhol", "spanish": "espanhol",
         "de": "alemao", "german": "alemao", "pt": "portugues", "pt-br": "portugues",
         "portuguese": "portugues",
+        "zh": "mandarim", "zh-cn": "mandarim", "chinese": "mandarim", "mandarin": "mandarim",
     }
     native = aliases.get(native, native)
     # Este endpoint é usado EXCLUSIVAMENTE pelo botão "Traduzir" da

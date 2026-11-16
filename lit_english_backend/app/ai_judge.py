@@ -206,7 +206,17 @@ incorreta.
 
 NUNCA tornam uma resposta incorreta por si só: maiúsculas/minúsculas, pontuação a mais, a
 menos ou diferente, espaços extras, elisões/contrações equivalentes e registro
-formal vs. informal quando o sentido é o mesmo. Releia com calma antes de decidir; um erro de
+formal vs. informal quando o sentido é o mesmo.
+
+AMBIGUIDADE DA FRASE ORIGINAL (muito importante): quando a frase em português do "context" NÃO
+indica o gênero de quem fala ou de quem se fala, ou o grau de formalidade, TODAS as formas
+equivalentes em {language} são corretas, mesmo que "expected" traga só uma delas. Exemplos:
+"Eu fui a Milão" -> "sono andato a Milano" E "sono andata a Milano" são ambas corretas;
+"Estou cansado/cansada" -> masculino e feminino aceitos; "Você é gentil" -> tu/Lei/vous/tu/vous,
+etc., aceitos conforme o idioma. Isso vale para concordância de particípios, adjetivos e
+artigos ligados a pessoa sem gênero definido. Só marque erro de gênero se o "context" deixar
+claro o gênero (ex.: "Ela foi a Milão" exige feminino) ou se a concordância interna da frase do
+aluno estiver errada (ex.: "sono andato" com "la mia amica era stanco"). Releia com calma antes de decidir; um erro de
 julgamento aqui prejudica o aluno.
 
 Sempre explique sua decisão em "reason", em português, numa frase curta e direta. Quando a
